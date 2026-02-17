@@ -1,0 +1,549 @@
+// OpenEvents Database Schema
+// Event Management and Ticketing Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTHENTICATION & USERS
+// ============================================================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  passwordHash      String?
+  firstName         String?
+  lastName          String?
+  image             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  accounts          Account[]
+  sessions          Session[]
+  roles             UserRole[]
+  organizerProfile  OrganizerProfile?
+  orders            Order[]
+  verificationTokens UserVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model UserVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// ============================================================================
+// ROLES & PERMISSIONS
+// ============================================================================
+
+enum Role {
+  ATTENDEE
+  ORGANIZER
+  SUPER_ADMIN
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  role      Role
+  grantedAt DateTime @default(now())
+  grantedBy String?  // User ID of who granted this role
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model OrganizerRequest {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  orgName     String
+  description String?  @db.Text
+  status      OrganizerRequestStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNotes String?  @db.Text
+
+  @@map("organizer_requests")
+}
+
+enum OrganizerRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================================================
+// ORGANIZER PROFILES
+// ============================================================================
+
+model OrganizerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  orgName     String
+  description String?  @db.Text
+  logo        String?
+  website     String?
+  socialLinks Json?    // { twitter, facebook, linkedin, etc. }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events Event[]
+
+  @@map("organizer_profiles")
+}
+
+// ============================================================================
+// EVENTS
+// ============================================================================
+
+model Event {
+  id              String       @id @default(cuid())
+  organizerId     String
+  title           String
+  slug            String       @unique
+  description     String?      @db.Text
+  descriptionHtml String?      @db.Text
+
+  // Date & Time
+  startDate       DateTime
+  endDate         DateTime
+  timezone        String       @default("UTC")
+
+  // Location
+  locationType    LocationType @default(PHYSICAL)
+  venue           String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?
+  postalCode      String?
+  latitude        Float?
+  longitude       Float?
+  onlineUrl       String?      // For online events
+
+  // Media
+  coverImage      String?
+
+  // Status & Visibility
+  status          EventStatus  @default(DRAFT)
+  visibility      EventVisibility @default(PUBLIC)
+
+  // Settings
+  cancellationDeadlineHours Int @default(48) // Hours before event
+
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  publishedAt     DateTime?
+  cancelledAt     DateTime?
+
+  // Relations
+  organizer       OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  media           EventMedia[]
+  categories      EventCategory[]
+  agendaItems     AgendaItem[]
+  speakers        Speaker[]
+  ticketTypes     TicketType[]
+  discountCodes   DiscountCode[]
+  orders          Order[]
+
+  @@index([organizerId])
+  @@index([status])
+  @@index([startDate])
+  @@map("events")
+}
+
+enum LocationType {
+  PHYSICAL
+  ONLINE
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum EventVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+model EventMedia {
+  id        String   @id @default(cuid())
+  eventId   String
+  url       String
+  type      MediaType
+  title     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_media")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  events EventCategory[]
+
+  @@map("categories")
+}
+
+model EventCategory {
+  eventId    String
+  categoryId String
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, categoryId])
+  @@map("event_categories")
+}
+
+model AgendaItem {
+  id          String   @id @default(cuid())
+  eventId     String
+  title       String
+  description String?  @db.Text
+  startTime   DateTime
+  endTime     DateTime?
+  speakerId   String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  speaker Speaker? @relation(fields: [speakerId], references: [id], onDelete: SetNull)
+
+  @@map("agenda_items")
+}
+
+model Speaker {
+  id          String   @id @default(cuid())
+  eventId     String
+  name        String
+  title       String?  // Job title
+  bio         String?  @db.Text
+  photo       String?
+  email       String?
+  socialLinks Json?    // { twitter, linkedin, website, etc. }
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  agendaItems AgendaItem[]
+
+  @@map("speakers")
+}
+
+// ============================================================================
+// TICKETS
+// ============================================================================
+
+model TicketType {
+  id              String   @id @default(cuid())
+  eventId         String
+  name            String
+  description     String?  @db.Text
+  price           Decimal  @db.Decimal(10, 2)
+  currency        String   @default("EUR")
+  maxCapacity     Int?     // null = unlimited
+  soldCount       Int      @default(0)
+  reservedCount   Int      @default(0) // Temporary holds during checkout
+
+  // Availability window
+  salesStartDate  DateTime?
+  salesEndDate    DateTime?
+
+  // Visibility
+  isVisible       Boolean  @default(true) // Hidden types only via discount code
+
+  // Settings
+  maxPerOrder     Int      @default(10)
+  minPerOrder     Int      @default(1)
+
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  event         Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderItems    OrderItem[]
+  discountCodes DiscountCodeTicketType[]
+
+  @@index([eventId])
+  @@map("ticket_types")
+}
+
+// ============================================================================
+// DISCOUNT CODES
+// ============================================================================
+
+model DiscountCode {
+  id            String       @id @default(cuid())
+  eventId       String
+  code          String
+  discountType  DiscountType
+  discountValue Decimal      @db.Decimal(10, 2) // Percentage or fixed amount
+
+  // Usage limits
+  maxUses       Int?         // null = unlimited
+  usedCount     Int          @default(0)
+
+  // Validity
+  validFrom     DateTime?
+  validUntil    DateTime?
+  isActive      Boolean      @default(true)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  event        Event                    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketTypes  DiscountCodeTicketType[]
+  orders       Order[]
+
+  @@unique([eventId, code])
+  @@map("discount_codes")
+}
+
+enum DiscountType {
+  PERCENTAGE      // e.g., 20% off
+  FIXED_AMOUNT    // e.g., $10 off
+  FREE_TICKET     // 100% off, no payment required
+  INVOICE         // Pay by invoice, no immediate payment
+}
+
+model DiscountCodeTicketType {
+  discountCodeId String
+  ticketTypeId   String
+
+  discountCode DiscountCode @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  ticketType   TicketType   @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
+
+  @@id([discountCodeId, ticketTypeId])
+  @@map("discount_code_ticket_types")
+}
+
+// ============================================================================
+// ORDERS & PAYMENTS
+// ============================================================================
+
+model Order {
+  id              String       @id @default(cuid())
+  orderNumber     String       @unique
+  userId          String
+  eventId         String
+  discountCodeId  String?
+
+  // Buyer Information
+  buyerFirstName  String
+  buyerLastName   String
+  buyerTitle      String?      // Mr., Ms., Dr., Prof.
+  buyerEmail      String
+  buyerOrganization String?
+  buyerAddress    String?
+  buyerCity       String?
+  buyerPostalCode String?
+  buyerCountry    String?
+
+  // Amounts
+  subtotal        Decimal      @db.Decimal(10, 2)
+  discountAmount  Decimal      @db.Decimal(10, 2) @default(0)
+  totalAmount     Decimal      @db.Decimal(10, 2)
+  currency        String       @default("EUR")
+
+  // Status
+  status          OrderStatus  @default(PENDING)
+  paymentMethod   PaymentMethod?
+  paymentId       String?      // External payment provider ID
+
+  // Timestamps
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  paidAt          DateTime?
+  cancelledAt     DateTime?
+  refundedAt      DateTime?
+
+  // Refund info
+  refundStatus    RefundStatus?
+  refundReason    String?      @db.Text
+  refundNotes     String?      @db.Text
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  discountCode  DiscountCode? @relation(fields: [discountCodeId], references: [id], onDelete: SetNull)
+  items         OrderItem[]
+  tickets       Ticket[]
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING           // Awaiting payment
+  PENDING_INVOICE   // Invoice payment, awaiting external payment
+  PAID              // Payment completed
+  CANCELLED         // Order cancelled
+  REFUNDED          // Full refund processed
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  PAYPAL
+  INVOICE
+  FREE
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  ticketTypeId String
+  quantity     Int
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  totalPrice   Decimal  @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticketType TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  ticketCode   String       @unique // Unique ticket code for entry
+  orderId      String
+  ticketTypeId String
+
+  // Attendee info (can be different from buyer)
+  attendeeFirstName String?
+  attendeeLastName  String?
+  attendeeEmail     String?
+
+  status       TicketStatus @default(ACTIVE)
+  checkedInAt  DateTime?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([ticketCode])
+  @@map("tickets")
+}
+
+enum TicketStatus {
+  ACTIVE
+  CANCELLED
+  USED
+}
+
+// ============================================================================
+// PLATFORM SETTINGS (for Super Admin)
+// ============================================================================
+
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  type      String   @default("string") // string, number, boolean, json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_settings")
+}
