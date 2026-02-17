@@ -9,7 +9,7 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-              Create Memorable Events :D
+              Create Memorable Events
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-xl text-blue-100">
               An open-source event management platform. Create events, sell tickets,
