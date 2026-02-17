@@ -1,23 +1,80 @@
 import nodemailer from 'nodemailer'
 
-// Email transporter configuration
-// In development, use MailSlurper or similar
-// In production, replace with your transactional email provider
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'localhost',
-  port: parseInt(process.env.SMTP_PORT || '2500'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: process.env.SMTP_USER
-    ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      }
-    : undefined,
-})
+// =============================================================================
+// Email Configuration
+// =============================================================================
+//
+// OSC does not provide a built-in SMTP service. Options:
+//
+// 1. DEVELOPMENT MODE (EMAIL_MODE=development):
+//    - Emails are logged to console instead of being sent
+//    - No SMTP configuration needed
+//    - Useful for local development and testing
+//
+// 2. PRODUCTION MODE:
+//    - Configure an external SMTP provider:
+//      - SendGrid: smtp.sendgrid.net
+//      - Postmark: smtp.postmarkapp.com
+//      - Mailgun: smtp.mailgun.org
+//      - Amazon SES: email-smtp.<region>.amazonaws.com
+//    - Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+//
+// =============================================================================
 
+const EMAIL_MODE = process.env.EMAIL_MODE || (process.env.NODE_ENV === 'development' ? 'development' : 'smtp')
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@openevents.local'
 const APP_NAME = process.env.APP_NAME || 'OpenEvents'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+// Create transporter based on mode
+function createTransporter() {
+  if (EMAIL_MODE === 'development') {
+    // Development mode: use a "fake" transport that logs to console
+    return {
+      sendMail: async (mailOptions: nodemailer.SendMailOptions) => {
+        console.log('\n' + '='.repeat(60))
+        console.log('📧 EMAIL (Development Mode - Not Actually Sent)')
+        console.log('='.repeat(60))
+        console.log(`To:      ${mailOptions.to}`)
+        console.log(`From:    ${mailOptions.from}`)
+        console.log(`Subject: ${mailOptions.subject}`)
+        console.log('-'.repeat(60))
+        console.log('Text Content:')
+        console.log(mailOptions.text || '(no text content)')
+        console.log('-'.repeat(60))
+
+        // Extract any URLs from the HTML for easy clicking in dev
+        const htmlContent = mailOptions.html as string
+        const urlMatch = htmlContent?.match(/href="([^"]+)"/g)
+        if (urlMatch) {
+          console.log('🔗 Links in email:')
+          urlMatch.forEach(match => {
+            const url = match.replace('href="', '').replace('"', '')
+            if (url.startsWith('http')) {
+              console.log(`   ${url}`)
+            }
+          })
+        }
+        console.log('='.repeat(60) + '\n')
+
+        return { messageId: `dev-${Date.now()}` }
+      }
+    }
+  }
+
+  // Production mode: use real SMTP
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  })
+}
+
+const transporter = createTransporter()
 
 interface EmailOptions {
   to: string
@@ -35,10 +92,38 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
       html: options.html,
       text: options.text,
     })
+
+    if (EMAIL_MODE !== 'development') {
+      console.log(`Email sent to ${options.to}: ${options.subject}`)
+    }
   } catch (error) {
     console.error('Failed to send email:', error)
+
+    // In development, don't throw - just log
+    if (EMAIL_MODE === 'development') {
+      console.warn('Email sending failed in development mode - this is expected if no SMTP is configured')
+      return
+    }
+
     throw new Error('Failed to send email')
   }
+}
+
+/**
+ * Check if email service is properly configured
+ */
+export function isEmailConfigured(): boolean {
+  if (EMAIL_MODE === 'development') {
+    return true // Development mode always "works"
+  }
+  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD)
+}
+
+/**
+ * Get current email mode
+ */
+export function getEmailMode(): string {
+  return EMAIL_MODE
 }
 
 // ============================================================================
