@@ -1,4 +1,4 @@
-import { Prisma, Role, EventStatus, EventVisibility, LocationType, OrderStatus, PaymentMethod, RefundStatus, TicketStatus, DiscountType, MediaType } from '@prisma/client'
+import { Prisma, Role, EventStatus, EventVisibility, LocationType, OrderStatus, PaymentMethod, RefundStatus, TicketStatus, DiscountType, MediaType, TicketType } from '@prisma/client'
 
 // Re-export Prisma enums for convenience
 export { Role, EventStatus, EventVisibility, LocationType, OrderStatus, PaymentMethod, RefundStatus, TicketStatus, DiscountType, MediaType }
@@ -92,7 +92,7 @@ export type EventForOrganizer = Prisma.EventGetPayload<{
 // Ticket Types
 // ============================================================================
 
-export type TicketTypeWithAvailability = Prisma.TicketTypeGetPayload<{}> & {
+export type TicketTypeWithAvailability = TicketType & {
   remainingCapacity: number | null
   isAvailable: boolean
 }

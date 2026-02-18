@@ -1,7 +1,37 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { prisma } from "@/lib/db"
+import { EventList } from "@/components/events/EventList"
 
-export default function Home() {
+export default async function Home() {
+  const featuredEvents = await prisma.event.findMany({
+    where: {
+      status: "PUBLISHED",
+      visibility: "PUBLIC",
+    },
+    include: {
+      organizer: {
+        select: {
+          orgName: true,
+        },
+      },
+      ticketTypes: {
+        where: {
+          isVisible: true,
+        },
+        select: {
+          price: true,
+          currency: true,
+        },
+      },
+    },
+    orderBy: [
+      { publishedAt: "desc" },
+      { startDate: "asc" },
+    ],
+    take: 6,
+  })
+
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
@@ -21,13 +51,28 @@ export default function Home() {
                   Browse Events
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href="/create-event">
                 <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
                   Start Organizing
                 </Button>
               </Link>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="py-20 bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">Latest Published Events</h2>
+              <p className="mt-2 text-gray-600">Newly published events appear here automatically.</p>
+            </div>
+            <Link href="/events">
+              <Button variant="outline">View All Events</Button>
+            </Link>
+          </div>
+          <EventList events={featuredEvents} />
         </div>
       </section>
 
@@ -105,11 +150,11 @@ export default function Home() {
             <p className="mt-4 text-lg text-blue-100">
               Join thousands of organizers who trust OpenEvents for their events.
             </p>
-            <Link href="/register" className="mt-8 inline-block">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50">
-                Get Started for Free
-              </Button>
-            </Link>
+              <Link href="/create-event" className="mt-8 inline-block">
+                <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50">
+                  Get Started for Free
+                </Button>
+              </Link>
           </div>
         </div>
       </section>

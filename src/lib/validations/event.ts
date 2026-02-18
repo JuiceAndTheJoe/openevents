@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const createEventSchema = z.object({
+const eventSchemaBase = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   description: z.string().optional(),
   descriptionHtml: z.string().optional(),
@@ -19,12 +19,15 @@ export const createEventSchema = z.object({
   visibility: z.enum(['PUBLIC', 'PRIVATE']).default('PUBLIC'),
   cancellationDeadlineHours: z.number().min(0).default(48),
   categoryIds: z.array(z.string()).optional(),
-}).refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+  autoCreateFreeTicket: z.boolean().optional().default(false),
+})
+
+export const createEventSchema = eventSchemaBase.refine((data) => new Date(data.endDate) > new Date(data.startDate), {
   message: 'End date must be after start date',
   path: ['endDate'],
 })
 
-export const updateEventSchema = createEventSchema.partial().refine((data) => {
+export const updateEventSchema = eventSchemaBase.partial().refine((data) => {
   if (!data.startDate || !data.endDate) return true
   return new Date(data.endDate) > new Date(data.startDate)
 }, {

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { categoryIds = [], ...input } = parsed.data
+    const { categoryIds = [], autoCreateFreeTicket = false, ...input } = parsed.data
 
     if (categoryIds.length > 0) {
       const existingCategories = await prisma.category.count({
@@ -89,6 +89,19 @@ export async function POST(request: NextRequest) {
         visibility: input.visibility,
         cancellationDeadlineHours: input.cancellationDeadlineHours,
         status: 'DRAFT',
+        ticketTypes: autoCreateFreeTicket
+          ? {
+              create: [
+                {
+                  name: 'General Admission',
+                  description: 'Default free ticket',
+                  price: new Prisma.Decimal(0),
+                  currency: 'EUR',
+                  isVisible: true,
+                },
+              ],
+            }
+          : undefined,
         categories: categoryIds.length
           ? {
               createMany: {

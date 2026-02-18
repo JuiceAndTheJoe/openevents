@@ -31,6 +31,12 @@ export function Header() {
             >
               Browse Events
             </Link>
+            <Link
+              href="/create-event"
+              className="text-gray-600 hover:text-gray-900 font-medium"
+            >
+              Create Event
+            </Link>
 
             {status === 'authenticated' ? (
               <>
@@ -123,6 +129,13 @@ export function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Browse Events
+            </Link>
+            <Link
+              href="/create-event"
+              className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Create Event
             </Link>
 
             {status === 'authenticated' ? (
