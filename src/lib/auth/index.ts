@@ -3,6 +3,7 @@ import { authOptions } from './config'
 import { Role } from '@prisma/client'
 
 export { authOptions } from './config'
+export * from './permissions'
 
 export async function getSession() {
   return getServerSession(authOptions)
