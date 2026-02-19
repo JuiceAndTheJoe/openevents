@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -60,6 +62,7 @@ function calculateDiscountAmount(
 export function CheckoutForm({ event }: CheckoutFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session, status } = useSession()
 
   const [ticketTypes, setTicketTypes] = useState<SelectableTicketType[]>([])
   const [ticketLoading, setTicketLoading] = useState(true)
@@ -73,6 +76,10 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
   // Check if user returned from cancelled PayPal payment
   const wasCancelled = searchParams.get('cancelled') === 'true'
+
+  // Check if user is authenticated
+  const isAuthenticated = status === 'authenticated'
+  const isLoadingAuth = status === 'loading'
 
   const [buyer, setBuyer] = useState<BuyerFormState>({
     firstName: '',
@@ -267,6 +274,67 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated && !isLoadingAuth) {
+    return (
+      <div className="mx-auto max-w-md">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+                <svg
+                  className="h-6 w-6 text-blue-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="1.5"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
+                  />
+                </svg>
+              </div>
+              <h2 className="mb-2 text-xl font-semibold text-gray-900">
+                Sign in to purchase tickets
+              </h2>
+              <p className="mb-6 text-gray-600">
+                You need to log in or create an account to buy tickets for this event.
+              </p>
+              <div className="flex flex-col gap-3">
+                <Link
+                  href={`/login?callbackUrl=/events/${event.slug}/checkout`}
+                  className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href={`/register?callbackUrl=/events/${event.slug}/checkout`}
+                  className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Create an account
+                </Link>
+              </div>
+              <p className="mt-4 text-xs text-gray-500">
+                After signing in, you&apos;ll be redirected back to complete your purchase.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show loading state while checking auth
+  if (isLoadingAuth) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    )
   }
 
   return (
