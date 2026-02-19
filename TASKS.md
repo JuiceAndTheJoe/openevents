@@ -322,25 +322,25 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 1: Ticket Type APIs
 
 #### TKT-001: Create Ticket Type API
-- [ ] Create `POST /api/events/[id]/ticket-types` endpoint
-- [ ] Validate with Zod schema
-- [ ] Only event organizer can create
+- [x] Create `POST /api/events/[id]/ticket-types` endpoint
+- [x] Validate with Zod schema
+- [x] Only event organizer can create
 
 **Files to create:**
 - `src/app/api/events/[id]/ticket-types/route.ts`
 
 #### TKT-002: Update/Delete Ticket Type API
-- [ ] Create `PATCH /api/events/[id]/ticket-types/[typeId]` endpoint
-- [ ] Create `DELETE /api/events/[id]/ticket-types/[typeId]` endpoint
-- [ ] Prevent deletion if tickets sold
+- [x] Create `PATCH /api/events/[id]/ticket-types/[typeId]` endpoint
+- [x] Create `DELETE /api/events/[id]/ticket-types/[typeId]` endpoint
+- [x] Prevent deletion if tickets sold
 
 **Files to create:**
 - `src/app/api/events/[id]/ticket-types/[typeId]/route.ts`
 
 #### TKT-003: Get Available Tickets API
-- [ ] Create `GET /api/events/[id]/ticket-types` endpoint
-- [ ] Return availability info (sold, remaining)
-- [ ] Filter hidden tickets (unless discount code reveals)
+- [x] Create `GET /api/events/[id]/ticket-types` endpoint
+- [x] Return availability info (sold, remaining)
+- [x] Filter hidden tickets (unless discount code reveals)
 
 **Files to create:**
 - `src/app/api/events/[id]/ticket-types/route.ts` (GET method)
@@ -348,25 +348,25 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 2: Discount Code APIs
 
 #### TKT-004: Create Discount Code API
-- [ ] Create `POST /api/events/[id]/discount-codes` endpoint
-- [ ] Validate code format and uniqueness
-- [ ] Link to specific ticket types or all
+- [x] Create `POST /api/events/[id]/discount-codes` endpoint
+- [x] Validate code format and uniqueness
+- [x] Link to specific ticket types or all
 
 **Files to create:**
 - `src/app/api/events/[id]/discount-codes/route.ts`
 
 #### TKT-005: Validate Discount Code API
-- [ ] Create `POST /api/discount-codes/validate` endpoint
-- [ ] Check: code exists, is active, not expired, usage limit
-- [ ] Return discount details and applicable tickets
+- [x] Create `POST /api/discount-codes/validate` endpoint
+- [x] Check: code exists, is active, not expired, usage limit
+- [x] Return discount details and applicable tickets
 
 **Files to create:**
 - `src/app/api/discount-codes/validate/route.ts`
 
 #### TKT-006: Discount Code Management API
-- [ ] Create `GET /api/events/[id]/discount-codes` endpoint
-- [ ] Create `PATCH /api/events/[id]/discount-codes/[codeId]` endpoint
-- [ ] Create `DELETE /api/events/[id]/discount-codes/[codeId]` endpoint
+- [x] Create `GET /api/events/[id]/discount-codes` endpoint
+- [x] Create `PATCH /api/events/[id]/discount-codes/[codeId]` endpoint
+- [x] Create `DELETE /api/events/[id]/discount-codes/[codeId]` endpoint
 
 **Files to create:**
 - `src/app/api/events/[id]/discount-codes/[codeId]/route.ts`
@@ -374,44 +374,44 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 3: Order Processing
 
 #### TKT-007: Create Order API
-- [ ] Create `POST /api/orders` endpoint
-- [ ] Validate buyer info
-- [ ] Check ticket availability (prevent overselling!)
-- [ ] Calculate totals with discount
-- [ ] Handle free tickets (no payment needed)
-- [ ] Handle invoice codes (pending invoice status)
-- [ ] Reserve tickets during checkout
-- [ ] Generate order number
+- [x] Create `POST /api/orders` endpoint
+- [x] Validate buyer info
+- [x] Check ticket availability (prevent overselling!)
+- [x] Calculate totals with discount
+- [x] Handle free tickets (no payment needed)
+- [x] Handle invoice codes (pending invoice status)
+- [x] Reserve tickets during checkout
+- [x] Generate order number
 
 **Files to create:**
 - `src/app/api/orders/route.ts`
 
 #### TKT-008: Process Payment API (Stub)
-- [ ] Create `POST /api/orders/[id]/pay` endpoint
-- [ ] Call payment service (stub)
-- [ ] Update order status on success
-- [ ] Generate tickets
-- [ ] Send confirmation email
-- [ ] Release reservation if payment fails
+- [x] Create `POST /api/orders/[id]/pay` endpoint
+- [x] Call payment service (stub)
+- [x] Update order status on success
+- [x] Generate tickets
+- [x] Send confirmation email
+- [x] Release reservation if payment fails
 
 **Files to create:**
 - `src/app/api/orders/[id]/pay/route.ts`
 
 #### TKT-009: Cancel Order API
-- [ ] Create `POST /api/orders/[id]/cancel` endpoint
-- [ ] Check cancellation deadline
-- [ ] Update order and ticket statuses
-- [ ] Restore ticket capacity
-- [ ] Flag for refund if paid
+- [x] Create `POST /api/orders/[id]/cancel` endpoint
+- [x] Check cancellation deadline
+- [x] Update order and ticket statuses
+- [x] Restore ticket capacity
+- [x] Flag for refund if paid
 
 **Files to create:**
 - `src/app/api/orders/[id]/cancel/route.ts`
 
 #### TKT-010: Refund Order API (Organizer)
-- [ ] Create `POST /api/orders/[id]/refund` endpoint
-- [ ] Mark refund as pending
-- [ ] Record refund reason and notes
-- [ ] Send notification to buyer
+- [x] Create `POST /api/orders/[id]/refund` endpoint
+- [x] Mark refund as pending
+- [x] Record refund reason and notes
+- [x] Send notification to buyer
 
 **Files to create:**
 - `src/app/api/orders/[id]/refund/route.ts`
@@ -419,23 +419,23 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 4: Order & Ticket UI
 
 #### TKT-011: Ticket Selection Component
-- [ ] Display available ticket types
-- [ ] Quantity selectors with min/max limits
-- [ ] Price display and running total
-- [ ] Discount code input
-- [ ] Sold out / unavailable states
+- [x] Display available ticket types
+- [x] Quantity selectors with min/max limits
+- [x] Price display and running total
+- [x] Discount code input
+- [x] Sold out / unavailable states
 
 **Files to create:**
 - `src/components/tickets/TicketSelector.tsx`
 - `src/components/tickets/DiscountCodeInput.tsx`
 
 #### TKT-012: Checkout Page
-- [ ] Buyer information form
-- [ ] Order summary
-- [ ] Payment method selection
-- [ ] PayPal button (stub)
-- [ ] Invoice option (if discount code)
-- [ ] Processing states
+- [x] Buyer information form
+- [x] Order summary
+- [x] Payment method selection
+- [x] PayPal button (stub)
+- [x] Invoice option (if discount code)
+- [x] Processing states
 
 **Files to create:**
 - `src/app/(public)/events/[slug]/checkout/page.tsx`
@@ -443,20 +443,20 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 - `src/components/tickets/OrderSummary.tsx`
 
 #### TKT-013: Order Confirmation Page
-- [ ] Order details display
-- [ ] Ticket codes / QR codes
-- [ ] Download tickets as PDF (stretch)
-- [ ] Add to calendar links
+- [x] Order details display
+- [x] Ticket codes / QR codes
+- [x] Download tickets as PDF (stretch)
+- [x] Add to calendar links
 
 **Files to create:**
 - `src/app/(public)/orders/[orderNumber]/confirmation/page.tsx`
 - `src/components/tickets/TicketDisplay.tsx`
 
 #### TKT-014: User Orders Page
-- [ ] List user's orders
-- [ ] Order details view
-- [ ] Cancel order button (if within deadline)
-- [ ] View tickets
+- [x] List user's orders
+- [x] Order details view
+- [x] Cancel order button (if within deadline)
+- [x] View tickets
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/orders/page.tsx`
