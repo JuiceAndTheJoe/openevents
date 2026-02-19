@@ -29,9 +29,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const user = await requireAuth()
 
     const body = await request.json().catch(() => ({}))
+    console.log('[Pay] Request body:', body)
     const parsed = payOrderSchema.safeParse(body)
 
     if (!parsed.success) {
+      console.log('[Pay] Validation error:', parsed.error.flatten())
       return NextResponse.json(
         {
           error: 'Validation failed',

@@ -13,7 +13,7 @@ export const buyerInfoSchema = z.object({
 })
 
 export const orderItemSchema = z.object({
-  ticketTypeId: z.string().cuid(),
+  ticketTypeId: z.string().min(1),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
 })
 
