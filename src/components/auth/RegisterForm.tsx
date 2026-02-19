@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Eye, EyeOff } from 'lucide-react'
 import { registerSchema, type RegisterInput } from '@/lib/validations/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,16 +62,23 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const {
     register,
     handleSubmit,
+    setValue,
     watch,
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'ATTENDEE',
+    },
   })
 
+  const role = watch('role', 'ATTENDEE')
   const password = watch('password', '')
 
   const onSubmit = async (data: RegisterInput) => {
@@ -148,11 +156,38 @@ export function RegisterForm() {
   }
 
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">Create an account</CardTitle>
-        <CardDescription className="text-center">
-          Enter your details to create your account
+    <div className="space-y-0">
+      <div className="relative z-10 flex items-end gap-1 px-2">
+        <button
+          type="button"
+          onClick={() => setValue('role', 'ATTENDEE', { shouldValidate: true })}
+          className={`relative flex-1 rounded-t-[1.75rem] border px-6 text-left transition-all duration-200 ${
+            role === 'ATTENDEE'
+              ? 'z-20 -mb-px scale-[1.08] border-gray-300 border-b-white bg-white py-5 text-gray-900 shadow-[0_14px_30px_-16px_rgba(17,24,39,0.35)]'
+              : 'z-0 scale-[0.97] translate-y-2 border-gray-300 bg-gray-100 py-4 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          <p className="text-3xl font-semibold leading-tight tracking-tight">Attendee</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setValue('role', 'ORGANIZER', { shouldValidate: true })}
+          className={`relative flex-1 rounded-t-[1.75rem] border px-6 text-left transition-all duration-200 ${
+            role === 'ORGANIZER'
+              ? 'z-20 -mb-px scale-[1.08] border-gray-300 border-b-white bg-white py-5 text-gray-900 shadow-[0_14px_30px_-16px_rgba(17,24,39,0.35)]'
+              : 'z-0 scale-[0.97] translate-y-2 border-gray-300 bg-gray-100 py-4 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          <p className="text-3xl font-semibold leading-tight tracking-tight">Organizer</p>
+        </button>
+      </div>
+      <Card className="relative z-20 rounded-[1.75rem] border border-t-0 border-gray-300 shadow-xl">
+      <CardHeader className="space-y-2 pt-9">
+        <CardTitle className="text-3xl text-center font-semibold tracking-tight">Create your account</CardTitle>
+        <CardDescription className="text-center text-base">
+          {role === 'ORGANIZER'
+            ? 'Set up your organizer account to publish events.'
+            : 'Create an attendee account to discover and join events.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -164,33 +199,37 @@ export function RegisterForm() {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <input type="hidden" {...register('role')} />
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="firstName" required>First Name</Label>
               <Input
                 id="firstName"
                 placeholder="John"
                 autoComplete="given-name"
                 disabled={isLoading}
                 error={errors.firstName?.message}
+                required
                 {...register('firstName')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
+              <Label htmlFor="lastName" required>Last Name</Label>
               <Input
                 id="lastName"
                 placeholder="Doe"
                 autoComplete="family-name"
                 disabled={isLoading}
                 error={errors.lastName?.message}
+                required
                 {...register('lastName')}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" required>Email</Label>
             <Input
               id="email"
               type="email"
@@ -198,20 +237,34 @@ export function RegisterForm() {
               autoComplete="email"
               disabled={isLoading}
               error={errors.email?.message}
+              required
               {...register('email')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              disabled={isLoading}
-              error={errors.password?.message}
-              {...register('password')}
-            />
+            <Label htmlFor="password" required>Password</Label>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                disabled={isLoading}
+                error={errors.password?.message}
+                required
+                className="pr-10"
+                {...register('password')}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-5 -translate-y-1/2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                disabled={isLoading}
+              >
+                {showPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
             <PasswordStrengthIndicator password={password} />
             <p className="text-xs text-gray-500">
               Must be at least 8 characters with uppercase, lowercase, and numbers
@@ -219,15 +272,28 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              disabled={isLoading}
-              error={errors.confirmPassword?.message}
-              {...register('confirmPassword')}
-            />
+            <Label htmlFor="confirmPassword" required>Confirm Password</Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                disabled={isLoading}
+                error={errors.confirmPassword?.message}
+                required
+                className="pr-10"
+                {...register('confirmPassword')}
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-5 -translate-y-1/2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                onClick={() => setShowConfirmPassword((value) => !value)}
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                disabled={isLoading}
+              >
+                {showConfirmPassword ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-start space-x-2">
@@ -239,7 +305,7 @@ export function RegisterForm() {
               className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <label htmlFor="terms" className="text-sm text-gray-600">
-              I agree to the{' '}
+              I agree to the <span className="text-red-500">*</span>{' '}
               <Link href="/terms" className="text-blue-600 hover:underline">
                 Terms of Service
               </Link>{' '}
@@ -263,6 +329,7 @@ export function RegisterForm() {
           </Link>
         </div>
       </CardFooter>
-    </Card>
+      </Card>
+    </div>
   )
 }

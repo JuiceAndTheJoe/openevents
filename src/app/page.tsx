@@ -2,10 +2,14 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { prisma } from "@/lib/db"
 import { EventList } from "@/components/events/EventList"
+import { getCurrentUser, hasRole } from "@/lib/auth"
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
+  const user = await getCurrentUser()
+  const canCreateEvents = user ? hasRole(user.roles, ['ORGANIZER', 'SUPER_ADMIN']) : false
+
   const featuredEvents = await prisma.event.findMany({
     where: {
       status: "PUBLISHED",
@@ -53,11 +57,13 @@ export default async function Home() {
                   Browse Events
                 </Button>
               </Link>
-              <Link href="/create-event">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
-                  Start Organizing
-                </Button>
-              </Link>
+              {canCreateEvents && (
+                <Link href="/create-event">
+                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
+                    Start Organizing
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -152,11 +158,13 @@ export default async function Home() {
             <p className="mt-4 text-lg text-blue-100">
               Join thousands of organizers who trust OpenEvents for their events.
             </p>
+            {canCreateEvents && (
               <Link href="/create-event" className="mt-8 inline-block">
                 <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50">
                   Get Started for Free
                 </Button>
               </Link>
+            )}
           </div>
         </div>
       </section>
