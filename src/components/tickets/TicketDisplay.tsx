@@ -63,7 +63,7 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
             <span className="font-medium text-gray-900">Status:</span> {order.status}
           </p>
           <p>
-            <span className="font-medium text-gray-900">Buyer:</span> {order.buyerFirstName} {order.buyerLastName} ({order.buyerEmail})
+            <span className="font-medium text-gray-900">Buyer:</span> {order.buyerFirstName} {order.buyerLastName}<span className="print:hidden"> ({order.buyerEmail})</span>
           </p>
           <p>
             <span className="font-medium text-gray-900">Event:</span> {order.event.title}
@@ -78,7 +78,7 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
             <span className="font-medium text-gray-900">Total:</span> {order.totalAmount.toString()}{' '}
             {order.currency}
           </p>
-          <div className="flex flex-wrap items-center gap-3 pt-3">
+          <div className="flex flex-wrap items-center gap-3 pt-3 print:hidden">
             <a
               href={calendarUrl}
               target="_blank"

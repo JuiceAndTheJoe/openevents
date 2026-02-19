@@ -24,3 +24,16 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Print styles for ticket PDFs */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+
+  /* Ensure tickets don't break across pages */
+  .rounded-md {
+    break-inside: avoid;
+  }
+}

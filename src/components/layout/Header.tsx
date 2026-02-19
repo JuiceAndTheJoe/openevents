@@ -13,7 +13,7 @@ export function Header() {
   const isSuperAdmin = session?.user?.roles?.includes('SUPER_ADMIN')
 
   return (
-    <header className="bg-white border-b border-gray-200">
+    <header className="bg-white border-b border-gray-200 print:hidden">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between items-center">
           {/* Logo */}
