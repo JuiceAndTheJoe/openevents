@@ -31,12 +31,14 @@ export function Header() {
             >
               Browse Events
             </Link>
-            <Link
-              href="/create-event"
-              className="text-gray-600 hover:text-gray-900 font-medium"
-            >
-              Create Event
-            </Link>
+            {(isOrganizer || isSuperAdmin) && (
+              <Link
+                href="/create-event"
+                className="text-gray-600 hover:text-gray-900 font-medium"
+              >
+                Create Event
+              </Link>
+            )}
 
             {status === 'authenticated' ? (
               <>
@@ -57,7 +59,7 @@ export function Header() {
                   </Link>
                 )}
                 <Link
-                  href="/dashboard/orders"
+                  href="/my-tickets"
                   className="text-gray-600 hover:text-gray-900 font-medium"
                 >
                   My Tickets
@@ -130,13 +132,15 @@ export function Header() {
             >
               Browse Events
             </Link>
-            <Link
-              href="/create-event"
-              className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Create Event
-            </Link>
+            {(isOrganizer || isSuperAdmin) && (
+              <Link
+                href="/create-event"
+                className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Create Event
+              </Link>
+            )}
 
             {status === 'authenticated' ? (
               <>
@@ -150,7 +154,7 @@ export function Header() {
                   </Link>
                 )}
                 <Link
-                  href="/dashboard/orders"
+                  href="/my-tickets"
                   className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
                   onClick={() => setMobileMenuOpen(false)}
                 >

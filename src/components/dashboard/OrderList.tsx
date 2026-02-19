@@ -59,7 +59,12 @@ export function OrderList({ orders }: OrderListProps) {
     return (
       <Card>
         <CardContent className="p-6">
-          <p className="text-sm text-gray-500">You have no orders yet.</p>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">You have not purchased any tickets yet.</p>
+            <Link href="/events">
+              <Button variant="outline" size="sm">Browse events</Button>
+            </Link>
+          </div>
         </CardContent>
       </Card>
     )
