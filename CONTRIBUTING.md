@@ -130,14 +130,17 @@ The project is divided among 4 feature agents. Each agent owns a vertical slice:
 - Media uploads (images, videos)
 - Agenda and speakers management
 - Categories and search
-- **Key files:** `src/app/(public)/events/`, `src/app/(dashboard)/dashboard/events/`, `src/app/api/events/`
+- Event publishing/cancellation
+- **Key files:** `src/app/(public)/events/`, `src/app/(public)/create-event/`, `src/app/(dashboard)/dashboard/events/`, `src/app/api/events/`
 
 ### Tickets Agent
 - Ticket type management
 - Discount codes
-- Order processing
-- Capacity management
-- **Key files:** `src/app/api/tickets/`, `src/app/api/orders/`, ticket-related components
+- Order processing & checkout flow
+- Capacity management & oversell prevention
+- PDF ticket generation
+- Order confirmation & cancellation
+- **Key files:** `src/app/api/events/[id]/ticket-types/`, `src/app/api/orders/`, `src/app/(public)/events/[slug]/checkout/`, ticket-related components
 
 ### Org Admin Panel Agent
 - Organizer dashboard
@@ -281,7 +284,6 @@ npm run build
 - Check existing issues in the repository
 - Ask in the team Slack/Discord channel
 - Review the `ARCHITECTURE.md` for system design questions
-- Check `TASKS.md` for current work items
 
 ## License
 

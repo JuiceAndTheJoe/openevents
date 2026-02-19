@@ -10,6 +10,7 @@ An open-source event management and ticketing platform, similar to Eventbrite. B
 - **Authentication**: Email/password and OAuth (Google, GitHub)
 - **Media Storage**: Upload event images and videos
 - **Order Processing**: Checkout flow with PayPal stub (ready for live integration)
+- **PDF Tickets**: Downloadable/printable ticket PDFs with QR codes
 - **Organizer Dashboard**: Sales statistics, order management, and analytics
 
 ## Tech Stack
@@ -34,7 +35,7 @@ An open-source event management and ticketing platform, similar to Eventbrite. B
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/openevents.git
+   git clone https://github.com/JuiceAndTheJoe/openevents.git
    cd openevents
    ```
 
@@ -122,7 +123,6 @@ npm run lint
 
 - [Architecture](./ARCHITECTURE.md) - System design and infrastructure
 - [Contributing](./CONTRIBUTING.md) - How to contribute
-- [Tasks](./TASKS.md) - Task breakdown for developers
 
 ## Deployment
 

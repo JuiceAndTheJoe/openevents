@@ -96,6 +96,15 @@ OpenEvents is an open-source event management and ticketing platform built with 
 - Easy to swap in real PayPal when ready
 - Invoice and free ticket flows work immediately
 
+### 7. PDF Ticket Generation
+
+**Decision:** Server-side PDF generation for downloadable tickets.
+
+**Rationale:**
+- Printable tickets for attendees
+- QR codes for event check-in
+- Works offline once downloaded
+
 ## OSC Infrastructure
 
 ### Provisioned Services
@@ -131,10 +140,16 @@ openevents/
 │   │   │   ├── forgot-password/
 │   │   │   └── reset-password/
 │   │   ├── (public)/          # Public pages
-│   │   │   └── events/        # Event browsing
+│   │   │   ├── events/        # Event browsing & details
+│   │   │   │   └── [slug]/
+│   │   │   │       └── checkout/  # Ticket checkout
+│   │   │   ├── orders/        # Order confirmation
+│   │   │   └── create-event/  # Quick event creation
 │   │   ├── (dashboard)/       # User dashboard
 │   │   │   └── dashboard/
 │   │   │       ├── events/    # Organizer event management
+│   │   │       │   ├── new/   # Create new event
+│   │   │       │   └── [id]/edit/  # Edit event
 │   │   │       ├── orders/    # User orders
 │   │   │       └── settings/  # User settings
 │   │   ├── (admin)/           # Super admin panel
@@ -145,8 +160,11 @@ openevents/
 │   │   └── api/               # API routes
 │   │       ├── auth/          # NextAuth routes
 │   │       ├── events/        # Event CRUD
-│   │       ├── tickets/       # Ticket management
+│   │       ├── events/[id]/
+│   │       │   ├── ticket-types/  # Ticket management
+│   │       │   └── discount-codes/  # Discount codes
 │   │       ├── orders/        # Order processing
+│   │       ├── discount-codes/  # Discount validation
 │   │       ├── users/         # User management
 │   │       ├── admin/         # Admin endpoints
 │   │       └── upload/        # File upload presigned URLs
@@ -279,10 +297,12 @@ See `CONTRIBUTING.md` for detailed deployment instructions.
 
 ## Future Enhancements
 
-### Phase 2
+### Phase 2 (In Progress)
 - PayPal live integration
 - Automated refund processing
 - Webhook handling for payment events
+- Organizer dashboard statistics
+- Admin panel for platform management
 
 ### Phase 3
 - Multi-currency support
