@@ -290,7 +290,9 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 - [x] Save as draft / Publish buttons
 
 **Files to create:**
-- `src/app/(dashboard)/dashboard/events/new/page.tsx`
+- `src/app/(public)/create-event/page.tsx`
+- `src/components/events/CreateEventForm.tsx`
+- `src/app/(dashboard)/dashboard/events/new/page.tsx` (redirects to `/create-event`)
 - `src/components/events/EventForm.tsx`
 
 #### EVT-012: Event Edit Page
@@ -473,11 +475,11 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 1: Dashboard Overview
 
 #### ORG-001: Dashboard Home Page
-- [ ] Welcome message with organizer name
-- [ ] Quick stats cards (total events, tickets sold, revenue)
-- [ ] Upcoming events list
-- [ ] Recent orders
-- [ ] Quick action buttons
+- [x] Welcome message with organizer name
+- [x] Quick stats cards (total events, tickets sold, revenue)
+- [x] Upcoming events list
+- [x] Recent orders
+- [x] Quick action buttons
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/page.tsx`
@@ -486,10 +488,10 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 - `src/components/dashboard/RecentOrders.tsx`
 
 #### ORG-002: Statistics API
-- [ ] Create `GET /api/events/[id]/statistics` endpoint
-- [ ] Return: tickets by type, revenue, order counts
-- [ ] Create `GET /api/dashboard/statistics` endpoint
-- [ ] Return: aggregate stats across all organizer events
+- [x] Create `GET /api/events/[id]/statistics` endpoint
+- [x] Return: tickets by type, revenue, order counts
+- [x] Create `GET /api/dashboard/statistics` endpoint
+- [x] Return: aggregate stats across all organizer events
 
 **Files to create:**
 - `src/app/api/events/[id]/statistics/route.ts`
@@ -498,11 +500,11 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 2: Event Management List
 
 #### ORG-003: Events List Page
-- [ ] List all organizer's events
-- [ ] Filter by status (draft, published, completed, cancelled)
-- [ ] Search by title
-- [ ] Quick actions (edit, view, publish, cancel)
-- [ ] Create new event button
+- [x] List all organizer's events
+- [x] Filter by status (draft, published, completed, cancelled)
+- [x] Search by title
+- [x] Quick actions (edit, view, publish, cancel)
+- [x] Create new event button
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/events/page.tsx`
@@ -510,12 +512,12 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 - `src/components/dashboard/EventStatusBadge.tsx`
 
 #### ORG-004: Event Detail Dashboard
-- [ ] Event overview with key stats
-- [ ] Ticket sales breakdown
-- [ ] Revenue chart
-- [ ] Recent orders for this event
-- [ ] Edit event button
-- [ ] Manage tickets button
+- [x] Event overview with key stats
+- [x] Ticket sales breakdown
+- [x] Revenue chart
+- [x] Recent orders for this event
+- [x] Edit event button
+- [x] Manage tickets button
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/events/[id]/page.tsx`
@@ -525,11 +527,11 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 3: Ticket & Discount Management UI
 
 #### ORG-005: Ticket Types Management Page
-- [ ] List ticket types for event
-- [ ] Create new ticket type form
-- [ ] Edit ticket type inline or modal
-- [ ] Delete with confirmation
-- [ ] Capacity and sales display
+- [x] List ticket types for event
+- [x] Create new ticket type form
+- [x] Edit ticket type inline or modal
+- [x] Delete with confirmation
+- [x] Capacity and sales display
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/events/[id]/tickets/page.tsx`
@@ -537,11 +539,11 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 - `src/components/dashboard/TicketTypeForm.tsx`
 
 #### ORG-006: Discount Codes Management Page
-- [ ] List discount codes for event
-- [ ] Create new discount code form
-- [ ] Edit discount code
-- [ ] Deactivate/delete codes
-- [ ] Usage statistics
+- [x] List discount codes for event
+- [x] Create new discount code form
+- [x] Edit discount code
+- [x] Deactivate/delete codes
+- [x] Usage statistics
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/events/[id]/discounts/page.tsx`
@@ -551,11 +553,11 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 4: Order Management
 
 #### ORG-007: Event Orders List
-- [ ] List all orders for an event
-- [ ] Filter by status, payment method, date
-- [ ] Search by buyer name/email
-- [ ] Export to CSV
-- [ ] Bulk actions
+- [x] List all orders for an event
+- [x] Filter by status, payment method, date
+- [x] Search by buyer name/email
+- [x] Export to CSV
+- [x] Bulk actions
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/events/[id]/orders/page.tsx`
@@ -563,12 +565,12 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 - `src/components/dashboard/OrderFilters.tsx`
 
 #### ORG-008: Order Detail View
-- [ ] Full order details
-- [ ] Buyer information
-- [ ] Ticket list
-- [ ] Payment information
-- [ ] Refund button (if applicable)
-- [ ] Send email to buyer
+- [x] Full order details
+- [x] Buyer information
+- [x] Ticket list
+- [x] Payment information
+- [x] Refund button (if applicable)
+- [x] Send email to buyer
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/events/[id]/orders/[orderId]/page.tsx`
@@ -577,20 +579,20 @@ Note: Implemented currently as `GET /api/events/[id]` with slug lookup in
 ### Priority 5: Settings & Profile
 
 #### ORG-009: Organizer Profile Settings
-- [ ] Edit organization name
-- [ ] Update logo
-- [ ] Website and social links
-- [ ] Description
+- [x] Edit organization name
+- [x] Update logo
+- [x] Website and social links
+- [x] Description
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/settings/page.tsx`
 - `src/components/dashboard/OrganizerProfileForm.tsx`
 
 #### ORG-010: Account Settings
-- [ ] Change password
-- [ ] Update email
-- [ ] Connected accounts (OAuth)
-- [ ] Delete account (with confirmation)
+- [x] Change password
+- [x] Update email
+- [x] Connected accounts (OAuth)
+- [x] Delete account (with confirmation)
 
 **Files to create:**
 - `src/app/(dashboard)/dashboard/settings/account/page.tsx`
@@ -627,8 +629,8 @@ These tasks can be picked up by any developer after core features are complete:
 These components can be created by any developer as needed:
 
 ### UI Components
-- [ ] Button component
-- [ ] Input component
+- [x] Button component
+- [x] Input component
 - [ ] Select component
 - [ ] Modal/Dialog component
 - [ ] Toast notifications
@@ -637,10 +639,10 @@ These components can be created by any developer as needed:
 - [ ] Error boundaries
 
 ### Layout Components
-- [ ] Main navigation header
-- [ ] Footer
+- [x] Main navigation header
+- [x] Footer
 - [ ] Dashboard sidebar
-- [ ] Mobile navigation
+- [x] Mobile navigation
 - [ ] Breadcrumbs
 
 ---
