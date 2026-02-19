@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireRole } from '@/lib/auth'
+import { requireAuth, hasRole } from '@/lib/auth'
 import { generateFileKey, getPublicUrl, getUploadPresignedUrl } from '@/lib/storage'
 
 const presignedUploadSchema = z.object({
@@ -16,12 +16,12 @@ const presignedUploadSchema = z.object({
     'video/quicktime',
   ]),
   size: z.number().int().positive().max(50 * 1024 * 1024),
-  folder: z.enum(['events', 'speakers']),
+  folder: z.enum(['events', 'speakers', 'users']),
 })
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRole('ORGANIZER')
+    const user = await requireAuth()
 
     const body = await request.json()
     const parsed = presignedUploadSchema.safeParse(body)
@@ -37,6 +37,22 @@ export async function POST(request: NextRequest) {
     }
 
     const { entityId, filename, contentType, folder } = parsed.data
+
+    const isOrganizer = hasRole(user.roles, ['ORGANIZER', 'SUPER_ADMIN'])
+
+    if ((folder === 'events' || folder === 'speakers') && !isOrganizer) {
+      return NextResponse.json(
+        { error: 'Forbidden: Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
+    if (folder === 'users' && entityId !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: Invalid profile upload target' },
+        { status: 403 }
+      )
+    }
 
     const key = generateFileKey(folder, entityId, filename)
     const uploadUrl = await getUploadPresignedUrl(key, contentType, 900)

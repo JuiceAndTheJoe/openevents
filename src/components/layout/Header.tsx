@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
@@ -11,6 +12,8 @@ export function Header() {
 
   const isOrganizer = session?.user?.roles?.includes('ORGANIZER')
   const isSuperAdmin = session?.user?.roles?.includes('SUPER_ADMIN')
+  const isAttendee = session?.user?.roles?.includes('ATTENDEE')
+  const avatarFallback = (session?.user?.email?.[0] || 'U').toUpperCase()
 
   return (
     <header className="bg-white border-b border-gray-200">
@@ -64,7 +67,30 @@ export function Header() {
                 >
                   My Tickets
                 </Link>
+                {isAttendee && (
+                  <Link
+                    href="/profile"
+                    className="text-gray-600 hover:text-gray-900 font-medium"
+                  >
+                    Profile
+                  </Link>
+                )}
                 <div className="flex items-center space-x-4">
+                  <div className="h-8 w-8 overflow-hidden rounded-full border border-gray-200 bg-gray-100">
+                    {session.user.image ? (
+                      <Image
+                        src="/api/users/me/avatar"
+                        alt="Profile"
+                        width={32}
+                        height={32}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-gray-600">
+                        {avatarFallback}
+                      </div>
+                    )}
+                  </div>
                   <span className="text-sm text-gray-500">
                     {session.user.email}
                   </span>
@@ -160,6 +186,15 @@ export function Header() {
                 >
                   My Tickets
                 </Link>
+                {isAttendee && (
+                  <Link
+                    href="/profile"
+                    className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                )}
                 <button
                   className="block w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
                   onClick={() => {
