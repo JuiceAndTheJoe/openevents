@@ -44,7 +44,7 @@ export function TicketTypeForm({ title, submitLabel, action, initial }: TicketTy
         </div>
         <div>
           <Label htmlFor={`${title}-currency`} required>Currency</Label>
-          <Input id={`${title}-currency`} name="currency" defaultValue={initial?.currency || 'EUR'} required />
+          <Input id={`${title}-currency`} name="currency" defaultValue={initial?.currency || 'SEK'} required />
         </div>
         <div>
           <Label htmlFor={`${title}-capacity`}>Max Capacity</Label>

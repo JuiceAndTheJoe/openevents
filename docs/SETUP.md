@@ -38,7 +38,7 @@ To deploy your changes to the live app:
 1. **Commit and push** your changes to the repo
 2. **Restart the OSC Web Runner** (openeventsapp) to pull the latest code
 
-The deployed app is live at https://lm2yqccxwl.apps.osaas.io
+The deployed app is live at https://events.apps.osaas.io
 
 ## Important Notes
 

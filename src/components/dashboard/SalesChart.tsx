@@ -9,7 +9,7 @@ type SalesChartProps = {
   currency?: string
 }
 
-export function SalesChart({ title = 'Sales Breakdown', data, currency = 'EUR' }: SalesChartProps) {
+export function SalesChart({ title = 'Sales Breakdown', data, currency = 'SEK' }: SalesChartProps) {
   const maxValue = Math.max(...data.map((item) => item.value), 0)
 
   return (

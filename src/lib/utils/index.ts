@@ -58,7 +58,7 @@ export function generateToken(): string {
  */
 export function formatCurrency(
   amount: number | string,
-  currency: string = 'EUR',
+  currency: string = 'SEK',
   locale: string = 'en-US'
 ): string {
   const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount

@@ -5,7 +5,7 @@ const ticketTypeBaseSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   description: z.string().optional(),
   price: z.number().min(0, 'Price must be 0 or greater'),
-  currency: z.string().default('EUR'),
+  currency: z.string().default('SEK'),
   maxCapacity: z.number().int().positive().optional().nullable(),
   salesStartDate: z.string().datetime().optional().nullable(),
   salesEndDate: z.string().datetime().optional().nullable(),

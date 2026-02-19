@@ -148,7 +148,7 @@ async function main() {
       name: 'Early Bird',
       description: 'Limited early bird tickets at a special price',
       price: 99.00,
-      currency: 'EUR',
+      currency: 'SEK',
       maxCapacity: 100,
       salesEndDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
       isVisible: true,
@@ -165,7 +165,7 @@ async function main() {
       name: 'General Admission',
       description: 'Standard conference access including all sessions and lunch',
       price: 149.00,
-      currency: 'EUR',
+      currency: 'SEK',
       maxCapacity: 500,
       isVisible: true,
       sortOrder: 1,
@@ -181,7 +181,7 @@ async function main() {
       name: 'VIP Pass',
       description: 'Premium access including speaker dinner and exclusive workshops',
       price: 299.00,
-      currency: 'EUR',
+      currency: 'SEK',
       maxCapacity: 50,
       isVisible: true,
       sortOrder: 2,
@@ -223,7 +223,7 @@ async function main() {
     update: {},
     create: {
       key: 'default_currency',
-      value: 'EUR',
+      value: 'SEK',
       type: 'string',
     },
   })

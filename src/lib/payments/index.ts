@@ -1,9 +1,19 @@
 /**
- * Payment Service - Stub Implementation
+ * Payment Service
  *
- * This module provides a stub/mock implementation of payment processing.
- * PayPal integration will be added in a future phase.
+ * This module provides payment processing using PayPal REST API.
+ * Falls back to stub mode if PayPal credentials are not configured.
  */
+
+import {
+  createPayPalOrder,
+  capturePayPalOrder,
+  refundPayPalPayment,
+  getPayPalOrder,
+  isPayPalConfigured,
+  isPayPalSandbox,
+  type CreatePayPalOrderOptions,
+} from './paypal'
 
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded'
 
@@ -12,8 +22,8 @@ export interface PaymentIntent {
   amount: number
   currency: string
   status: PaymentStatus
-  clientSecret?: string
   paypalOrderId?: string
+  approvalUrl?: string
   createdAt: Date
 }
 
@@ -22,87 +32,160 @@ export interface CreatePaymentOptions {
   currency: string
   orderId: string
   description?: string
-  returnUrl?: string
-  cancelUrl?: string
+  returnUrl: string
+  cancelUrl: string
+}
+
+export interface CapturePaymentResult {
+  captureId: string
+  status: PaymentStatus
+  amount: number
+  currency: string
 }
 
 export interface RefundOptions {
-  paymentId: string
-  amount?: number // Partial refund amount, if not provided = full refund
+  captureId: string
+  amount?: number
+  currency?: string
   reason?: string
 }
 
+export interface RefundResult {
+  refundId: string
+  status: 'pending' | 'completed' | 'failed'
+}
+
 /**
- * Create a payment intent (stub)
- * In production, this would create a PayPal order
+ * Create a payment intent
+ *
+ * For PayPal: Creates an order and returns the approval URL for redirect
+ * For stub mode: Returns a mock payment intent
  */
 export async function createPaymentIntent(
   options: CreatePaymentOptions
 ): Promise<PaymentIntent> {
-  // Stub implementation - generates a mock payment intent
-  const paymentId = `pi_${Date.now()}_${Math.random().toString(36).substring(7)}`
+  // Use real PayPal if configured
+  if (isPayPalConfigured()) {
+    const paypalOptions: CreatePayPalOrderOptions = {
+      orderId: options.orderId,
+      amount: options.amount,
+      currency: options.currency,
+      description: options.description,
+      returnUrl: options.returnUrl,
+      cancelUrl: options.cancelUrl,
+    }
 
+    const result = await createPayPalOrder(paypalOptions)
+
+    return {
+      id: result.paypalOrderId,
+      amount: options.amount,
+      currency: options.currency,
+      status: 'pending',
+      paypalOrderId: result.paypalOrderId,
+      approvalUrl: result.approvalUrl,
+      createdAt: new Date(),
+    }
+  }
+
+  // Stub mode for development without PayPal credentials
   console.log('[Payment Stub] Creating payment intent:', {
-    paymentId,
     amount: options.amount,
     currency: options.currency,
     orderId: options.orderId,
   })
 
+  const stubId = `stub_${Date.now()}_${Math.random().toString(36).substring(7)}`
+
   return {
-    id: paymentId,
+    id: stubId,
     amount: options.amount,
     currency: options.currency,
     status: 'pending',
-    clientSecret: `secret_${paymentId}`,
-    paypalOrderId: `PAYPAL_${paymentId}`,
+    paypalOrderId: stubId,
+    // In stub mode, simulate approval URL pointing back to our capture endpoint
+    approvalUrl: `${options.returnUrl}?token=${stubId}`,
     createdAt: new Date(),
   }
 }
 
 /**
- * Capture a payment (stub)
- * In production, this would capture the PayPal payment
+ * Capture a payment after user approval
+ *
+ * For PayPal: Captures the approved order
+ * For stub mode: Returns mock success
  */
-export async function capturePayment(paymentId: string): Promise<PaymentIntent> {
-  console.log('[Payment Stub] Capturing payment:', paymentId)
+export async function capturePayment(
+  paypalOrderId: string
+): Promise<CapturePaymentResult> {
+  // Use real PayPal if configured
+  if (isPayPalConfigured()) {
+    const result = await capturePayPalOrder(paypalOrderId)
 
-  // Simulate successful payment capture
+    return {
+      captureId: result.captureId,
+      status: result.status === 'COMPLETED' ? 'completed' : 'failed',
+      amount: parseFloat(result.amount),
+      currency: result.currency,
+    }
+  }
+
+  // Stub mode
+  console.log('[Payment Stub] Capturing payment:', paypalOrderId)
+
   return {
-    id: paymentId,
-    amount: 0, // Would be fetched from actual payment
-    currency: 'EUR',
+    captureId: `cap_${paypalOrderId}`,
     status: 'completed',
-    createdAt: new Date(),
-  }
-}
-
-/**
- * Cancel a payment (stub)
- */
-export async function cancelPayment(paymentId: string): Promise<PaymentIntent> {
-  console.log('[Payment Stub] Cancelling payment:', paymentId)
-
-  return {
-    id: paymentId,
     amount: 0,
-    currency: 'EUR',
-    status: 'cancelled',
-    createdAt: new Date(),
+    currency: 'SEK',
   }
 }
 
 /**
- * Process a refund (stub)
- * In production, this would initiate a PayPal refund
+ * Get payment/order status
  */
-export async function processRefund(options: RefundOptions): Promise<{
-  refundId: string
-  status: 'pending' | 'processed'
-}> {
+export async function getPaymentStatus(
+  paypalOrderId: string
+): Promise<{ status: string; isApproved: boolean }> {
+  if (isPayPalConfigured()) {
+    const order = await getPayPalOrder(paypalOrderId)
+    return {
+      status: order.status,
+      isApproved: order.status === 'APPROVED' || order.status === 'COMPLETED',
+    }
+  }
+
+  // Stub mode - always approved
+  return {
+    status: 'APPROVED',
+    isApproved: true,
+  }
+}
+
+/**
+ * Process a refund
+ *
+ * For PayPal: Initiates a refund via PayPal API
+ * For stub mode: Returns pending status
+ */
+export async function processRefund(options: RefundOptions): Promise<RefundResult> {
+  if (isPayPalConfigured()) {
+    const result = await refundPayPalPayment({
+      captureId: options.captureId,
+      amount: options.amount,
+      currency: options.currency,
+      reason: options.reason,
+    })
+
+    return {
+      refundId: result.refundId,
+      status: result.status === 'COMPLETED' ? 'completed' : 'pending',
+    }
+  }
+
+  // Stub mode
   console.log('[Payment Stub] Processing refund:', options)
 
-  // In stub mode, refunds are marked as pending for manual processing
   return {
     refundId: `ref_${Date.now()}_${Math.random().toString(36).substring(7)}`,
     status: 'pending',
@@ -110,43 +193,35 @@ export async function processRefund(options: RefundOptions): Promise<{
 }
 
 /**
- * Get payment status (stub)
+ * Cancel a pending payment
  */
-export async function getPaymentStatus(paymentId: string): Promise<PaymentIntent | null> {
-  console.log('[Payment Stub] Getting payment status:', paymentId)
-
-  // In a real implementation, this would fetch from PayPal
-  return null
-}
-
-/**
- * Verify webhook signature (stub)
- * In production, this would verify PayPal webhook signatures
- */
-export function verifyWebhookSignature(
-  payload: string,
-  signature: string
-): boolean {
-  console.log('[Payment Stub] Verifying webhook signature')
-  // Always return true in stub mode
-  return true
-}
-
-/**
- * Generate a checkout URL for PayPal (stub)
- */
-export function getCheckoutUrl(paypalOrderId: string): string {
-  // In production, this would return the actual PayPal checkout URL
-  const baseUrl = process.env.PAYPAL_SANDBOX === 'true'
-    ? 'https://www.sandbox.paypal.com'
-    : 'https://www.paypal.com'
-
-  return `${baseUrl}/checkoutnow?token=${paypalOrderId}`
+export async function cancelPayment(paypalOrderId: string): Promise<void> {
+  // PayPal orders that are not captured will automatically void
+  // No explicit action needed, but we log it
+  console.log('[Payment] Cancelling payment:', paypalOrderId)
 }
 
 /**
  * Check if payment is in test/sandbox mode
  */
 export function isTestMode(): boolean {
-  return process.env.PAYPAL_SANDBOX === 'true' || !process.env.PAYPAL_CLIENT_ID
+  return isPayPalSandbox() || !isPayPalConfigured()
+}
+
+/**
+ * Check if PayPal is configured
+ */
+export { isPayPalConfigured }
+
+/**
+ * Generate URLs for PayPal redirect flow
+ */
+export function generatePaymentUrls(
+  baseUrl: string,
+  orderId: string
+): { returnUrl: string; cancelUrl: string } {
+  return {
+    returnUrl: `${baseUrl}/api/orders/${orderId}/capture`,
+    cancelUrl: `${baseUrl}/api/orders/${orderId}/cancel`,
+  }
 }

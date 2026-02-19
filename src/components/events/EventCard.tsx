@@ -30,7 +30,7 @@ function getPriceRange(ticketTypes: EventCardProps['event']['ticketTypes']) {
   const prices = ticketTypes.map((ticket) => ticket.price.toNumber())
   const min = Math.min(...prices)
   const max = Math.max(...prices)
-  const currency = ticketTypes[0]?.currency || 'EUR'
+  const currency = ticketTypes[0]?.currency || 'SEK'
 
   if (min === max) {
     return `${currency} ${min.toFixed(2)}`

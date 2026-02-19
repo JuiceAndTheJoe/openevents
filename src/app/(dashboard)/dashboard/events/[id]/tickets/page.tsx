@@ -69,7 +69,7 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
     const name = String(formData.get('name') || '').trim()
     const description = String(formData.get('description') || '').trim() || null
     const price = new Prisma.Decimal(String(formData.get('price') || '0'))
-    const currency = String(formData.get('currency') || 'EUR').trim() || 'EUR'
+    const currency = String(formData.get('currency') || 'SEK').trim() || 'SEK'
     const maxCapacityRaw = String(formData.get('maxCapacity') || '').trim()
     const maxCapacity = maxCapacityRaw ? Number(maxCapacityRaw) : null
     const minPerOrder = Number(String(formData.get('minPerOrder') || '1'))
@@ -119,7 +119,7 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
     const name = String(formData.get('name') || '').trim()
     const description = String(formData.get('description') || '').trim() || null
     const price = new Prisma.Decimal(String(formData.get('price') || '0'))
-    const currency = String(formData.get('currency') || 'EUR').trim() || 'EUR'
+    const currency = String(formData.get('currency') || 'SEK').trim() || 'SEK'
     const maxCapacityRaw = String(formData.get('maxCapacity') || '').trim()
     const maxCapacity = maxCapacityRaw ? Number(maxCapacityRaw) : null
     const minPerOrder = Number(String(formData.get('minPerOrder') || '1'))

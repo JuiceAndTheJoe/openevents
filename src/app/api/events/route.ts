@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
                   name: 'General Admission',
                   description: 'Default free ticket',
                   price: new Prisma.Decimal(0),
-                  currency: 'EUR',
+                  currency: 'SEK',
                   isVisible: true,
                 },
               ],

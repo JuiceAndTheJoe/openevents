@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -59,6 +59,7 @@ function calculateDiscountAmount(
 
 export function CheckoutForm({ event }: CheckoutFormProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [ticketTypes, setTicketTypes] = useState<SelectableTicketType[]>([])
   const [ticketLoading, setTicketLoading] = useState(true)
@@ -68,6 +69,10 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   const [discount, setDiscount] = useState<AppliedDiscount | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+
+  // Check if user returned from cancelled PayPal payment
+  const wasCancelled = searchParams.get('cancelled') === 'true'
 
   const [buyer, setBuyer] = useState<BuyerFormState>({
     firstName: '',
@@ -214,8 +219,9 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
         return
       }
 
-      let orderNumber = createOrderData.order.orderNumber as string
+      const orderNumber = createOrderData.order.orderNumber as string
 
+      // Handle different checkout flows
       if (createOrderData.checkout.requiresPayment) {
         const payResponse = await fetch(`/api/orders/${createOrderData.order.id}/pay`, {
           method: 'POST',
@@ -232,9 +238,28 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           return
         }
 
-        orderNumber = payData.order.orderNumber as string
+        // Check if PayPal redirect is needed
+        if (payData.checkout?.type === 'redirect' && payData.checkout?.approvalUrl) {
+          setIsRedirecting(true)
+          // Redirect to PayPal for payment approval
+          window.location.href = payData.checkout.approvalUrl
+          return
+        }
+
+        // Payment completed (stub mode or already captured)
+        if (payData.checkout?.type === 'completed') {
+          router.push(`/orders/${payData.order.orderNumber}/confirmation`)
+          return
+        }
+
+        // Invoice flow
+        if (payData.checkout?.type === 'invoice') {
+          router.push(`/orders/${payData.order.orderNumber}/confirmation`)
+          return
+        }
       }
 
+      // Free order or invoice - go directly to confirmation
       router.push(`/orders/${orderNumber}/confirmation`)
     } catch (error) {
       console.error('Failed to complete checkout', error)
@@ -374,7 +399,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           subtotal={subtotal}
           discountAmount={discountAmount}
           totalAmount={totalAmount}
-          currency={selectedItems[0]?.currency ?? 'EUR'}
+          currency={selectedItems[0]?.currency ?? 'SEK'}
           discountCode={discount?.code}
         />
 
@@ -392,7 +417,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
                 onChange={() => setPaymentMethod('PAYPAL')}
                 disabled={discount?.discountType === 'INVOICE'}
               />
-              PayPal (stub)
+              PayPal
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
               <input
@@ -410,10 +435,29 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           </CardContent>
         </Card>
 
+        {wasCancelled && (
+          <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3">
+            <p className="text-sm text-yellow-800">
+              Payment was cancelled. You can try again when ready.
+            </p>
+          </div>
+        )}
+
         {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
-        <Button type="submit" className="w-full" isLoading={isSubmitting}>
-          {totalAmount === 0 ? 'Complete Free Order' : 'Place Order'}
+        <Button
+          type="submit"
+          className="w-full"
+          isLoading={isSubmitting || isRedirecting}
+          disabled={isSubmitting || isRedirecting}
+        >
+          {isRedirecting
+            ? 'Redirecting to PayPal...'
+            : totalAmount === 0
+              ? 'Complete Free Order'
+              : paymentMethod === 'PAYPAL'
+                ? 'Pay with PayPal'
+                : 'Place Order'}
         </Button>
       </div>
     </form>

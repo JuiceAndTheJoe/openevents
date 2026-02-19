@@ -10,9 +10,99 @@ interface RouteContext {
   params: Promise<{ id: string }>
 }
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
 const cancelOrderInputSchema = z.object({
   reason: z.string().optional(),
 })
+
+/**
+ * Handle PayPal cancellation redirect
+ * PayPal redirects here when user cancels the payment
+ */
+export async function GET(request: NextRequest, context: RouteContext) {
+  try {
+    const { id: orderId } = await context.params
+
+    // Find the order
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        event: {
+          select: {
+            slug: true,
+          },
+        },
+        items: {
+          select: {
+            ticketTypeId: true,
+            quantity: true,
+          },
+        },
+      },
+    })
+
+    if (!order) {
+      return NextResponse.redirect(`${APP_URL}?error=order_not_found`)
+    }
+
+    // If already paid or cancelled, redirect appropriately
+    if (order.status === 'PAID') {
+      return NextResponse.redirect(`${APP_URL}/orders/${order.orderNumber}/confirmation`)
+    }
+
+    if (order.status === 'CANCELLED') {
+      return NextResponse.redirect(
+        `${APP_URL}/events/${order.event.slug}/checkout?cancelled=true`
+      )
+    }
+
+    // Cancel the order and release reserved tickets
+    if (order.status === 'PENDING' || order.status === 'PENDING_INVOICE') {
+      const ticketTypeIds = Array.from(new Set(order.items.map((item) => item.ticketTypeId)))
+
+      await prisma.$transaction(
+        async (tx) => {
+          await lockTicketTypes(tx, ticketTypeIds)
+
+          // Release reserved tickets
+          for (const item of order.items) {
+            await tx.ticketType.update({
+              where: { id: item.ticketTypeId },
+              data: {
+                reservedCount: {
+                  decrement: item.quantity,
+                },
+              },
+            })
+          }
+
+          // Mark order as cancelled
+          await tx.order.update({
+            where: { id: order.id },
+            data: {
+              status: 'CANCELLED',
+              cancelledAt: new Date(),
+            },
+          })
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        }
+      )
+
+      console.log('[PayPal Cancel] Order cancelled:', order.orderNumber)
+    }
+
+    // Redirect back to checkout page with cancellation message
+    return NextResponse.redirect(
+      `${APP_URL}/events/${order.event.slug}/checkout?cancelled=true`
+    )
+  } catch (error) {
+    console.error('[PayPal Cancel] Failed to cancel order:', error)
+    return NextResponse.redirect(`${APP_URL}?error=cancel_failed`)
+  }
+}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {

@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
             subtotal,
             discountAmount,
             totalAmount,
-            currency: ticketTypes[0]?.currency ?? 'EUR',
+            currency: ticketTypes[0]?.currency ?? 'SEK',
             status,
             paymentMethod,
             paidAt: status === 'PAID' ? new Date() : null,
