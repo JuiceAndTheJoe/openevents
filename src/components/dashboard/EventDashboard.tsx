@@ -64,6 +64,9 @@ export function EventDashboard({ event, stats }: EventDashboardProps) {
             <Link href={`/dashboard/events/${event.id}/orders`}>
               <Button variant="outline">View Orders</Button>
             </Link>
+            <Link href={`/dashboard/events/${event.id}/scan`}>
+              <Button variant="outline">Scan Tickets</Button>
+            </Link>
             <Link href={`/events/${event.slug}`}>
               <Button>Open Public Page</Button>
             </Link>

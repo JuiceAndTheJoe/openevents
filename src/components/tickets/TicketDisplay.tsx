@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/utils'
 import { DownloadTicketsButton } from '@/components/tickets/DownloadTicketsButton'
+import { TicketQRCode } from '@/components/tickets/TicketQRCode'
 
 interface TicketDisplayProps {
   order: {
@@ -103,10 +104,19 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
           ) : (
             <div className="grid gap-3">
               {order.tickets.map((ticket) => (
-                <div key={ticket.id} className="rounded-md border border-gray-200 p-3">
-                  <p className="text-sm font-semibold text-gray-900">Ticket Code: {ticket.ticketCode}</p>
-                  <p className="text-xs text-gray-500">Status: {ticket.status}</p>
-                  <p className="mt-2 text-xs text-gray-500">QR: [stub] {ticket.ticketCode}</p>
+                <div key={ticket.id} className="rounded-md border border-gray-200 p-4">
+                  <div className="flex items-start gap-4">
+                    <TicketQRCode ticketCode={ticket.ticketCode} size={80} />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{ticket.ticketCode}</p>
+                      <p className="text-xs text-gray-500">Status: {ticket.status}</p>
+                      {ticket.attendeeFirstName && (
+                        <p className="mt-1 text-xs text-gray-600">
+                          {ticket.attendeeFirstName} {ticket.attendeeLastName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
