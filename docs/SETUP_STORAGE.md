@@ -4,10 +4,10 @@ OpenEvents uses MinIO (S3-compatible object storage) hosted on OSC for storing e
 
 ## OSC MinIO Instance Details
 
-- **Instance Name:** `openeventstorage`
-- **Endpoint URL:** `https://REDACTED_S3_ENDPOINT`
-- **Access Key:** `openevents`
-- **Secret Key:** `REDACTED_S3_SECRET`
+- **Instance Name:** `your-instance-name`
+- **Endpoint URL:** `https://your-minio-endpoint.example.com`
+- **Access Key:** `your-access-key`
+- **Secret Key:** `your-secret-key`
 
 ## Creating the Storage Bucket
 
@@ -17,12 +17,12 @@ The bucket `openevents-media` must be created manually. Choose one of the method
 
 1. Open the MinIO Console in your browser:
    ```
-   https://REDACTED_S3_ENDPOINT
+   https://your-minio-endpoint.example.com
    ```
 
-2. Log in with the credentials:
-   - **Username:** `openevents`
-   - **Password:** `REDACTED_S3_SECRET`
+2. Log in with your credentials:
+   - **Username:** `your-access-key`
+   - **Password:** `your-secret-key`
 
 3. Click **"Create Bucket"** in the sidebar
 
@@ -40,14 +40,14 @@ If you have AWS CLI installed:
 
 ```bash
 # Configure AWS CLI for MinIO
-export AWS_ACCESS_KEY_ID="openevents"
-export AWS_SECRET_ACCESS_KEY="REDACTED_S3_SECRET"
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
 export AWS_REGION="us-east-1"
 
 # Create the bucket
 aws s3api create-bucket \
   --bucket openevents-media \
-  --endpoint-url https://REDACTED_S3_ENDPOINT
+  --endpoint-url https://your-minio-endpoint.example.com
 ```
 
 ### Method 3: MinIO Client (mc)
@@ -56,7 +56,7 @@ If you have MinIO Client installed:
 
 ```bash
 # Configure MinIO alias
-mc alias set openevents https://REDACTED_S3_ENDPOINT openevents "REDACTED_S3_SECRET"
+mc alias set openevents https://your-minio-endpoint.example.com your-access-key "your-secret-key"
 
 # Create the bucket
 mc mb openevents/openevents-media
@@ -93,7 +93,7 @@ After creating the bucket, you can test the connection:
 ```bash
 # Using AWS CLI
 aws s3 ls s3://openevents-media \
-  --endpoint-url https://REDACTED_S3_ENDPOINT
+  --endpoint-url https://your-minio-endpoint.example.com
 
 # Using MinIO Client
 mc ls openevents/openevents-media
@@ -148,10 +148,10 @@ The OSC MinIO instance uses HTTPS. If you encounter certificate errors:
 Make sure these are set in your `.env` file:
 
 ```env
-S3_ENDPOINT=https://REDACTED_S3_ENDPOINT
-S3_PUBLIC_URL=https://REDACTED_S3_ENDPOINT
-S3_ACCESS_KEY_ID=openevents
-S3_SECRET_ACCESS_KEY=REDACTED_S3_SECRET
+S3_ENDPOINT=https://your-minio-endpoint.example.com
+S3_PUBLIC_URL=https://your-minio-endpoint.example.com
+S3_ACCESS_KEY_ID=your-access-key
+S3_SECRET_ACCESS_KEY=your-secret-key
 S3_BUCKET_NAME=openevents-media
 S3_REGION=us-east-1
 ```

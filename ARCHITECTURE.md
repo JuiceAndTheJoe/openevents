@@ -119,9 +119,9 @@ OpenEvents is an open-source event management and ticketing platform built with 
 ### Service URLs
 
 ```
-PostgreSQL: postgres://openevents:***@REDACTED_HOST:10515/openevents
-MinIO: https://REDACTED_S3_ENDPOINT
-Valkey: redis://:***@REDACTED_HOST:10533
+PostgreSQL: postgres://USER:PASSWORD@HOST:PORT/DATABASE
+MinIO: https://YOUR-MINIO-ENDPOINT
+Valkey: redis://:PASSWORD@HOST:PORT
 ```
 
 ## Project Structure
