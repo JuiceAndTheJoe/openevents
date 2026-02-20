@@ -7,6 +7,7 @@ export const loginSchema = z.object({
 
 export const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
+  role: z.enum(['ATTENDEE', 'ORGANIZER']),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')

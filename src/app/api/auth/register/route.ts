@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { email, password, firstName, lastName } = validationResult.data
+    const { email, password, firstName, lastName, role } = validationResult.data
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -58,13 +58,23 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Assign ATTENDEE role
+      // Assign selected role
       await tx.userRole.create({
         data: {
           userId: newUser.id,
-          role: 'ATTENDEE',
+          role,
         },
       })
+
+      // Create organizer profile immediately for organizer signups
+      if (role === 'ORGANIZER') {
+        await tx.organizerProfile.create({
+          data: {
+            userId: newUser.id,
+            orgName: `${firstName} ${lastName}`.trim(),
+          },
+        })
+      }
 
       // Create verification token
       await tx.userVerificationToken.create({

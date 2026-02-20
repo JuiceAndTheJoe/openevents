@@ -1,8 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import { PrismaAdapter } from '@auth/prisma-adapter'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import GoogleProvider from 'next-auth/providers/google'
-import GitHubProvider from 'next-auth/providers/github'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
 import { Role } from '@prisma/client'
@@ -32,6 +30,7 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     id: string
+    image?: string | null
     roles: Role[]
     emailVerified: Date | null
   }
@@ -49,16 +48,6 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: '/verify-email',
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
     CredentialsProvider({
       name: 'credentials',
       credentials: {
@@ -106,41 +95,26 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      // For OAuth providers, auto-verify email and create ATTENDEE role
-      if (account?.provider !== 'credentials') {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-          include: { roles: true },
-        })
-
-        if (existingUser) {
-          // Update email verification for existing users
-          if (!existingUser.emailVerified) {
-            await prisma.user.update({
-              where: { id: existingUser.id },
-              data: { emailVerified: new Date() },
-            })
-          }
-        }
-      }
+    async signIn() {
       return true
     },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
+        token.image = user.image
         token.roles = user.roles
         token.emailVerified = user.emailVerified
       }
 
       // Handle session updates
       if (trigger === 'update' && session) {
-        // Re-fetch roles from database
+        // Re-fetch user data from database
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id },
           include: { roles: true },
         })
         if (dbUser) {
+          token.image = dbUser.image
           token.roles = dbUser.roles.map((r) => r.role)
         }
       }
@@ -150,6 +124,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id
+        session.user.image = token.image
         session.user.roles = token.roles
         session.user.emailVerified = token.emailVerified
       }
