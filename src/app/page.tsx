@@ -3,12 +3,18 @@ import { Button } from "@/components/ui/button"
 import { prisma } from "@/lib/db"
 import { EventList } from "@/components/events/EventList"
 import { getCurrentUser, hasRole } from "@/lib/auth"
+import { HeroSearchBar } from "@/components/events/HeroSearchBar"
 
 export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   const user = await getCurrentUser()
   const canCreateEvents = user ? hasRole(user.roles, ['ORGANIZER', 'SUPER_ADMIN']) : false
+
+  const categories = await prisma.category.findMany({
+    select: { id: true, name: true, slug: true },
+    orderBy: { name: 'asc' },
+  })
 
   const featuredEvents = await prisma.event.findMany({
     where: {
@@ -41,43 +47,48 @@ export default async function Home() {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-600 to-blue-800 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-              Create Memorable Events :)
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-xl text-blue-100">
-              An open-source event management platform. Create events, sell tickets,
-              and connect with your audience seamlessly.
-            </p>
-            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/events">
-                <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 w-full sm:w-auto">
-                  Browse Events
-                </Button>
-              </Link>
-              {canCreateEvents && (
-                <Link href="/create-event">
-                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 w-full sm:w-auto">
-                    Start Organizing
-                  </Button>
-                </Link>
-              )}
+      <section className="pt-8 pb-5 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          {/* Hero image with rounded top corners */}
+          <div className="relative w-full overflow-hidden rounded-tl-[20px] rounded-tr-[20px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/hero-image.jpg"
+              alt="Events built for business"
+              className="w-full h-[220px] sm:h-[300px] md:h-[360px] lg:h-[420px] object-cover"
+            />
+            {/* Frosted glass text overlay */}
+            <div className="absolute left-6 top-[12%] sm:left-8 md:left-10 backdrop-blur-[17.5px] bg-[rgba(217,217,217,0.10)] border border-[rgba(255,255,255,0.31)] rounded-[20px] px-6 py-4">
+              <h1
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-[60px] font-bold text-white leading-tight"
+                style={{ fontFamily: "var(--font-outfit), sans-serif" }}
+              >
+                Events built for business
+              </h1>
             </div>
+          </div>
+          {/* Search bar */}
+          <div className="mt-4">
+            <HeroSearchBar categories={categories} />
           </div>
         </div>
       </section>
 
-      <section className="py-20 bg-gray-50">
+      <section className="pt-8 pb-20 bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900">Latest Published Events</h2>
-              <p className="mt-2 text-gray-600">Newly published events appear here automatically.</p>
-            </div>
-            <Link href="/events">
-              <Button variant="outline">View All Events</Button>
+            <h2
+              className="text-[40px] font-bold text-black leading-normal"
+              style={{ fontFamily: "var(--font-outfit), sans-serif" }}
+            >
+              Upcoming events
+            </h2>
+            <Link
+              href="/events"
+              className="inline-flex items-center justify-center bg-[#4893c9] text-white text-[16px] font-medium px-[15px] py-[10px] rounded-[10px] hover:bg-[#3a7fb0] transition-colors"
+              style={{ fontFamily: "var(--font-outfit), sans-serif" }}
+            >
+              View all events
             </Link>
           </div>
           <EventList events={featuredEvents} />
