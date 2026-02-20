@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { EventStatus } from '@prisma/client'
+import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EventStatusBadge } from '@/components/dashboard/EventStatusBadge'
 import { SalesChart } from '@/components/dashboard/SalesChart'
@@ -67,6 +68,12 @@ export function EventDashboard({ event, stats }: EventDashboardProps) {
             <Link href={`/dashboard/events/${event.id}/scan`}>
               <Button variant="outline">Scan Tickets</Button>
             </Link>
+            <a href={`/api/dashboard/events/${event.id}/attendees/export`} download>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export Attendees
+              </Button>
+            </a>
             <Link href={`/events/${event.slug}`}>
               <Button>Open Public Page</Button>
             </Link>
