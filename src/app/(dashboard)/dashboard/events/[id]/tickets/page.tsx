@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { requireOrganizerProfile } from '@/lib/dashboard/organizer'
 import { TicketTypeList } from '@/components/dashboard/TicketTypeList'
 import { TicketTypeForm } from '@/components/dashboard/TicketTypeForm'
+import { DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/constants/currencies'
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -69,7 +70,11 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
     const name = String(formData.get('name') || '').trim()
     const description = String(formData.get('description') || '').trim() || null
     const price = new Prisma.Decimal(String(formData.get('price') || '0'))
-    const currency = String(formData.get('currency') || 'SEK').trim() || 'SEK'
+    const currencyRaw = String(formData.get('currency') || DEFAULT_CURRENCY).trim().toUpperCase() || DEFAULT_CURRENCY
+    if (!isSupportedCurrency(currencyRaw)) {
+      throw new Error('Unsupported currency')
+    }
+    const currency = currencyRaw
     const maxCapacityRaw = String(formData.get('maxCapacity') || '').trim()
     const maxCapacity = maxCapacityRaw ? Number(maxCapacityRaw) : null
     const minPerOrder = Number(String(formData.get('minPerOrder') || '1'))
@@ -119,7 +124,11 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
     const name = String(formData.get('name') || '').trim()
     const description = String(formData.get('description') || '').trim() || null
     const price = new Prisma.Decimal(String(formData.get('price') || '0'))
-    const currency = String(formData.get('currency') || 'SEK').trim() || 'SEK'
+    const currencyRaw = String(formData.get('currency') || DEFAULT_CURRENCY).trim().toUpperCase() || DEFAULT_CURRENCY
+    if (!isSupportedCurrency(currencyRaw)) {
+      throw new Error('Unsupported currency')
+    }
+    const currency = currencyRaw
     const maxCapacityRaw = String(formData.get('maxCapacity') || '').trim()
     const maxCapacity = maxCapacityRaw ? Number(maxCapacityRaw) : null
     const minPerOrder = Number(String(formData.get('minPerOrder') || '1'))

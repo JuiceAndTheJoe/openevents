@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@/lib/constants/currencies'
 
 type TicketTypeFormProps = {
   title: string
@@ -20,6 +21,11 @@ type TicketTypeFormProps = {
 }
 
 export function TicketTypeForm({ title, submitLabel, action, initial }: TicketTypeFormProps) {
+  const normalizedInitialCurrency = (initial?.currency || DEFAULT_CURRENCY).trim().toUpperCase()
+  const legacyCurrency = SUPPORTED_CURRENCIES.includes(normalizedInitialCurrency as (typeof SUPPORTED_CURRENCIES)[number])
+    ? null
+    : normalizedInitialCurrency
+
   return (
     <form action={action} className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
       <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
@@ -44,7 +50,21 @@ export function TicketTypeForm({ title, submitLabel, action, initial }: TicketTy
         </div>
         <div>
           <Label htmlFor={`${title}-currency`} required>Currency</Label>
-          <Input id={`${title}-currency`} name="currency" defaultValue={initial?.currency || 'SEK'} required />
+          <select
+            id={`${title}-currency`}
+            name="currency"
+            defaultValue={legacyCurrency || normalizedInitialCurrency}
+            className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm"
+            required
+          >
+            {legacyCurrency ? <option value={legacyCurrency}>{legacyCurrency} (legacy unsupported)</option> : null}
+            {SUPPORTED_CURRENCIES.map((currency) => (
+              <option key={currency} value={currency}>{currency}</option>
+            ))}
+          </select>
+          {legacyCurrency ? (
+            <p className="mt-1 text-sm text-amber-700">Select a supported currency before saving this ticket type.</p>
+          ) : null}
         </div>
         <div>
           <Label htmlFor={`${title}-capacity`}>Max Capacity</Label>

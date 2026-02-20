@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES } from '@/lib/constants/currencies'
 
 const ticketTypeBaseSchema = z.object({
   eventId: z.string().cuid(),
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
   description: z.string().optional(),
   price: z.number().min(0, 'Price must be 0 or greater'),
-  currency: z.string().default('SEK'),
+  currency: z.enum(SUPPORTED_CURRENCIES).default(DEFAULT_CURRENCY),
   maxCapacity: z.number().int().positive().optional().nullable(),
   salesStartDate: z.string().datetime().optional().nullable(),
   salesEndDate: z.string().datetime().optional().nullable(),

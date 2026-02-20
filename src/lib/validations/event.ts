@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidTimeZone } from '@/lib/timezone'
 
 const eventSchemaBase = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
@@ -6,7 +7,7 @@ const eventSchemaBase = z.object({
   descriptionHtml: z.string().optional(),
   startDate: z.string().datetime('Invalid start date'),
   endDate: z.string().datetime('Invalid end date'),
-  timezone: z.string().default('UTC'),
+  timezone: z.string().refine((value) => isValidTimeZone(value), 'Invalid timezone').default('UTC'),
   locationType: z.enum(['PHYSICAL', 'ONLINE', 'HYBRID']).default('PHYSICAL'),
   venue: z.string().optional(),
   address: z.string().optional(),

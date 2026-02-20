@@ -130,7 +130,7 @@ export function SpeakerEditor({ eventId, initialSpeakers }: SpeakerEditorProps) 
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
-      <h3 className="text-lg font-semibold text-gray-900">Speaker Editor</h3>
+      <h3 className="text-lg font-semibold text-gray-900">Speakers</h3>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

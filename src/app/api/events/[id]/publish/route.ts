@@ -63,11 +63,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       })
     }
 
-    if (!event.description?.trim()) {
+    if (!event.description?.trim() && !event.descriptionHtml?.trim()) {
       issues.push({
         section: 'Overview',
         field: 'Description',
-        message: 'Add an event description.',
+        message: 'Add a simple or rich description.',
       })
     }
 

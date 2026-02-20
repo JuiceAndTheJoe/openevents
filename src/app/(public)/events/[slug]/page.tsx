@@ -3,11 +3,15 @@ import { notFound } from 'next/navigation'
 import { Heart, MapPin } from 'lucide-react'
 import { getCurrentUser, hasRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { EventNoticeToast } from '@/components/events/EventNoticeToast'
+import { DEFAULT_CURRENCY } from '@/lib/constants/currencies'
+import { isValidTimeZone } from '@/lib/timezone'
 
 export const dynamic = 'force-dynamic'
 
 type PageProps = {
   params: Promise<{ slug: string }>
+  searchParams: Promise<{ notice?: string | string[] }>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,8 +33,14 @@ function resolvePeopleRole(person: { title: string | null; socialLinks: unknown 
   return 'SPEAKER'
 }
 
-export default async function EventDetailsPage({ params }: PageProps) {
+function firstQueryValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) return value[0]
+  return value
+}
+
+export default async function EventDetailsPage({ params, searchParams }: PageProps) {
   const { slug } = await params
+  const query = await searchParams
   const user = await getCurrentUser()
 
   const event = await prisma.event.findUnique({
@@ -81,20 +91,28 @@ export default async function EventDetailsPage({ params }: PageProps) {
   const minPrice = event.ticketTypes.length
     ? Math.min(...event.ticketTypes.map((ticket) => Number(ticket.price)))
     : null
-  const currency = event.ticketTypes[0]?.currency || 'EUR'
+  const currency = event.ticketTypes[0]?.currency || DEFAULT_CURRENCY
   const bottomImage = event.media.find((item) => item.title === 'BOTTOM_IMAGE')?.url || null
   const coverImageSrc = `/api/events/${encodeURIComponent(event.slug)}/image?slot=cover&v=${event.updatedAt.getTime()}`
   const bottomImageSrc = `/api/events/${encodeURIComponent(event.slug)}/image?slot=bottom&v=${event.updatedAt.getTime()}`
   const priceSuffix = currency === 'SEK' ? 'kr' : currency
 
-  const dateLabel = new Date(event.startDate).toLocaleDateString(undefined, {
+  const displayTimeZone = isValidTimeZone(event.timezone) ? event.timezone : 'UTC'
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
     month: 'long',
     day: 'numeric',
-  })
-  const timeLabel = new Date(event.startDate).toLocaleTimeString(undefined, {
+    timeZone: displayTimeZone,
+  }).format(event.startDate)
+  const timeLabel = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',
-  })
+    timeZone: displayTimeZone,
+    timeZoneName: 'short',
+  }).format(event.startDate)
+  const notice = firstQueryValue(query.notice)
+  const noticeMessage = notice === 'created' || notice === 'updated'
+    ? `Event ${notice}`
+    : null
 
   const speakerNames: string[] = []
   const organizerNames: string[] = []
@@ -112,6 +130,7 @@ export default async function EventDetailsPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <EventNoticeToast message={noticeMessage} />
       <section className="overflow-hidden rounded-xl border-4 border-blue-500 bg-gray-900">
         {event.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -151,7 +170,7 @@ export default async function EventDetailsPage({ params }: PageProps) {
               <p className="text-lg text-gray-900">Online event</p>
             )}
             <p className="text-xl text-gray-900">
-              {dateLabel} at {timeLabel} GMT+1
+              {dateLabel} at {timeLabel}
             </p>
           </div>
 
@@ -161,7 +180,7 @@ export default async function EventDetailsPage({ params }: PageProps) {
                 {minPrice === null ? 'Free / unavailable' : `From ${minPrice.toFixed(0)} ${priceSuffix}`}
               </p>
               <p className="text-xs text-gray-600">
-                {dateLabel} at {timeLabel} GMT+1
+                {dateLabel} at {timeLabel}
               </p>
             </div>
             {canEditEvent ? (
@@ -192,10 +211,12 @@ export default async function EventDetailsPage({ params }: PageProps) {
         <h2 className="text-4xl font-semibold tracking-tight text-gray-900 sm:text-5xl">Overview</h2>
         <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_270px]">
           <div className="text-lg leading-8 text-gray-900">
-            {event.descriptionHtml ? (
+            {event.description?.trim() ? (
+              <p className="whitespace-pre-line">{event.description}</p>
+            ) : event.descriptionHtml ? (
               <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: event.descriptionHtml }} />
             ) : (
-              <p>{event.description || 'Event details will be announced soon.'}</p>
+              <p>Event details will be announced soon.</p>
             )}
           </div>
 

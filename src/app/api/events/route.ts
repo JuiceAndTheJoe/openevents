@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { createEventSchema } from '@/lib/validations/event'
+import { DEFAULT_CURRENCY } from '@/lib/constants/currencies'
 import { generateUniqueSlug } from '@/lib/utils'
 
 type EventPeopleRole = 'SPEAKER' | 'ORGANIZER' | 'SPONSOR'
@@ -152,7 +153,7 @@ export async function POST(request: NextRequest) {
                   name: 'General Admission',
                   description: 'Default free ticket',
                   price: new Prisma.Decimal(0),
-                  currency: 'SEK',
+                  currency: DEFAULT_CURRENCY,
                   isVisible: true,
                 },
               ],
