@@ -13,7 +13,7 @@ function extractObjectKeyFromImageUrl(image: string): string | null {
 
   try {
     const parsed = new URL(image)
-    const bucket = process.env.S3_BUCKET_NAME || 'openevents-media'
+    const bucket = process.env.S3_BUCKET_NAME || 'openevents'
     const prefix = `/${bucket}/`
 
     if (!parsed.pathname.startsWith(prefix)) {

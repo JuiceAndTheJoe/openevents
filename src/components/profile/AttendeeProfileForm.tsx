@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -204,12 +203,9 @@ export function AttendeeProfileForm({ initial }: AttendeeProfileFormProps) {
               <div className="flex items-center gap-4">
                 <div className="h-16 w-16 overflow-hidden rounded-full border border-gray-200 bg-gray-50">
                   {image ? (
-                    <Image
-                      src="/api/users/me/avatar"
-                      key={avatarVersion}
+                    <img
+                      src={`/api/users/me/avatar?v=${avatarVersion}`}
                       alt="Profile"
-                      width={64}
-                      height={64}
                       className="h-full w-full object-cover"
                     />
                   ) : (
