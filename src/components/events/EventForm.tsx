@@ -1,8 +1,9 @@
 'use client'
 
 import Cropper, { Area } from 'react-easy-crop'
-import { ChangeEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, DragEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FloatingToast } from '@/components/ui/floating-toast'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,7 @@ type TicketTypeDraft = {
 type EventFormData = {
   id?: string
   slug?: string
+  status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
   ticketTypes?: TicketTypeDraft[]
   ticketTypeId?: string
   ticketTypeName?: string
@@ -91,6 +93,7 @@ type CropSession = {
 }
 
 const fallbackInitialData: EventFormData = {
+  status: 'DRAFT',
   ticketTypes: [{
     name: 'General Admission',
     price: '0',
@@ -456,6 +459,7 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 })
   const [cropZoom, setCropZoom] = useState(1)
   const [cropPixels, setCropPixels] = useState<Area | null>(null)
+  const [activeDropTarget, setActiveDropTarget] = useState<ImageTargetField | null>(null)
   const [originalImageFiles, setOriginalImageFiles] = useState<Record<ImageTargetField, File | null>>({
     coverImage: null,
     bottomImage: null,
@@ -920,9 +924,12 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
     return file
   }
 
-  async function onImageSelected(event: ChangeEvent<HTMLInputElement>, targetField: ImageTargetField) {
-    const file = event.target.files?.[0]
-    if (!file) return
+  function isUploadingImage(targetField: ImageTargetField) {
+    return targetField === 'coverImage' ? isUploadingBanner : isUploadingBottom
+  }
+
+  async function handleImageFileSelected(file: File, targetField: ImageTargetField) {
+    setActiveDropTarget((current) => (current === targetField ? null : current))
 
     if (!allowedImageMimeTypes.has(file.type)) {
       setFieldErrors((current) => ({
@@ -930,7 +937,6 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
         [targetField]: 'Please select a JPG, PNG, WEBP, or GIF image.',
       }))
       setToast({ message: 'Unsupported image format', tone: 'error' })
-      event.target.value = ''
       return
     }
 
@@ -938,7 +944,46 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
     setCroppedImageFiles((current) => ({ ...current, [targetField]: null }))
     setEditableImageFiles((current) => ({ ...current, [targetField]: file }))
     openCropper(file, targetField)
+  }
+
+  async function onImageSelected(event: ChangeEvent<HTMLInputElement>, targetField: ImageTargetField) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    await handleImageFileSelected(file, targetField)
     event.target.value = ''
+  }
+
+  function onImageDragEnter(event: DragEvent<HTMLElement>, targetField: ImageTargetField) {
+    event.preventDefault()
+    if (isUploadingImage(targetField)) return
+    setActiveDropTarget(targetField)
+  }
+
+  function onImageDragOver(event: DragEvent<HTMLElement>, targetField: ImageTargetField) {
+    event.preventDefault()
+    if (isUploadingImage(targetField)) return
+    event.dataTransfer.dropEffect = 'copy'
+    if (activeDropTarget !== targetField) {
+      setActiveDropTarget(targetField)
+    }
+  }
+
+  function onImageDragLeave(event: DragEvent<HTMLElement>, targetField: ImageTargetField) {
+    event.preventDefault()
+    const nextTarget = event.relatedTarget
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return
+    }
+    setActiveDropTarget((current) => (current === targetField ? null : current))
+  }
+
+  async function onImageDrop(event: DragEvent<HTMLElement>, targetField: ImageTargetField) {
+    event.preventDefault()
+    setActiveDropTarget((current) => (current === targetField ? null : current))
+    if (isUploadingImage(targetField)) return
+    const file = event.dataTransfer.files?.[0]
+    if (!file) return
+    await handleImageFileSelected(file, targetField)
   }
 
   async function applyCrop() {
@@ -1080,6 +1125,7 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
         ticketPrice: undefined,
         ticketCurrency: undefined,
         ticketCapacity: undefined,
+        status: undefined,
       }
 
       const endpoint = mode === 'create' ? '/api/events' : `/api/events/${form.id}`
@@ -1201,9 +1247,12 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
       : null
   const bannerImageSrc = bannerPreviewSrc || remoteBannerPreviewSrc || form.coverImage || null
   const bottomImageSrc = bottomPreviewSrc || remoteBottomPreviewSrc || form.bottomImage || null
+  const isBannerDropActive = activeDropTarget === 'coverImage'
+  const isBottomDropActive = activeDropTarget === 'bottomImage'
 
   const canEditCoverImage = Boolean(bannerImageSrc || editableImageFiles.coverImage || originalImageFiles.coverImage)
   const canEditBottomImage = Boolean(bottomImageSrc || editableImageFiles.bottomImage || originalImageFiles.bottomImage)
+  const isPublishedEvent = mode === 'edit' && form.status === 'PUBLISHED'
 
   return (
     <div className="space-y-8 px-1 sm:px-0">
@@ -1219,51 +1268,95 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
         </div>
       ) : null}
 
-      <section className="aspect-[16/9] overflow-hidden rounded-xl border-4 border-blue-500 bg-gray-900">
+      <input
+        ref={bannerInputRef}
+        id="coverImageUpload"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={(event) => onImageSelected(event, 'coverImage')}
+        className="hidden"
+        disabled={isUploadingBanner}
+      />
+      <button
+        type="button"
+        onClick={() => bannerInputRef.current?.click()}
+        disabled={isUploadingBanner}
+        onDragEnter={(event) => onImageDragEnter(event, 'coverImage')}
+        onDragOver={(event) => onImageDragOver(event, 'coverImage')}
+        onDragLeave={(event) => onImageDragLeave(event, 'coverImage')}
+        onDrop={(event) => {
+          void onImageDrop(event, 'coverImage')
+        }}
+        aria-label={bannerImageSrc ? 'Change banner image' : 'Add banner image'}
+        className={`group relative block aspect-[16/9] w-full cursor-pointer overflow-hidden rounded-xl border-4 bg-gray-900 text-left transition-shadow duration-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
+          isBannerDropActive
+            ? 'border-blue-500 ring-2 ring-blue-500/40'
+            : bannerImageSrc
+              ? 'border-blue-500'
+              : 'border-dashed border-blue-400'
+        }`}
+      >
         {bannerImageSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={bannerImageSrc} alt="Event banner" className="h-full w-full object-cover" />
+          <img
+            src={bannerImageSrc}
+            alt="Event banner"
+            className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.01] group-hover:brightness-95 group-focus-visible:brightness-95"
+          />
         ) : (
           <div className="h-full w-full bg-gradient-to-r from-slate-700 to-slate-900" />
         )}
-      </section>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          ref={bannerInputRef}
-          id="coverImageUpload"
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          onChange={(event) => onImageSelected(event, 'coverImage')}
-          className="hidden"
-          disabled={isUploadingBanner}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => bannerInputRef.current?.click()}
-          isLoading={isUploadingBanner}
-        >
-          Add banner image
-        </Button>
-        {canEditCoverImage ? (
-          <Button
-            type="button"
-            variant="outline"
-            isLoading={isPreparingCrop === 'coverImage'}
-            onClick={() => {
-              void openExistingCrop('coverImage', bannerImageSrc)
-            }}
+        {bannerImageSrc ? (
+          <div
+            className={`pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 p-4 transition-opacity duration-200 ${
+              isUploadingBanner || isBannerDropActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+            }`}
           >
-            Edit / Crop banner
-          </Button>
-        ) : null}
-        {croppedImageFiles.coverImage ? (
-          <Button type="button" variant="outline" onClick={() => void resetImageToOriginal('coverImage')}>
-            Reset banner
-          </Button>
-        ) : null}
-      </div>
+            <span className="inline-flex rounded-md bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
+              {isUploadingBanner ? 'Uploading...' : isBannerDropActive ? 'Drop banner image' : 'Click to change banner image'}
+            </span>
+          </div>
+        ) : (
+          <div
+            className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center transition-colors duration-200 ${
+              isUploadingBanner || isBannerDropActive
+                ? 'bg-black/55'
+                : 'bg-black/30 group-hover:bg-black/40 group-focus-visible:bg-black/40'
+            }`}
+          >
+            <Upload className="h-5 w-5 text-white/90" aria-hidden="true" />
+            <p className="text-base font-medium text-white">
+              {isUploadingBanner ? 'Uploading...' : isBannerDropActive ? 'Drop banner image' : 'Click to add banner image'}
+            </p>
+            <p className="text-xs text-gray-200">
+              {isUploadingBanner ? 'Please wait...' : isBannerDropActive ? 'Release to upload' : 'or drag and drop'}
+            </p>
+          </div>
+        )}
+      </button>
+
+      {canEditCoverImage || croppedImageFiles.coverImage ? (
+        <div className="flex flex-wrap gap-3">
+          {canEditCoverImage ? (
+            <Button
+              type="button"
+              variant="outline"
+              isLoading={isPreparingCrop === 'coverImage'}
+              onClick={() => {
+                void openExistingCrop('coverImage', bannerImageSrc)
+              }}
+            >
+              Edit / Crop banner
+            </Button>
+          ) : null}
+          {croppedImageFiles.coverImage ? (
+            <Button type="button" variant="outline" onClick={() => void resetImageToOriginal('coverImage')}>
+              Reset banner
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {fieldErrors.coverImage ? <p className="text-sm text-red-600">{fieldErrors.coverImage}</p> : null}
 
       <section className="space-y-5 border-b border-gray-300 pb-6">
@@ -1520,53 +1613,95 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
 
       <section className="space-y-5 border-b border-gray-300 pb-6">
         <h3 className="text-3xl font-semibold text-gray-900">Bottom Visual</h3>
-        {bottomImageSrc ? (
-          <div className="aspect-[16/9] overflow-hidden rounded-xl bg-gray-900">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={bottomImageSrc} alt="Event bottom visual" className="h-full w-full object-cover" />
-          </div>
-        ) : (
-          <div className="flex aspect-[16/9] items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-500">
-            No bottom image selected.
-          </div>
-        )}
+        <input
+          ref={bottomInputRef}
+          id="bottomImageUpload"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          onChange={(event) => onImageSelected(event, 'bottomImage')}
+          className="hidden"
+          disabled={isUploadingBottom}
+        />
+        <button
+          type="button"
+          onClick={() => bottomInputRef.current?.click()}
+          disabled={isUploadingBottom}
+          onDragEnter={(event) => onImageDragEnter(event, 'bottomImage')}
+          onDragOver={(event) => onImageDragOver(event, 'bottomImage')}
+          onDragLeave={(event) => onImageDragLeave(event, 'bottomImage')}
+          onDrop={(event) => {
+            void onImageDrop(event, 'bottomImage')
+          }}
+          aria-label={bottomImageSrc ? 'Change bottom visual image' : 'Add bottom visual image'}
+          className={`group relative block aspect-[16/9] w-full cursor-pointer overflow-hidden rounded-xl border-4 bg-gray-900 text-left transition-shadow duration-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
+            isBottomDropActive
+              ? 'border-blue-500 ring-2 ring-blue-500/40'
+              : bottomImageSrc
+                ? 'border-blue-500'
+                : 'border-dashed border-blue-400'
+          }`}
+        >
+          {bottomImageSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={bottomImageSrc}
+              alt="Event bottom visual"
+              className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.01] group-hover:brightness-95 group-focus-visible:brightness-95"
+            />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-r from-slate-700 to-slate-900" />
+          )}
 
-        <div className="flex flex-wrap gap-3">
-          <input
-            ref={bottomInputRef}
-            id="bottomImageUpload"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            onChange={(event) => onImageSelected(event, 'bottomImage')}
-            className="hidden"
-            disabled={isUploadingBottom}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => bottomInputRef.current?.click()}
-            isLoading={isUploadingBottom}
-          >
-            Add bottom image
-          </Button>
-          {canEditBottomImage ? (
-            <Button
-              type="button"
-              variant="outline"
-              isLoading={isPreparingCrop === 'bottomImage'}
-              onClick={() => {
-                void openExistingCrop('bottomImage', bottomImageSrc)
-              }}
+          {bottomImageSrc ? (
+            <div
+              className={`pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 p-4 transition-opacity duration-200 ${
+                isUploadingBottom || isBottomDropActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+              }`}
             >
-              Edit / Crop bottom image
-            </Button>
-          ) : null}
-          {croppedImageFiles.bottomImage ? (
-            <Button type="button" variant="outline" onClick={() => void resetImageToOriginal('bottomImage')}>
-              Reset bottom image
-            </Button>
-          ) : null}
-        </div>
+              <span className="inline-flex rounded-md bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
+                {isUploadingBottom ? 'Uploading...' : isBottomDropActive ? 'Drop bottom visual' : 'Click to change bottom visual'}
+              </span>
+            </div>
+          ) : (
+            <div
+              className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center transition-colors duration-200 ${
+                isUploadingBottom || isBottomDropActive
+                  ? 'bg-black/55'
+                  : 'bg-black/30 group-hover:bg-black/40 group-focus-visible:bg-black/40'
+              }`}
+            >
+              <Upload className="h-5 w-5 text-white/90" aria-hidden="true" />
+              <p className="text-base font-medium text-white">
+                {isUploadingBottom ? 'Uploading...' : isBottomDropActive ? 'Drop bottom visual' : 'Click to add bottom visual'}
+              </p>
+              <p className="text-xs text-gray-200">
+                {isUploadingBottom ? 'Please wait...' : isBottomDropActive ? 'Release to upload' : 'or drag and drop'}
+              </p>
+            </div>
+          )}
+        </button>
+
+        {canEditBottomImage || croppedImageFiles.bottomImage ? (
+          <div className="flex flex-wrap gap-3">
+            {canEditBottomImage ? (
+              <Button
+                type="button"
+                variant="outline"
+                isLoading={isPreparingCrop === 'bottomImage'}
+                onClick={() => {
+                  void openExistingCrop('bottomImage', bottomImageSrc)
+                }}
+              >
+                Edit / Crop bottom image
+              </Button>
+            ) : null}
+            {croppedImageFiles.bottomImage ? (
+              <Button type="button" variant="outline" onClick={() => void resetImageToOriginal('bottomImage')}>
+                Reset bottom image
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {fieldErrors.bottomImage ? <p className="text-sm text-red-600">{fieldErrors.bottomImage}</p> : null}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1619,12 +1754,20 @@ export function EventForm({ mode, initialData, children }: EventFormProps) {
         <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button onClick={() => submit('save')} isLoading={isSubmitting}>
-          Save Draft
-        </Button>
-        <Button variant="outline" onClick={() => submit('publish')} isLoading={isSubmitting}>
-          Save and Publish
-        </Button>
+        {isPublishedEvent ? (
+          <Button onClick={() => submit('save')} isLoading={isSubmitting}>
+            Save changes
+          </Button>
+        ) : (
+          <>
+            <Button onClick={() => submit('save')} isLoading={isSubmitting}>
+              Save draft
+            </Button>
+            <Button variant="outline" onClick={() => submit('publish')} isLoading={isSubmitting}>
+              Publish event
+            </Button>
+          </>
+        )}
       </div>
 
       {cropSession ? (

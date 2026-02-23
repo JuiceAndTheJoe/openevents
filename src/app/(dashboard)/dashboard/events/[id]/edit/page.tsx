@@ -126,6 +126,7 @@ export default async function EditEventPage({ params }: PageProps) {
         initialData={{
           id: event.id,
           slug: event.slug,
+          status: event.status,
           ticketTypes: event.ticketTypes.map((ticketType) => ({
             id: ticketType.id,
             name: ticketType.name,
