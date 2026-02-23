@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "prisma generate && next build",
-    "start": "next start",
+    "prestart": "npm run build",
+    "start": "next start -p ${PORT:-8080}",
     "lint": "eslint",
     "test:currencies": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/check-currencies.ts",
     "db:generate": "prisma generate",

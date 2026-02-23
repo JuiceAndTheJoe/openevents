@@ -72,10 +72,10 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
     notFound()
   }
 
-  const isOwnerOrAdmin =
-    user !== undefined &&
-    hasRole(user.roles, ['ORGANIZER', 'SUPER_ADMIN']) &&
-    (hasRole(user.roles, 'SUPER_ADMIN') || user.id === event.organizer.userId)
+  const isOwnerOrAdmin = user
+    ? hasRole(user.roles, ['ORGANIZER', 'SUPER_ADMIN']) &&
+      (hasRole(user.roles, 'SUPER_ADMIN') || user.id === event.organizer.userId)
+    : false
 
   if (event.status !== 'PUBLISHED' && !isOwnerOrAdmin) {
     notFound()
