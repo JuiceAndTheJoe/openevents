@@ -39,9 +39,11 @@ export function AccountSettings({ userEmail, connectedAccounts, updateEmailActio
 
       <form action={deleteAccountAction} className="space-y-4 rounded-xl border border-red-200 bg-red-50 p-6">
         <h2 className="text-lg font-semibold text-red-900">Delete Account</h2>
-        <p className="text-sm text-red-800">This will remove your account and organizer profile. This action cannot be undone.</p>
+        <p className="text-sm text-red-800">
+          We will email you a confirmation link before deletion. Your request stays pending for 30 days unless you confirm.
+        </p>
         <input type="hidden" name="confirm" value="true" />
-        <Button type="submit" variant="destructive">Delete Account</Button>
+        <Button type="submit" variant="destructive">Send Deletion Confirmation Email</Button>
       </form>
 
       <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-6">

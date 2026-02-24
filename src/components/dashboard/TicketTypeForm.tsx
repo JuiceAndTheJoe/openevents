@@ -13,6 +13,7 @@ type TicketTypeFormProps = {
     description: string | null
     price: number
     currency: string
+    soldCount: number
     maxCapacity: number | null
     minPerOrder: number
     maxPerOrder: number
@@ -69,6 +70,11 @@ export function TicketTypeForm({ title, submitLabel, action, initial }: TicketTy
         <div>
           <Label htmlFor={`${title}-capacity`}>Max Capacity</Label>
           <Input id={`${title}-capacity`} name="maxCapacity" type="number" min="1" defaultValue={initial?.maxCapacity ?? ''} placeholder="Leave empty for unlimited" />
+          {initial ? (
+            <p className="mt-1 text-xs text-gray-500">
+              Currently sold: {initial.soldCount}
+            </p>
+          ) : null}
         </div>
         <div>
           <Label htmlFor={`${title}-visible`}>Visibility</Label>

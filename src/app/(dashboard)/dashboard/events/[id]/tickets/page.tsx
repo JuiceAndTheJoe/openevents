@@ -208,6 +208,7 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
                   description: editableTicketType.description,
                   price: Number(editableTicketType.price.toString()),
                   currency: editableTicketType.currency,
+                  soldCount: editableTicketType.soldCount,
                   maxCapacity: editableTicketType.maxCapacity,
                   minPerOrder: editableTicketType.minPerOrder,
                   maxPerOrder: editableTicketType.maxPerOrder,

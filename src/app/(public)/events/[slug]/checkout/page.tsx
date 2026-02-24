@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { CheckoutForm } from '@/components/tickets/CheckoutForm'
 import { Card, CardContent } from '@/components/ui/card'
@@ -47,8 +47,16 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       ticketType.maxCapacity - ticketType.soldCount - ticketType.reservedCount > 0
   )
 
-  if (event.status !== 'PUBLISHED' || event.startDate <= now || !hasRemainingCapacity) {
-    notFound()
+  if (event.status !== 'PUBLISHED') {
+    redirect(`/events/${event.slug}?notice=checkout-unavailable-status`)
+  }
+
+  if (event.startDate <= now) {
+    redirect(`/events/${event.slug}?notice=checkout-unavailable-ended`)
+  }
+
+  if (!hasRemainingCapacity) {
+    redirect(`/events/${event.slug}?notice=checkout-unavailable-sold-out`)
   }
 
   const location =

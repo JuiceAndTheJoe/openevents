@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from './config'
 import { Role } from '@prisma/client'
+import { prisma } from '@/lib/db'
 
 export { authOptions } from './config'
 export * from './permissions'
@@ -19,6 +20,19 @@ export async function requireAuth() {
   if (!user) {
     throw new Error('Unauthorized')
   }
+
+  const activeUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true,
+      deletedAt: true,
+    },
+  })
+
+  if (!activeUser || activeUser.deletedAt) {
+    throw new Error('Unauthorized')
+  }
+
   return user
 }
 

@@ -110,9 +110,25 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
     timeZoneName: 'short',
   }).format(event.startDate)
   const notice = firstQueryValue(query.notice)
-  const noticeMessage = notice === 'created' || notice === 'updated'
-    ? `Event ${notice}`
-    : null
+  const noticeMessage = (() => {
+    if (notice === 'created' || notice === 'updated') {
+      return `Event ${notice}`
+    }
+
+    if (notice === 'checkout-unavailable-status') {
+      return 'Checkout is unavailable because this event is not published.'
+    }
+
+    if (notice === 'checkout-unavailable-ended') {
+      return 'Checkout is unavailable because this event has already started.'
+    }
+
+    if (notice === 'checkout-unavailable-sold-out') {
+      return 'Checkout is unavailable because all ticket types are sold out.'
+    }
+
+    return null
+  })()
 
   const speakerNames: string[] = []
   const organizerNames: string[] = []

@@ -1,10 +1,15 @@
 import bcrypt from 'bcryptjs'
-import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { AccountSettings } from '@/components/dashboard/AccountSettings'
+import { sendEmail } from '@/lib/email'
+import { generateToken } from '@/lib/utils'
+
+const ACCOUNT_DELETION_GRACE_PERIOD_DAYS = 30
+const ACCOUNT_DELETION_CONFIRM_TOKEN_PREFIX = 'account-delete-confirm:'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 export default async function AccountSettingsPage() {
   const user = await requireRole('ORGANIZER')
@@ -80,57 +85,61 @@ export default async function AccountSettingsPage() {
     void formData
 
     const currentUser = await requireRole('ORGANIZER')
-    const now = new Date()
-    const anonymizedEmail = `deleted+${currentUser.id}-${now.getTime()}@openevents.invalid`
+    const dbDeletionUser = await prisma.user.findUnique({
+      where: { id: currentUser.id },
+      select: {
+        id: true,
+        email: true,
+        deletedAt: true,
+      },
+    })
+
+    if (!dbDeletionUser) {
+      redirect('/login')
+    }
+
+    if (dbDeletionUser.deletedAt) {
+      revalidatePath('/dashboard/settings/account')
+      return
+    }
+
+    const verificationToken = generateToken()
+    const tokenExpiresAt = new Date(
+      Date.now() + ACCOUNT_DELETION_GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000
+    )
+    const confirmUrl = `${APP_URL}/api/account/delete/confirm?token=${verificationToken}`
 
     await prisma.$transaction(async (tx) => {
-      await tx.session.deleteMany({
-        where: { userId: currentUser.id },
-      })
-
-      await tx.account.deleteMany({
-        where: { userId: currentUser.id },
-      })
-
       await tx.userVerificationToken.deleteMany({
-        where: { userId: currentUser.id },
+        where: {
+          userId: currentUser.id,
+          token: {
+            startsWith: ACCOUNT_DELETION_CONFIRM_TOKEN_PREFIX,
+          },
+        },
       })
 
-      await tx.passwordResetToken.deleteMany({
-        where: { userId: currentUser.id },
-      })
-
-      await tx.userRole.deleteMany({
-        where: { userId: currentUser.id },
-      })
-
-      await tx.user.update({
-        where: { id: currentUser.id },
+      await tx.userVerificationToken.create({
         data: {
-          email: anonymizedEmail,
-          firstName: null,
-          lastName: null,
-          passwordHash: null,
-          emailVerified: null,
-          deletedAt: now,
-          anonymizedAt: now,
+          userId: currentUser.id,
+          token: `${ACCOUNT_DELETION_CONFIRM_TOKEN_PREFIX}${verificationToken}`,
+          expires: tokenExpiresAt,
         },
       })
     })
 
-    const cookieStore = await cookies()
-    const sessionCookieNames = [
-      'next-auth.session-token',
-      '__Secure-next-auth.session-token',
-      'authjs.session-token',
-      '__Secure-authjs.session-token',
-    ]
-
-    for (const cookieName of sessionCookieNames) {
-      cookieStore.delete(cookieName)
-    }
-
-    redirect('/events')
+    await sendEmail({
+      to: dbDeletionUser.email,
+      subject: 'Confirm your OpenEvents account deletion',
+      html: `
+        <p>We received a request to delete your OpenEvents account.</p>
+        <p>To confirm deletion, use the link below. This confirmation link stays valid for ${ACCOUNT_DELETION_GRACE_PERIOD_DAYS} days.</p>
+        <p><a href="${confirmUrl}">${confirmUrl}</a></p>
+        <p>If you did not request account deletion, ignore this email and no account changes will be made.</p>
+      `,
+      text: `We received a request to delete your OpenEvents account. Confirm deletion here: ${confirmUrl}. If you did not request this, ignore this email.`,
+    })
+    revalidatePath('/dashboard/settings/account')
   }
 
   return (

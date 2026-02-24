@@ -70,6 +70,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Invalid email or password')
         }
 
+        if (user.deletedAt) {
+          throw new Error('This account is no longer available')
+        }
+
         if (!user.emailVerified) {
           throw new Error('Please verify your email before logging in')
         }
