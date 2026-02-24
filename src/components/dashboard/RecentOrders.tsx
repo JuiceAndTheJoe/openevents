@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { OrderStatus } from '@prisma/client'
+import { getTranslations } from 'next-intl/server'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 
 type RecentOrdersProps = {
@@ -18,15 +19,17 @@ type RecentOrdersProps = {
   }>
 }
 
-export function RecentOrders({ orders }: RecentOrdersProps) {
+export async function RecentOrders({ orders }: RecentOrdersProps) {
+  const t = await getTranslations('dashboard.recentOrders')
+
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
+        <h2 className="text-lg font-semibold text-gray-900">{t('title')}</h2>
       </div>
 
       {orders.length === 0 ? (
-        <p className="text-sm text-gray-600">No orders yet.</p>
+        <p className="text-sm text-gray-600">{t('noOrders')}</p>
       ) : (
         <div className="space-y-3">
           {orders.map((order) => (

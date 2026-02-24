@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server'
 import { formatCurrency } from '@/lib/utils'
 
 type DashboardStatsProps = {
@@ -11,14 +12,16 @@ type DashboardStatsProps = {
   }
 }
 
-export function DashboardStats({ stats }: DashboardStatsProps) {
+export async function DashboardStats({ stats }: DashboardStatsProps) {
+  const t = await getTranslations('dashboard.stats')
+
   const cards = [
-    { label: 'Total Events', value: String(stats.totalEvents) },
-    { label: 'Published', value: String(stats.publishedEvents) },
-    { label: 'Draft', value: String(stats.draftEvents) },
-    { label: 'Upcoming', value: String(stats.upcomingEvents) },
-    { label: 'Tickets Sold', value: String(stats.totalTicketsSold) },
-    { label: 'Revenue', value: formatCurrency(stats.totalRevenue) },
+    { label: t('totalEvents'), value: String(stats.totalEvents) },
+    { label: t('published'), value: String(stats.publishedEvents) },
+    { label: t('draft'), value: String(stats.draftEvents) },
+    { label: t('upcoming'), value: String(stats.upcomingEvents) },
+    { label: t('ticketsSold'), value: String(stats.totalTicketsSold) },
+    { label: t('revenue'), value: formatCurrency(stats.totalRevenue) },
   ]
 
   return (
