@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type DashboardOrderDetails } from '@/components/dashboard/OrderDetails'
@@ -22,6 +23,7 @@ interface OrderListProps {
 }
 
 export function OrderList({ orders }: OrderListProps) {
+  const t = useTranslations('myTickets')
   const router = useRouter()
   const [actionOrderId, setActionOrderId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -42,14 +44,14 @@ export function OrderList({ orders }: OrderListProps) {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Failed to cancel order')
+        setError(data.error || t('cancelFailed'))
         return
       }
 
       router.refresh()
     } catch (cancelError) {
       console.error('Failed to cancel order', cancelError)
-      setError('Failed to cancel order')
+      setError(t('cancelFailed'))
     } finally {
       setActionOrderId(null)
     }
@@ -60,9 +62,9 @@ export function OrderList({ orders }: OrderListProps) {
       <Card>
         <CardContent className="p-6">
           <div className="space-y-3">
-            <p className="text-sm text-gray-500">You have not purchased any tickets yet.</p>
+            <p className="text-sm text-gray-500">{t('empty')}</p>
             <Link href="/events">
-              <Button variant="outline" size="sm">Browse events</Button>
+              <Button variant="outline" size="sm">{t('browseEvents')}</Button>
             </Link>
           </div>
         </CardContent>
@@ -90,7 +92,7 @@ export function OrderList({ orders }: OrderListProps) {
               }
             }}
             className="cursor-pointer rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-            aria-label={`View tickets for ${order.event.title}`}
+            aria-label={t('ariaViewTickets', { title: order.event.title })}
           >
             <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
               <div className="h-44 w-full bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -105,26 +107,26 @@ export function OrderList({ orders }: OrderListProps) {
               </div>
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl">{order.event.title}</CardTitle>
-                <p className="text-sm text-gray-600">Order #{order.orderNumber}</p>
+                <p className="text-sm text-gray-600">{t('orderNumber', { number: order.orderNumber })}</p>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-gray-700">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <p>
-                    <span className="font-medium text-gray-900">Status:</span> {order.status}
+                    <span className="font-medium text-gray-900">{t('statusLabel')}:</span> {order.status}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-900">Event Date:</span>{' '}
+                    <span className="font-medium text-gray-900">{t('eventDateLabel')}:</span>{' '}
                     {new Date(order.event.startDate).toLocaleString()}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-900">Total:</span> {order.totalAmount} {order.currency}
+                    <span className="font-medium text-gray-900">{t('totalLabel')}:</span> {order.totalAmount} {order.currency}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                   <Link href={`/events/${order.event.slug}`} onClick={(event) => event.stopPropagation()}>
                     <Button type="button" variant="outline" size="sm">
-                      View Event
+                      {t('viewEvent')}
                     </Button>
                   </Link>
 
@@ -139,7 +141,7 @@ export function OrderList({ orders }: OrderListProps) {
                       }}
                       isLoading={actionOrderId === order.id}
                     >
-                      Cancel Order
+                      {t('cancelOrder')}
                     </Button>
                   )}
                 </div>

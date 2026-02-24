@@ -218,9 +218,23 @@
   },
   "myTickets": {
     "title": "Mina biljetter",
-    "subtitle": "Visa dina biljettbeställningar och eventbekräftelser."
+    "subtitle": "Visa dina biljettbeställningar och eventbekräftelser.",
+    "empty": "Du har inte köpt några biljetter ännu.",
+    "browseEvents": "Bläddra bland evenemang",
+    "orderNumber": "Beställning #{number}",
+    "ariaViewTickets": "Visa biljetter för {title}",
+    "statusLabel": "Status",
+    "eventDateLabel": "Evenemangsdatum",
+    "totalLabel": "Totalt",
+    "viewEvent": "Visa evenemang",
+    "cancelOrder": "Avbryt beställning",
+    "cancelFailed": "Det gick inte att avbryta beställningen"
   },
   "dashboard": {
+    "layout": {
+      "organizerHeading": "Arrangör",
+      "roleRequired": "Arrangörsrollen krävs för att komma åt instrumentpanelen."
+    },
     "home": {
       "welcome": "Välkommen, {name}",
       "subtitle": "Översikt av dina evenemang, beställningar och intäkter."
@@ -544,5 +558,27 @@
     "switcherLabel": "Språk",
     "en": "English",
     "sv": "Svenska"
+  },
+  "profile": {
+    "title": "Profil",
+    "photoLabel": "Profilfoto",
+    "noPhoto": "Inget foto",
+    "addFileButton": "Lägg till fil",
+    "firstNameLabel": "Förnamn",
+    "lastNameLabel": "Efternamn",
+    "emailLabel": "E-post",
+    "saveButton": "Spara ändringar",
+    "changePasswordTitle": "Byt lösenord",
+    "currentPasswordLabel": "Nuvarande lösenord",
+    "newPasswordLabel": "Nytt lösenord",
+    "confirmPasswordLabel": "Bekräfta nytt lösenord",
+    "updatePasswordButton": "Uppdatera lösenord",
+    "avatarAlt": "Profil",
+    "errorUploadImage": "Det gick inte att ladda upp bilden.",
+    "errorSaveImage": "Det gick inte att spara profilbilden.",
+    "errorImageFormat": "Välj en JPG-, PNG-, WEBP- eller GIF-bild.",
+    "errorUpdateProfile": "Det gick inte att uppdatera profilen.",
+    "errorPasswordMatch": "Lösenorden matchar inte.",
+    "errorUpdatePassword": "Det gick inte att uppdatera lösenordet."
   }
 }
