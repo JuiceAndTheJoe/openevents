@@ -12,13 +12,9 @@ export async function getSession() {
 
 export async function getCurrentUser() {
   const session = await getSession()
-  return session?.user
-}
-
-export async function requireAuth() {
-  const user = await getCurrentUser()
+  const user = session?.user
   if (!user) {
-    throw new Error('Unauthorized')
+    return null
   }
 
   const activeUser = await prisma.user.findUnique({
@@ -30,9 +26,17 @@ export async function requireAuth() {
   })
 
   if (!activeUser || activeUser.deletedAt) {
-    throw new Error('Unauthorized')
+    return null
   }
 
+  return user
+}
+
+export async function requireAuth() {
+  const user = await getCurrentUser()
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
   return user
 }
 

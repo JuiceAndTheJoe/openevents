@@ -1,11 +1,40 @@
 import { NextResponse } from 'next/server'
 import { TicketStatus, Prisma } from '@prisma/client'
-import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/db'
 import { requireOrganizerProfile } from '@/lib/dashboard/organizer'
 
 type RouteContext = {
   params: Promise<{ id: string }>
+}
+
+type ExcelWorkbook = {
+  addWorksheet: (name: string) => {
+    columns: Array<{ header: string; key: string; width: number }>
+    getRow: (row: number) => { font: { bold: boolean } }
+    addRow: (row: Record<string, unknown>) => void
+  }
+  xlsx: {
+    writeBuffer: () => Promise<ArrayBuffer>
+  }
+}
+
+async function createWorkbook(): Promise<ExcelWorkbook> {
+  const moduleName = 'exceljs'
+  const runtimeImport = new Function(
+    'modulePath',
+    'return import(modulePath)'
+  ) as (modulePath: string) => Promise<unknown>
+  const excelModule = await runtimeImport(moduleName)
+  const excelDefault = (excelModule as { default?: { Workbook?: new () => ExcelWorkbook } }).default
+  const ExcelCtor =
+    excelDefault?.Workbook ??
+    (excelModule as unknown as { Workbook?: new () => ExcelWorkbook }).Workbook
+
+  if (!ExcelCtor) {
+    throw new Error('excel_export_unavailable')
+  }
+
+  return new ExcelCtor()
 }
 
 export async function GET(request: Request, context: RouteContext) {
@@ -87,7 +116,7 @@ export async function GET(request: Request, context: RouteContext) {
     })
 
     // Build Excel workbook
-    const workbook = new ExcelJS.Workbook()
+    const workbook = await createWorkbook()
     const sheet = workbook.addWorksheet('Attendees')
 
     // Column headers matching the reference format
@@ -193,6 +222,10 @@ export async function GET(request: Request, context: RouteContext) {
 
       if (error.message.includes('Forbidden')) {
         return NextResponse.json({ error: error.message }, { status: 403 })
+      }
+
+      if (error.message === 'excel_export_unavailable') {
+        return NextResponse.json({ error: 'Excel export is temporarily unavailable' }, { status: 503 })
       }
     }
 

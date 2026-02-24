@@ -160,7 +160,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    const canManageOrder = order.userId === user.id || order.event.organizer.userId === user.id
+    const canManageOrder =
+      order.userId === user.id ||
+      order.event.organizer.userId === user.id ||
+      hasRole(user.roles, 'SUPER_ADMIN')
     if (!canManageOrder) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
