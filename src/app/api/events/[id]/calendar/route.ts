@@ -4,7 +4,9 @@
  * Returns an .ics file for the event that can be imported into
  * Google Calendar, Apple Calendar, Outlook, etc.
  *
- * GET /api/events/[slug]/calendar
+ * GET /api/events/[id]/calendar
+ *
+ * Note: The `id` parameter can be either an event ID or slug.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
@@ -48,15 +50,17 @@ function foldLine(line: string): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { slug } = await params
+    const { id } = await params
 
-    const event = await prisma.event.findUnique({
-      where: { slug },
+    // Try to find by slug first, then by ID
+    let event = await prisma.event.findUnique({
+      where: { slug: id },
       select: {
         id: true,
+        slug: true,
         title: true,
         description: true,
         startDate: true,
@@ -83,6 +87,41 @@ export async function GET(
         },
       },
     })
+
+    // If not found by slug, try by ID
+    if (!event) {
+      event = await prisma.event.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          startDate: true,
+          endDate: true,
+          timezone: true,
+          locationType: true,
+          venue: true,
+          address: true,
+          city: true,
+          state: true,
+          country: true,
+          onlineUrl: true,
+          organizer: {
+            select: {
+              orgName: true,
+              user: {
+                select: {
+                  email: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          },
+        },
+      })
+    }
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
@@ -138,7 +177,7 @@ export async function GET(
 
     // Add URL to the event page
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    icalLines.push(`URL:${appUrl}/events/${slug}`)
+    icalLines.push(`URL:${appUrl}/events/${event.slug}`)
 
     icalLines.push('END:VEVENT', 'END:VCALENDAR')
 
@@ -149,7 +188,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${slug}.ics"`,
+        'Content-Disposition': `attachment; filename="${event.slug}.ics"`,
         'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
       },
     })
