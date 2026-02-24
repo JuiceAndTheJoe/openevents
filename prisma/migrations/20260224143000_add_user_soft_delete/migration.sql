@@ -1,0 +1,3 @@
+ALTER TABLE "users"
+ADD COLUMN "deletedAt" TIMESTAMP(3),
+ADD COLUMN "anonymizedAt" TIMESTAMP(3);

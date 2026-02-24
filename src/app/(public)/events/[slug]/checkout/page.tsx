@@ -26,10 +26,28 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       onlineUrl: true,
       coverImage: true,
       status: true,
+      ticketTypes: {
+        select: {
+          maxCapacity: true,
+          soldCount: true,
+          reservedCount: true,
+        },
+      },
     },
   })
 
   if (!event) {
+    notFound()
+  }
+
+  const now = new Date()
+  const hasRemainingCapacity = event.ticketTypes.some(
+    (ticketType) =>
+      ticketType.maxCapacity === null ||
+      ticketType.maxCapacity - ticketType.soldCount - ticketType.reservedCount > 0
+  )
+
+  if (event.status !== 'PUBLISHED' || event.startDate <= now || !hasRemainingCapacity) {
     notFound()
   }
 

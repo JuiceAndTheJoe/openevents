@@ -80,9 +80,42 @@ export default async function AccountSettingsPage() {
     void formData
 
     const currentUser = await requireRole('ORGANIZER')
+    const now = new Date()
+    const anonymizedEmail = `deleted+${currentUser.id}-${now.getTime()}@openevents.invalid`
 
-    await prisma.user.delete({
-      where: { id: currentUser.id },
+    await prisma.$transaction(async (tx) => {
+      await tx.session.deleteMany({
+        where: { userId: currentUser.id },
+      })
+
+      await tx.account.deleteMany({
+        where: { userId: currentUser.id },
+      })
+
+      await tx.userVerificationToken.deleteMany({
+        where: { userId: currentUser.id },
+      })
+
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: currentUser.id },
+      })
+
+      await tx.userRole.deleteMany({
+        where: { userId: currentUser.id },
+      })
+
+      await tx.user.update({
+        where: { id: currentUser.id },
+        data: {
+          email: anonymizedEmail,
+          firstName: null,
+          lastName: null,
+          passwordHash: null,
+          emailVerified: null,
+          deletedAt: now,
+          anonymizedAt: now,
+        },
+      })
     })
 
     const cookieStore = await cookies()

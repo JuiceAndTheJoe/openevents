@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/auth'
+import { hasRole, requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { lockTicketTypes } from '@/lib/orders'
 import { isCancellationDeadlinePassed } from '@/lib/utils'
@@ -23,6 +23,7 @@ const cancelOrderInputSchema = z.object({
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id: orderId } = await context.params
+    const user = await requireAuth()
 
     // Find the order
     const order = await prisma.order.findUnique({
@@ -31,6 +32,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
         event: {
           select: {
             slug: true,
+            organizer: {
+              select: {
+                userId: true,
+              },
+            },
           },
         },
         items: {
@@ -44,6 +50,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     if (!order) {
       return NextResponse.redirect(`${APP_URL}?error=order_not_found`)
+    }
+
+    const isOwner = order.userId === user.id
+    const isSuperAdmin = hasRole(user.roles, 'SUPER_ADMIN')
+    const isOrganizer = order.event.organizer?.userId === user.id
+
+    if (!isOwner && !isSuperAdmin && !isOrganizer) {
+      return NextResponse.redirect(`${APP_URL}/checkout-error?error=forbidden`)
     }
 
     // If already paid or cancelled, redirect appropriately

@@ -66,6 +66,13 @@ export async function POST(request: NextRequest) {
             country: true,
             onlineUrl: true,
             status: true,
+            ticketTypes: {
+              select: {
+                maxCapacity: true,
+                soldCount: true,
+                reservedCount: true,
+              },
+            },
           },
         })
 
@@ -73,8 +80,22 @@ export async function POST(request: NextRequest) {
           throw new Error('Event not found')
         }
 
-        if (event.status === 'CANCELLED' || event.status === 'COMPLETED') {
-          throw new Error('Event is not open for ticket sales')
+        if (event.status !== 'PUBLISHED') {
+          throw new Error('Event is not published')
+        }
+
+        if (event.startDate <= new Date()) {
+          throw new Error('Event has already started')
+        }
+
+        const hasRemainingCapacity = event.ticketTypes.some(
+          (ticketType) =>
+            ticketType.maxCapacity === null ||
+            ticketType.maxCapacity - ticketType.soldCount - ticketType.reservedCount > 0
+        )
+
+        if (!hasRemainingCapacity) {
+          throw new Error('Event has no ticket types with remaining capacity')
         }
 
         const ticketTypeIds = Array.from(new Set(input.items.map((item) => item.ticketTypeId)))
@@ -379,7 +400,9 @@ export async function POST(request: NextRequest) {
       const handledErrors = new Set([
         'Unauthorized',
         'Event not found',
-        'Event is not open for ticket sales',
+        'Event is not published',
+        'Event has already started',
+        'Event has no ticket types with remaining capacity',
         'One or more ticket types were not found for this event',
         'Discount code not found',
         'Discount code is inactive, expired, or fully used',
