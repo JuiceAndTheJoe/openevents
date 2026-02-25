@@ -7,6 +7,9 @@
     "build": "prisma generate && next build",
     "start": "next start -p ${PORT:-8080}",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:currencies": "npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/check-currencies.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -36,6 +39,7 @@
     "date-fns": "^4.1.0",
     "exceljs": "^4.4.0",
     "html5-qrcode": "^2.3.8",
+    "ioredis": "^5.9.3",
     "lucide-react": "^0.569.0",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
@@ -53,17 +57,23 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/bcryptjs": "^2.4.6",
+    "@types/ioredis": "^4.28.10",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.1.4",
     "eslint": "^9.39.0",
     "eslint-config-next": "^16.1.6",
+    "jsdom": "^28.1.0",
     "prisma": "^6.2.1",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }

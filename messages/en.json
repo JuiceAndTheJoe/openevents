@@ -218,9 +218,23 @@
   },
   "myTickets": {
     "title": "My Tickets",
-    "subtitle": "View your ticket orders and event confirmations."
+    "subtitle": "View your ticket orders and event confirmations.",
+    "empty": "You have not purchased any tickets yet.",
+    "browseEvents": "Browse events",
+    "orderNumber": "Order #{number}",
+    "ariaViewTickets": "View tickets for {title}",
+    "statusLabel": "Status",
+    "eventDateLabel": "Event Date",
+    "totalLabel": "Total",
+    "viewEvent": "View Event",
+    "cancelOrder": "Cancel Order",
+    "cancelFailed": "Failed to cancel order"
   },
   "dashboard": {
+    "layout": {
+      "organizerHeading": "Organizer",
+      "roleRequired": "Organizer role is required to access the dashboard."
+    },
     "home": {
       "welcome": "Welcome, {name}",
       "subtitle": "Overview of your events, orders, and revenue."
@@ -556,5 +570,27 @@
     "switcherLabel": "Language",
     "en": "English",
     "sv": "Svenska"
+  },
+  "profile": {
+    "title": "Profile",
+    "photoLabel": "Profile Photo",
+    "noPhoto": "No photo",
+    "addFileButton": "Add file",
+    "firstNameLabel": "First Name",
+    "lastNameLabel": "Last Name",
+    "emailLabel": "Email",
+    "saveButton": "Save Changes",
+    "changePasswordTitle": "Change Password",
+    "currentPasswordLabel": "Current Password",
+    "newPasswordLabel": "New Password",
+    "confirmPasswordLabel": "Confirm New Password",
+    "updatePasswordButton": "Update Password",
+    "avatarAlt": "Profile",
+    "errorUploadImage": "Could not upload image.",
+    "errorSaveImage": "Could not save profile image.",
+    "errorImageFormat": "Please select a JPG, PNG, WEBP, or GIF image.",
+    "errorUpdateProfile": "Could not update profile.",
+    "errorPasswordMatch": "Passwords do not match.",
+    "errorUpdatePassword": "Could not update password."
   }
 }

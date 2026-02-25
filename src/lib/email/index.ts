@@ -339,6 +339,107 @@ export async function sendEventCancellationEmail(
   })
 }
 
+export async function sendRefundConfirmationEmail(
+  email: string,
+  details: {
+    buyerName: string
+    orderNumber: string
+    eventTitle: string
+    refundAmount: string
+    currency: string
+    refundReason?: string
+  }
+): Promise<void> {
+  await sendEmail({
+    to: email,
+    subject: `Refund Processed - Order #${details.orderNumber}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Refund Processed</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #059669;">Refund Processed</h1>
+            <p>Hi ${details.buyerName},</p>
+            <p>Your refund has been processed successfully.</p>
+
+            <div style="background-color: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #059669;">
+              <h2 style="margin-top: 0; color: #047857;">${details.eventTitle}</h2>
+              <p><strong>Order Number:</strong> #${details.orderNumber}</p>
+              <p><strong>Refund Amount:</strong> ${details.refundAmount} ${details.currency}</p>
+              ${details.refundReason ? `<p><strong>Reason:</strong> ${details.refundReason}</p>` : ''}
+            </div>
+
+            <p>The refund should appear in your original payment method within 5-10 business days, depending on your bank or payment provider.</p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #666; font-size: 12px;">
+              If you have any questions about this refund, please contact the event organizer.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Refund Processed: Your refund of ${details.refundAmount} ${details.currency} for order #${details.orderNumber} (${details.eventTitle}) has been processed.`,
+  })
+}
+
+export async function sendOrderCancellationEmail(
+  email: string,
+  details: {
+    buyerName: string
+    orderNumber: string
+    eventTitle: string
+    eventDate: string
+    cancellationReason?: string
+  }
+): Promise<void> {
+  await sendEmail({
+    to: email,
+    subject: `Order Cancelled - #${details.orderNumber}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Order Cancelled</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #dc2626;">Order Cancelled</h1>
+            <p>Hi ${details.buyerName},</p>
+            <p>Your order has been cancelled.</p>
+
+            <div style="background-color: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
+              <h2 style="margin-top: 0; color: #991b1b;">${details.eventTitle}</h2>
+              <p><strong>Order Number:</strong> #${details.orderNumber}</p>
+              <p><strong>Event Date:</strong> ${details.eventDate}</p>
+              ${details.cancellationReason ? `<p><strong>Reason:</strong> ${details.cancellationReason}</p>` : ''}
+            </div>
+
+            <p>If you did not request this cancellation or have any questions, please contact the event organizer.</p>
+
+            <p style="text-align: center; margin: 30px 0;">
+              <a href="${APP_URL}/events" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                Browse More Events
+              </a>
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #666; font-size: 12px;">
+              This email confirms the cancellation of your order.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Order Cancelled: Your order #${details.orderNumber} for ${details.eventTitle} on ${details.eventDate} has been cancelled.`,
+  })
+}
+
 export async function sendAccountDeletionConfirmationEmail(
   email: string,
   details: {

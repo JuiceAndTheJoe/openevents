@@ -164,7 +164,7 @@ export async function createPayPalOrder(
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
-      'PayPal-Request-Id': `openevents-${options.orderId}-${Date.now()}`,
+      'PayPal-Request-Id': `openevents-create-${options.orderId}`,
     },
     body: JSON.stringify(payload),
   })
@@ -310,7 +310,7 @@ export async function refundPayPalPayment(
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
-        'PayPal-Request-Id': `refund-${options.captureId}-${Date.now()}`,
+        'PayPal-Request-Id': `openevents-refund-${options.captureId}-${options.amount?.toFixed(2) ?? 'full'}`,
       },
       body: JSON.stringify(payload),
     }

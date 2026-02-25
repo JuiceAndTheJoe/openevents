@@ -29,8 +29,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
     }
 
-    // Verify webhook signature in production
-    if (PAYPAL_WEBHOOK_ID && process.env.NODE_ENV === 'production') {
+    // Verify webhook signature
+    // Only skip verification if BOTH conditions are true:
+    // 1. SKIP_WEBHOOK_VERIFICATION=true AND
+    // 2. NODE_ENV=development
+    const skipVerification =
+      process.env.SKIP_WEBHOOK_VERIFICATION === 'true' &&
+      process.env.NODE_ENV === 'development'
+
+    if (!skipVerification) {
+      if (!PAYPAL_WEBHOOK_ID) {
+        console.error('[Webhook] PAYPAL_WEBHOOK_ID not configured')
+        return NextResponse.json(
+          { error: 'Webhook verification not configured' },
+          { status: 500 }
+        )
+      }
+
       const headers: Record<string, string> = {}
       request.headers.forEach((value, key) => {
         headers[key.toLowerCase()] = value
@@ -39,9 +54,11 @@ export async function POST(request: NextRequest) {
       const isValid = await verifyPayPalWebhook(headers, body, PAYPAL_WEBHOOK_ID)
 
       if (!isValid) {
-        console.error('[Webhook] Invalid signature')
+        console.error('[Webhook] Invalid signature - blocked')
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       }
+    } else {
+      console.warn('[Webhook] Signature verification SKIPPED (development mode)')
     }
 
     console.log('[Webhook] Received event:', {
