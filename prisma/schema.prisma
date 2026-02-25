@@ -236,6 +236,7 @@ model Event {
   @@index([status])
   @@index([startDate])
   @@index([deletedAt])
+  @@index([status, startDate])
   @@map("events")
 }
 
@@ -480,6 +481,7 @@ model Order {
   @@index([eventId])
   @@index([orderNumber])
   @@index([status, expiresAt])
+  @@index([userId, status])
   @@map("orders")
 }
 
