@@ -21,6 +21,36 @@ export const metadata: Metadata = {
   description:
     "Create, manage, and sell tickets to your events. An open-source event management platform.",
   keywords: ["events", "ticketing", "event management", "conferences", "meetups"],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "OpenEvents",
+    title: "OpenEvents - Event Management & Ticketing",
+    description:
+      "Create, manage, and sell tickets to your events. An open-source event management platform.",
+    images: [
+      {
+        url: "/hero-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "OpenEvents - Event Management Platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "OpenEvents - Event Management & Ticketing",
+    description:
+      "Create, manage, and sell tickets to your events. An open-source event management platform.",
+    images: ["/hero-image.jpg"],
+  },
 }
 
 export default async function RootLayout({
