@@ -3,30 +3,11 @@
  *
  * Handles:
  * - CSRF protection for Server Actions
- * - Rate limiting for authentication endpoints
+ *
+ * Note: Rate limiting is handled in API routes instead of middleware
+ * because ioredis is not compatible with Edge runtime.
  */
 import { NextResponse, type NextRequest } from 'next/server'
-import { checkRateLimit, rateLimitConfigs, rateLimitHeaders } from '@/lib/rateLimit'
-
-/**
- * Get client IP address from request headers
- */
-function getClientIp(request: NextRequest): string {
-  // Check various headers in order of priority
-  const forwardedFor = request.headers.get('x-forwarded-for')
-  if (forwardedFor) {
-    // Take the first IP if multiple are present
-    return forwardedFor.split(',')[0].trim()
-  }
-
-  const realIp = request.headers.get('x-real-ip')
-  if (realIp) {
-    return realIp
-  }
-
-  // Fallback to a hash of user-agent + some headers as a fingerprint
-  return 'unknown-ip'
-}
 
 /**
  * Check if origin is valid for CSRF protection
@@ -63,21 +44,7 @@ function isValidOrigin(request: NextRequest): boolean {
   return false
 }
 
-/**
- * Rate-limited auth paths and their configurations
- */
-const authRateLimitPaths: Record<string, keyof typeof rateLimitConfigs> = {
-  '/api/auth/signin': 'login',
-  '/api/auth/callback': 'login',
-  '/api/auth/register': 'register',
-  '/api/auth/forgot-password': 'forgotPassword',
-  '/api/auth/reset-password': 'forgotPassword',
-  '/api/discount-codes/validate': 'discountValidation',
-}
-
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
   // =========================================================================
   // CSRF Protection for Server Actions
   // =========================================================================
@@ -94,64 +61,6 @@ export async function middleware(request: NextRequest) {
 
       return new NextResponse('CSRF check failed', { status: 403 })
     }
-  }
-
-  // =========================================================================
-  // Rate Limiting for Authentication Endpoints
-  // =========================================================================
-  const rateLimitConfigKey = authRateLimitPaths[pathname]
-
-  if (rateLimitConfigKey && request.method === 'POST') {
-    const ip = getClientIp(request)
-    const config = rateLimitConfigs[rateLimitConfigKey]
-
-    // For forgot-password, also rate limit by email if available
-    let identifier = ip
-    if (rateLimitConfigKey === 'forgotPassword') {
-      try {
-        // Clone request to read body without consuming it
-        const clonedRequest = request.clone()
-        const body = await clonedRequest.json()
-        if (body.email) {
-          identifier = `${ip}:${body.email.toLowerCase()}`
-        }
-      } catch {
-        // If we can't parse body, just use IP
-      }
-    }
-
-    const result = await checkRateLimit(identifier, config)
-
-    if (!result.success) {
-      console.warn('[RateLimit] Request blocked', {
-        path: pathname,
-        identifier,
-        resetIn: result.resetIn,
-      })
-
-      return new NextResponse(
-        JSON.stringify({
-          error: 'Too many requests',
-          message: `Rate limit exceeded. Try again in ${result.resetIn} seconds.`,
-        }),
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            ...rateLimitHeaders(result, config),
-          },
-        }
-      )
-    }
-
-    // Add rate limit headers to successful responses
-    const response = NextResponse.next()
-    const headers = rateLimitHeaders(result, config)
-    Object.entries(headers).forEach(([key, value]) => {
-      response.headers.set(key, value)
-    })
-
-    return response
   }
 
   return NextResponse.next()
