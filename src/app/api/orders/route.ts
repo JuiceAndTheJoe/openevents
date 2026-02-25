@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
 
     const user = await requireAuth()
     const body = await request.json()
+
+    // Reject attempts to stack multiple discount codes
+    if (body.discountCodes && Array.isArray(body.discountCodes)) {
+      return NextResponse.json(
+        { error: 'Only one discount code can be applied per order' },
+        { status: 422 }
+      )
+    }
+
     const parsed = createOrderSchema.safeParse(body)
 
     if (!parsed.success) {
@@ -402,6 +411,7 @@ export async function POST(request: NextRequest) {
         'Discount code not found',
         'Discount code is inactive, expired, or fully used',
         'Discount code does not apply to selected ticket types',
+        'Only one discount code can be applied per order',
       ])
 
       if (error.message === 'Unauthorized') {
