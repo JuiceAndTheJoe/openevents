@@ -236,6 +236,7 @@ model Event {
   @@index([status])
   @@index([startDate])
   @@index([deletedAt])
+  @@index([status, startDate])
   @@map("events")
 }
 
@@ -403,6 +404,7 @@ model DiscountCode {
   orders       Order[]
 
   @@unique([eventId, code])
+  @@index([code, eventId])
   @@map("discount_codes")
 }
 
@@ -479,7 +481,9 @@ model Order {
   @@index([userId])
   @@index([eventId])
   @@index([orderNumber])
+  @@index([status])
   @@index([status, expiresAt])
+  @@index([userId, status])
   @@map("orders")
 }
 
