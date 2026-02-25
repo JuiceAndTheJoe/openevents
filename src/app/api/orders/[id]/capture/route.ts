@@ -273,8 +273,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
     })
 
-    revalidateTag('event-analytics')
-    revalidateTag('dashboard-analytics')
+    revalidateTag('event-analytics', 'max')
+    revalidateTag('dashboard-analytics', 'max')
 
     // Redirect to confirmation page
     return NextResponse.redirect(`${APP_URL}/orders/${paidOrder.orderNumber}/confirmation`)

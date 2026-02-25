@@ -365,8 +365,8 @@ export async function POST(request: NextRequest) {
       }
     )
 
-    revalidateTag('event-analytics')
-    revalidateTag('dashboard-analytics')
+    revalidateTag('event-analytics', 'max')
+    revalidateTag('dashboard-analytics', 'max')
 
     if (createdOrder.status === 'PAID') {
       await sendOrderConfirmationEmail(createdOrder.buyerEmail, {

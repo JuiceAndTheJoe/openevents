@@ -143,8 +143,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           },
         })
       }
-      revalidateTag('event-analytics')
-      revalidateTag('dashboard-analytics')
+      revalidateTag('event-analytics', 'max')
+      revalidateTag('dashboard-analytics', 'max')
       // Invoice orders stay in PENDING_INVOICE status until manually marked as paid
       return NextResponse.json({
         order: orderForResponse,
@@ -331,8 +331,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
     })
 
-    revalidateTag('event-analytics')
-    revalidateTag('dashboard-analytics')
+    revalidateTag('event-analytics', 'max')
+    revalidateTag('dashboard-analytics', 'max')
 
     return NextResponse.json({
       order: paidOrder,

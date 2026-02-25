@@ -192,8 +192,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
     }
 
-    revalidateTag('event-analytics')
-    revalidateTag('dashboard-analytics')
+    revalidateTag('event-analytics', 'max')
+    revalidateTag('dashboard-analytics', 'max')
 
     return NextResponse.json({
       order: updatedOrder,
