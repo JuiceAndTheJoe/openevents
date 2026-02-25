@@ -220,6 +220,7 @@ model Event {
   updatedAt       DateTime     @updatedAt
   publishedAt     DateTime?
   cancelledAt     DateTime?
+  deletedAt       DateTime?    // Soft-delete timestamp
 
   // Relations
   organizer       OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
@@ -234,6 +235,7 @@ model Event {
   @@index([organizerId])
   @@index([status])
   @@index([startDate])
+  @@index([deletedAt])
   @@map("events")
 }
 

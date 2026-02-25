@@ -31,6 +31,7 @@ export default async function EventsPage({ searchParams }: PageProps) {
   const where: Prisma.EventWhereInput = {
     status: 'PUBLISHED',
     visibility: 'PUBLIC',
+    deletedAt: null, // Exclude soft-deleted events
   }
 
   if (category) {

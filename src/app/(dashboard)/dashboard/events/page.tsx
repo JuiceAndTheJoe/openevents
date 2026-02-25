@@ -24,6 +24,7 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
 
   const where: Prisma.EventWhereInput = {
     organizerId: organizerProfile.id,
+    deletedAt: null, // Exclude soft-deleted events
   }
 
   if (status && ['DRAFT', 'PUBLISHED', 'CANCELLED', 'COMPLETED'].includes(status)) {

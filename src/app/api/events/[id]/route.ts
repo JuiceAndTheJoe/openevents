@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { updateEventSchema } from '@/lib/validations/event'
+import { normalizeNameList, buildPeopleCreateData } from '@/lib/events/utils'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -11,23 +12,6 @@ type RouteContext = {
 const updateEventApiSchema = updateEventSchema.extend({
   status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
 })
-
-function normalizeNameList(names?: string[]): string[] {
-  return (names || []).map((name) => name.trim()).filter(Boolean)
-}
-
-function buildPeopleCreateData(speakerNames: string[], jobTitles: string[], organizations: string[]) {
-  return speakerNames.map((name, index) => ({
-    name,
-    title: jobTitles[index] || null,
-    sortOrder: index,
-    socialLinks: {
-      __kind: 'EVENT_PEOPLE',
-      role: 'SPEAKER',
-      ...(organizations[index] ? { organization: organizations[index] } : {}),
-    },
-  }))
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -49,7 +33,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       },
     })
 
-    if (!existingEvent) {
+    if (!existingEvent || existingEvent.deletedAt) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
@@ -261,7 +245,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       },
     })
 
-    if (!existingEvent) {
+    if (!existingEvent || existingEvent.deletedAt) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
@@ -300,9 +284,10 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Delete event (cascades to related records via Prisma schema)
-    await prisma.event.delete({
+    // Soft-delete event (set deletedAt timestamp)
+    await prisma.event.update({
       where: { id },
+      data: { deletedAt: new Date() },
     })
 
     return NextResponse.json({ message: 'Event deleted successfully' })
@@ -363,7 +348,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       },
     })
 
-    if (!event) {
+    if (!event || event.deletedAt) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 

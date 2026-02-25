@@ -824,37 +824,54 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Payment Method</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-              <input
-                type="radio"
-                name="payment-method"
-                value="PAYPAL"
-                checked={paymentMethod === 'PAYPAL'}
-                onChange={() => setPaymentMethod('PAYPAL')}
-                disabled={discount?.discountType === 'INVOICE'}
-              />
-              PayPal
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-              <input
-                type="radio"
-                name="payment-method"
-                value="INVOICE"
-                checked={paymentMethod === 'INVOICE'}
-                onChange={() => setPaymentMethod('INVOICE')}
-              />
-              Invoice
-            </label>
-            {discount?.discountType === 'INVOICE' && (
-              <p className="text-xs text-gray-500">Invoice code applied. Checkout will create a pending invoice order.</p>
-            )}
-          </CardContent>
-        </Card>
+        {/* Hide payment method selection for free orders */}
+        {totalAmount > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Payment Method</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="PAYPAL"
+                  checked={paymentMethod === 'PAYPAL'}
+                  onChange={() => setPaymentMethod('PAYPAL')}
+                  disabled={discount?.discountType === 'INVOICE'}
+                />
+                PayPal
+              </label>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="INVOICE"
+                  checked={paymentMethod === 'INVOICE'}
+                  onChange={() => setPaymentMethod('INVOICE')}
+                />
+                Invoice
+              </label>
+              {discount?.discountType === 'INVOICE' && (
+                <p className="text-xs text-gray-500">Invoice code applied. Checkout will create a pending invoice order.</p>
+              )}
+              {discount?.discountType === 'FREE_TICKET' && (
+                <p className="text-xs text-green-600">Free ticket code applied. No payment required.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Show message for free orders */}
+        {totalAmount === 0 && selectedItems.length > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-sm text-green-700">
+                <span className="font-medium">No payment required.</span> Your order total is $0.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {wasCancelled && (
           <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3">

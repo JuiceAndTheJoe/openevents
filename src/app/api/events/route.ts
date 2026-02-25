@@ -5,23 +5,7 @@ import { requireRole } from '@/lib/auth'
 import { createEventSchema } from '@/lib/validations/event'
 import { DEFAULT_CURRENCY } from '@/lib/constants/currencies'
 import { generateUniqueSlug } from '@/lib/utils'
-
-function normalizeNameList(names?: string[]): string[] {
-  return (names || []).map((name) => name.trim()).filter(Boolean)
-}
-
-function buildPeopleCreateData(speakerNames: string[], jobTitles: string[], organizations: string[]) {
-  return speakerNames.map((name, index) => ({
-    name,
-    title: jobTitles[index] || null,
-    sortOrder: index,
-    socialLinks: {
-      __kind: 'EVENT_PEOPLE',
-      role: 'SPEAKER',
-      ...(organizations[index] ? { organization: organizations[index] } : {}),
-    },
-  }))
-}
+import { normalizeNameList, buildPeopleCreateData } from '@/lib/events/utils'
 
 async function ensureUniqueSlug(title: string): Promise<string> {
   let attempts = 0
@@ -203,11 +187,14 @@ export async function GET(request: NextRequest) {
     const endDateParam = searchParams.get('endDate')
 
     const page = Math.max(Number(searchParams.get('page') || '1'), 1)
-    const pageSize = Math.min(Math.max(Number(searchParams.get('pageSize') || '10'), 1), 50)
+    // Support both 'limit' and 'pageSize' parameters; default 20, max 100
+    const limitParam = searchParams.get('limit') || searchParams.get('pageSize') || '20'
+    const pageSize = Math.min(Math.max(Number(limitParam), 1), 100)
 
     const where: Prisma.EventWhereInput = {
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
+      deletedAt: null, // Exclude soft-deleted events
     }
 
     if (category) {
