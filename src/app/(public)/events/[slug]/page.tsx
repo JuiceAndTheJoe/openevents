@@ -362,7 +362,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                   {person.photo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={person.photo}
+                      src={`/api/speakers/${person.id}/image`}
                       alt={person.name}
                       className="h-full w-full rounded-full object-cover"
                     />

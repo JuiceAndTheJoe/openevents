@@ -3,12 +3,12 @@
 import Cropper, { Area } from 'react-easy-crop'
 import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Trash2, Upload, User } from 'lucide-react'
+import { ChevronDown, Image as ImageIcon, Plus, Trash2, Upload, User, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FloatingToast } from '@/components/ui/floating-toast'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DEFAULT_CURRENCY, SUPPORTED_CURRENCIES, isSupportedCurrency } from '@/lib/constants/currencies'
+import { DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/constants/currencies'
 import {
   convertDateTimeLocalBetweenTimeZones,
   dateTimeLocalInTimeZoneToUtcIso,
@@ -64,6 +64,7 @@ type EventFormData = {
   onlineUrl?: string | null
   coverImage?: string | null
   bottomImage?: string | null
+  videoUrl?: string | null
   speakerNames?: string
   organizerNames?: string
   sponsorNames?: string
@@ -74,9 +75,18 @@ type EventFormData = {
 
 type Category = { id: string; name: string }
 
+type InitialSpeaker = {
+  id?: string
+  name: string
+  title: string
+  organization: string
+  photo: string
+}
+
 type EventFormProps = {
   mode: EventFormMode
   initialData?: EventFormData
+  initialSpeakers?: InitialSpeaker[]
   categories?: Category[]
   initialPromoCodes?: PromoCodeDraft[]
 }
@@ -94,6 +104,7 @@ type FieldKey =
   | 'onlineUrl'
   | 'coverImage'
   | 'bottomImage'
+  | 'videoUrl'
 
 type FieldErrors = Partial<Record<FieldKey, string>>
 
@@ -106,6 +117,7 @@ type CropSession = {
 
 type SpeakerDraft = {
   key: string
+  speakerId?: string
   name: string
   title: string
   organization: string
@@ -174,6 +186,7 @@ const fallbackInitialData: EventFormData = {
   onlineUrl: '',
   coverImage: '',
   bottomImage: '',
+  videoUrl: '',
   speakerNames: '',
   organizerNames: '',
   sponsorNames: '',
@@ -183,6 +196,7 @@ const fallbackInitialData: EventFormData = {
 }
 
 const allowedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+const allowedVideoMimeTypes = new Set(['video/mp4', 'video/webm', 'video/quicktime'])
 
 const fieldOrder: FieldKey[] = [
   'title',
@@ -197,6 +211,7 @@ const fieldOrder: FieldKey[] = [
   'description',
   'coverImage',
   'bottomImage',
+  'videoUrl',
 ]
 
 const ticketFieldOrder: TicketTypeFieldKey[] = ['name', 'price', 'currency', 'capacity']
@@ -214,12 +229,6 @@ const commonTimezones = [
   'Asia/Dubai',
 ]
 
-function parseNameList(raw?: string | null): string[] {
-  return (raw || '')
-    .split(',')
-    .map((name) => name.trim())
-    .filter(Boolean)
-}
 
 function parseTicketPrice(raw?: string): number | null {
   if (!raw?.trim()) return null
@@ -449,15 +458,18 @@ function buildSnapshot(form: EventFormData) {
     categoryIds: form.categoryIds || [],
     coverImage: form.coverImage || '',
     bottomImage: form.bottomImage || '',
+    videoUrl: form.videoUrl || '',
   })
 }
 
-export function EventForm({ mode, initialData, categories = [], initialPromoCodes = [] }: EventFormProps) {
+export function EventForm({ mode, initialData, initialSpeakers, categories = [], initialPromoCodes = [] }: EventFormProps) {
   const router = useRouter()
   const bannerInputRef = useRef<HTMLInputElement | null>(null)
   const bottomInputRef = useRef<HTMLInputElement | null>(null)
+  const videoInputRef = useRef<HTMLInputElement | null>(null)
   const bannerObjectUrlRef = useRef<string | null>(null)
   const bottomObjectUrlRef = useRef<string | null>(null)
+  const videoObjectUrlRef = useRef<string | null>(null)
   const cropObjectUrlRef = useRef<string | null>(null)
   const speakerImageInputRef = useRef<HTMLInputElement | null>(null)
   const speakerImageTargetKeyRef = useRef<string>('')
@@ -500,6 +512,11 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploadingBanner, setIsUploadingBanner] = useState(false)
   const [isUploadingBottom, setIsUploadingBottom] = useState(false)
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false)
+  const [cancellationUnit, setCancellationUnit] = useState<'hours' | 'days'>(() => {
+    const h = mergedInitialData.cancellationDeadlineHours ?? 48
+    return h >= 24 && h % 24 === 0 ? 'days' : 'hours'
+  })
   const [isPreparingCrop, setIsPreparingCrop] = useState<ImageTargetField | null>(null)
   const [isApplyingCrop, setIsApplyingCrop] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
@@ -511,6 +528,8 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null)
   const [isCategoryOpen, setIsCategoryOpen] = useState(false)
   const categoryDropdownRef = useRef<HTMLDivElement | null>(null)
+  const [isUnitOpen, setIsUnitOpen] = useState(false)
+  const unitDropdownRef = useRef<HTMLDivElement | null>(null)
   const [openDateTimePanel, setOpenDateTimePanel] = useState<'startDate' | 'endDate' | 'startTime' | 'endTime' | null>(null)
   const [calendarNav, setCalendarNav] = useState<{ year: number; month: number }>(() => {
     const now = new Date()
@@ -519,13 +538,27 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
   const dateTimePanelRef = useRef<HTMLDivElement | null>(null)
   const [bannerPreviewSrc, setBannerPreviewSrc] = useState<string | null>(null)
   const [bottomPreviewSrc, setBottomPreviewSrc] = useState<string | null>(null)
+  const [videoPreviewSrc, setVideoPreviewSrc] = useState<string | null>(null)
   const [imageVersion, setImageVersion] = useState(0)
   const [cropSession, setCropSession] = useState<CropSession | null>(null)
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 })
   const [cropZoom, setCropZoom] = useState(1)
   const [cropPixels, setCropPixels] = useState<Area | null>(null)
   const [activeDropTarget, setActiveDropTarget] = useState<ImageTargetField | null>(null)
-  const [speakerDrafts, setSpeakerDrafts] = useState<SpeakerDraft[]>([])
+  const [speakerDrafts, setSpeakerDrafts] = useState<SpeakerDraft[]>(() =>
+    (initialSpeakers ?? []).map((s, i) => ({
+      key: `speaker-init-${i}`,
+      speakerId: s.id,
+      name: s.name,
+      title: s.title,
+      organization: s.organization,
+      originalFile: null,
+      croppedFile: null,
+      previewUrl: null,
+      publicUrl: s.photo,
+      isUploading: false,
+    }))
+  )
   const [speakerCropSession, setSpeakerCropSession] = useState<SpeakerCropSession | null>(null)
   const [speakerCropPosition, setSpeakerCropPosition] = useState({ x: 0, y: 0 })
   const [speakerCropZoom, setSpeakerCropZoom] = useState(1)
@@ -766,6 +799,17 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
   }, [isCategoryOpen])
 
   useEffect(() => {
+    if (!isUnitOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (unitDropdownRef.current && !unitDropdownRef.current.contains(event.target as Node)) {
+        setIsUnitOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isUnitOpen])
+
+  useEffect(() => {
     if (!openDateTimePanel) return
     function handleClickOutside(e: MouseEvent) {
       if (dateTimePanelRef.current && !dateTimePanelRef.current.contains(e.target as Node)) {
@@ -783,6 +827,9 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
       }
       if (bottomObjectUrlRef.current) {
         URL.revokeObjectURL(bottomObjectUrlRef.current)
+      }
+      if (videoObjectUrlRef.current) {
+        URL.revokeObjectURL(videoObjectUrlRef.current)
       }
       if (cropObjectUrlRef.current) {
         URL.revokeObjectURL(cropObjectUrlRef.current)
@@ -1378,6 +1425,92 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
     }
   }
 
+  async function uploadEventVideo(file: File) {
+    if (!form.id && mode === 'edit') {
+      throw new Error('Save the event once before uploading videos')
+    }
+
+    const uploadRes = await fetch('/api/upload/presigned', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folder: 'events',
+        entityId: form.id || 'new',
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+      }),
+    })
+
+    if (!uploadRes.ok) {
+      const errorData = await uploadRes.json().catch(() => null)
+      if (errorData?.details?.size) {
+        throw new Error('Video file is too large. Maximum size is 50 MB.')
+      }
+      throw new Error((errorData?.error as string | undefined) || 'Failed to create upload URL')
+    }
+
+    const uploadData = await uploadRes.json()
+    const uploadUrl = uploadData?.data?.uploadUrl as string | undefined
+    const publicUrl = uploadData?.data?.publicUrl as string | undefined
+
+    if (!uploadUrl || !publicUrl) throw new Error('Invalid upload response')
+
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    })
+
+    if (!putRes.ok) throw new Error('Failed to upload video')
+
+    updateField('videoUrl', publicUrl)
+  }
+
+  async function onVideoSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    event.target.value = ''
+
+    if (!allowedVideoMimeTypes.has(file.type)) {
+      setFieldErrors((current) => ({ ...current, videoUrl: 'Please select an MP4, WebM, or MOV video.' }))
+      setToast({ message: 'Unsupported video format', tone: 'error' })
+      return
+    }
+
+    if (videoObjectUrlRef.current) {
+      URL.revokeObjectURL(videoObjectUrlRef.current)
+    }
+    const objectUrl = URL.createObjectURL(file)
+    videoObjectUrlRef.current = objectUrl
+    setVideoPreviewSrc(objectUrl)
+
+    setIsUploadingVideo(true)
+    try {
+      await uploadEventVideo(file)
+    } catch (videoError) {
+      const message = videoError instanceof Error ? videoError.message : 'Video upload failed'
+      setFieldErrors((current) => ({ ...current, videoUrl: message }))
+      setToast({ message, tone: 'error' })
+    } finally {
+      setIsUploadingVideo(false)
+    }
+  }
+
+  function deleteVideo() {
+    if (videoObjectUrlRef.current) {
+      URL.revokeObjectURL(videoObjectUrlRef.current)
+      videoObjectUrlRef.current = null
+    }
+    setVideoPreviewSrc(null)
+    updateField('videoUrl', '')
+    setFieldErrors((current) => {
+      const next = { ...current }
+      delete next.videoUrl
+      return next
+    })
+  }
+
   function addSpeakerDraft() {
     setSpeakerDrafts((current) => [
       ...current,
@@ -1575,18 +1708,11 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
         onlineUrl: form.onlineUrl || null,
         coverImage: form.coverImage || null,
         bottomImage: form.bottomImage || null,
-        speakerNames: mode === 'create'
-          ? validSpeakerDrafts.map((d) => d.name.trim())
-          : parseNameList(form.speakerNames),
-        organizerNames: mode === 'create'
-          ? validSpeakerDrafts.map((d) => d.title)
-          : parseNameList(form.organizerNames),
-        sponsorNames: mode === 'create'
-          ? validSpeakerDrafts.map((d) => d.organization)
-          : parseNameList(form.sponsorNames),
-        speakerPhotos: mode === 'create'
-          ? validSpeakerDrafts.map((d) => d.publicUrl)
-          : undefined,
+        videoUrl: form.videoUrl || null,
+        speakerNames: validSpeakerDrafts.map((d) => d.name.trim()),
+        organizerNames: validSpeakerDrafts.map((d) => d.title),
+        sponsorNames: validSpeakerDrafts.map((d) => d.organization),
+        speakerPhotos: validSpeakerDrafts.map((d) => d.publicUrl),
         categoryIds: form.categoryIds,
         ticketTypes: undefined,
         ticketTypeId: undefined,
@@ -1717,6 +1843,7 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
       : null
   const bannerImageSrc = bannerPreviewSrc || remoteBannerPreviewSrc || form.coverImage || null
   const bottomImageSrc = bottomPreviewSrc || remoteBottomPreviewSrc || form.bottomImage || null
+  const videoSrc = videoPreviewSrc || form.videoUrl || null
   const isBannerDropActive = activeDropTarget === 'coverImage'
   const isBottomDropActive = activeDropTarget === 'bottomImage'
 
@@ -2304,17 +2431,33 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
         </div>
       </section>
 
-      <section className="space-y-5 border-b border-gray-300 pb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-3xl font-semibold text-gray-900">Ticket Types</h3>
-          <Button type="button" variant="outline" onClick={addTicketType}>
-            + Add ticket type
-          </Button>
+      <section className="space-y-4 border-b border-[#bfbfbf] pb-8">
+        <div className="flex items-center justify-between">
+          <h3
+            className="text-[24px] font-bold leading-8 text-black"
+            style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+          >
+            Ticket Types
+          </h3>
+          <button
+            type="button"
+            onClick={addTicketType}
+            className="flex h-10 items-center gap-2 rounded-[10px] bg-[#5c8bd9] px-4 text-base font-semibold text-white transition-colors hover:bg-[#4a7bc9]"
+            style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+          >
+            <Plus className="h-5 w-5" />
+            Add Ticket
+          </button>
         </div>
 
         {(form.ticketTypes || []).length < 1 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
-            No ticket types yet. Add at least one before publishing.
+          <div className="w-full pt-8 pb-2">
+            <p
+              className="text-center text-[16px] font-normal leading-6 text-[#6a7282]"
+              style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+            >
+              {`No ticket types added yet. Click "Add Ticket" to create one.`}
+            </p>
           </div>
         ) : null}
 
@@ -2327,71 +2470,137 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
               : null
 
             return (
-              <div key={ticketType.id || `new-ticket-type-${index}`} className="rounded-lg border border-gray-200 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-gray-800">{`Ticket Type ${index + 1}`}</p>
-                  <Button type="button" variant="outline" onClick={() => removeTicketType(index)}>
-                    Remove
-                  </Button>
+              <div
+                key={ticketType.id || `new-ticket-type-${index}`}
+                className="rounded-[10px] border-[0.8px] border-[#e5e7eb] bg-[#f9fafb] p-4"
+              >
+                {/* Ticket header */}
+                <div className="mb-4 flex items-center justify-between">
+                  <p
+                    className="text-[18px] font-semibold leading-7 text-black"
+                    style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                  >
+                    {`Ticket ${index + 1}`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => removeTicketType(index)}
+                    className="flex h-5 w-5 items-center justify-center text-red-500 transition-colors hover:text-red-700"
+                    aria-label={`Remove ticket ${index + 1}`}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                  <div className="md:col-span-2">
-                    <Label htmlFor={`ticketTypeName-${index}`} required>Ticket Name</Label>
-                    <Input
-                      id={`ticketTypeName-${index}`}
-                      value={ticketType.name}
-                      error={rowErrors.name}
-                      onChange={(event) => updateTicketTypeField(index, 'name', event.target.value)}
-                      placeholder="General Admission"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`ticketPrice-${index}`} required>Ticket Price</Label>
-                    <Input
-                      id={`ticketPrice-${index}`}
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={ticketType.price}
-                      error={rowErrors.price}
-                      onChange={(event) => updateTicketTypeField(index, 'price', event.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`ticketCurrency-${index}`} required>Currency</Label>
-                    <select
-                      id={`ticketCurrency-${index}`}
-                      className={`h-10 w-full rounded-md border px-3 text-sm ${
-                        rowErrors.currency ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      value={legacyCurrency || normalizedCurrency}
-                      onChange={(event) => updateTicketTypeField(index, 'currency', event.target.value)}
+
+                {/* 2×2 field grid: Ticket Name | Capacity / Price | Currency */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* Ticket Name */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor={`ticketTypeName-${index}`}
+                      className="text-[14px] font-medium leading-5 text-[#4a5565]"
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     >
-                      {legacyCurrency ? (
-                        <option value={legacyCurrency}>{`${legacyCurrency} (legacy unsupported)`}</option>
-                      ) : null}
-                      {SUPPORTED_CURRENCIES.map((currency) => (
-                        <option key={currency} value={currency}>{currency}</option>
-                      ))}
-                    </select>
-                    {legacyCurrency ? (
-                      <p className="mt-1 text-sm text-amber-700">Select a supported currency before publishing.</p>
-                    ) : null}
-                    {rowErrors.currency ? <p className="mt-1 text-sm text-red-600">{rowErrors.currency}</p> : null}
+                      Ticket Name
+                    </label>
+                    <input
+                      id={`ticketTypeName-${index}`}
+                      type="text"
+                      value={ticketType.name}
+                      onChange={(event) => updateTicketTypeField(index, 'name', event.target.value)}
+                      placeholder="e.g., General Admission"
+                      className={`h-[41px] w-full rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black placeholder-[#828283] outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
+                        rowErrors.name ? 'border-red-500' : 'border-[#d1d5dc]'
+                      }`}
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                    />
+                    {rowErrors.name ? <p className="text-sm text-red-600">{rowErrors.name}</p> : null}
                   </div>
-                  <div>
-                    <Label htmlFor={`ticketCapacity-${index}`}>Capacity (optional)</Label>
-                    <Input
+
+                  {/* Capacity */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor={`ticketCapacity-${index}`}
+                      className="text-[14px] font-medium leading-5 text-[#4a5565]"
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                    >
+                      Capacity
+                    </label>
+                    <input
                       id={`ticketCapacity-${index}`}
                       type="number"
                       min={1}
                       step={1}
                       value={ticketType.capacity}
-                      error={rowErrors.capacity}
                       onChange={(event) => updateTicketTypeField(index, 'capacity', event.target.value)}
-                      placeholder="Leave empty for unlimited"
+                      placeholder="Number of tickets available"
+                      className={`h-[41px] w-full rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black placeholder-[#828283] outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
+                        rowErrors.capacity ? 'border-red-500' : 'border-[#d1d5dc]'
+                      }`}
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     />
+                    {rowErrors.capacity ? <p className="text-sm text-red-600">{rowErrors.capacity}</p> : null}
+                  </div>
+
+                  {/* Price */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor={`ticketPrice-${index}`}
+                      className="text-[14px] font-medium leading-5 text-[#4a5565]"
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                    >
+                      Price
+                    </label>
+                    <input
+                      id={`ticketPrice-${index}`}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={ticketType.price}
+                      onChange={(event) => updateTicketTypeField(index, 'price', event.target.value)}
+                      placeholder="0"
+                      className={`h-[41px] w-full rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black placeholder-[#828283] outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
+                        rowErrors.price ? 'border-red-500' : 'border-[#d1d5dc]'
+                      }`}
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                    />
+                    {rowErrors.price ? <p className="text-sm text-red-600">{rowErrors.price}</p> : null}
+                  </div>
+
+                  {/* Currency */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor={`ticketCurrency-${index}`}
+                      className="text-[14px] font-medium leading-5 text-[#4a5565]"
+                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                    >
+                      Currency
+                    </label>
+                    <div className="relative">
+                      <select
+                        id={`ticketCurrency-${index}`}
+                        className={`h-[41px] w-full appearance-none rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
+                          rowErrors.currency ? 'border-red-500' : 'border-[#d1d5dc]'
+                        }`}
+                        style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                        value={legacyCurrency || normalizedCurrency}
+                        onChange={(event) => updateTicketTypeField(index, 'currency', event.target.value)}
+                      >
+                        {legacyCurrency ? (
+                          <option value={legacyCurrency}>{`${legacyCurrency} (unsupported)`}</option>
+                        ) : null}
+                        <option value="SEK">SEK</option>
+                        <option value="NOK">NOK</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4a5565]" />
+                    </div>
+                    {legacyCurrency ? (
+                      <p className="text-sm text-amber-700">Select a supported currency before publishing.</p>
+                    ) : null}
+                    {rowErrors.currency ? <p className="text-sm text-red-600">{rowErrors.currency}</p> : null}
                   </div>
                 </div>
               </div>
@@ -2547,7 +2756,7 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
       <section className="space-y-5 border-b border-gray-300 pb-6">
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-3xl font-bold text-black">Speakers</h3>
+              <h3 className="text-2xl font-bold text-black">Speakers</h3>
               <button
                 type="button"
 
@@ -2594,7 +2803,7 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={draft.previewUrl ?? draft.publicUrl}
+                              src={draft.previewUrl ?? (draft.speakerId ? `/api/speakers/${draft.speakerId}/image` : draft.publicUrl)}
                               alt={draft.name || `Speaker ${index + 1}`}
                               className="h-full w-full object-cover"
                             />
@@ -2665,8 +2874,8 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
           </div>
       </section>
 
-      <section className="space-y-5 border-b border-gray-300 pb-6">
-        <h3 className="text-3xl font-semibold text-gray-900">Bottom Visual</h3>
+      <section className="space-y-4 border-b border-[#d1d5dc] pb-4">
+        {/* Hidden file inputs */}
         <input
           ref={bottomInputRef}
           id="bottomImageUpload"
@@ -2676,111 +2885,214 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
           className="hidden"
           disabled={isUploadingBottom}
         />
-        <button
-          type="button"
-          onClick={() => bottomInputRef.current?.click()}
-          disabled={isUploadingBottom}
-          onDragEnter={(event) => onImageDragEnter(event, 'bottomImage')}
-          onDragOver={(event) => onImageDragOver(event, 'bottomImage')}
-          onDragLeave={(event) => onImageDragLeave(event, 'bottomImage')}
-          onDrop={(event) => {
-            void onImageDrop(event, 'bottomImage')
-          }}
-          aria-label={bottomImageSrc ? 'Change bottom visual image' : 'Add bottom visual image'}
-          className={`group relative block aspect-[16/9] w-full cursor-pointer overflow-hidden rounded-xl border-4 bg-gray-900 text-left transition-shadow duration-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
-            isBottomDropActive
-              ? 'border-blue-500 ring-2 ring-blue-500/40'
-              : bottomImageSrc
-                ? 'border-blue-500'
-                : 'border-dashed border-blue-400'
-          }`}
-        >
-          {bottomImageSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={bottomImageSrc}
-              alt="Event bottom visual"
-              className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.01] group-hover:brightness-95 group-focus-visible:brightness-95"
-            />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-r from-slate-700 to-slate-900" />
-          )}
+        <input
+          ref={videoInputRef}
+          id="videoUpload"
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime"
+          onChange={(event) => void onVideoSelected(event)}
+          className="hidden"
+          disabled={isUploadingVideo}
+        />
 
-          {bottomImageSrc ? (
-            <div
-              className={`pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35 p-4 transition-opacity duration-200 ${
-                isUploadingBottom || isBottomDropActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+        <div>
+          <h3 className="text-2xl font-bold text-black">Event Media</h3>
+          <p className="mt-1 text-base text-[#4a5565]">Add images and videos to showcase your event</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* Images column */}
+          <div className="space-y-2">
+            <p className="text-base font-semibold text-black">Images</p>
+
+            <button
+              type="button"
+              onClick={() => bottomInputRef.current?.click()}
+              disabled={isUploadingBottom}
+              onDragEnter={(event) => onImageDragEnter(event, 'bottomImage')}
+              onDragOver={(event) => onImageDragOver(event, 'bottomImage')}
+              onDragLeave={(event) => onImageDragLeave(event, 'bottomImage')}
+              onDrop={(event) => { void onImageDrop(event, 'bottomImage') }}
+              aria-label={bottomImageSrc ? 'Change event image' : 'Add event image'}
+              className={`group relative w-full cursor-pointer overflow-hidden rounded-[10px] border-[1.6px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
+                isBottomDropActive
+                  ? 'border-[#5c8bd9] bg-blue-50/30'
+                  : bottomImageSrc
+                    ? 'border-[#d1d5dc]'
+                    : 'border-[#d1d5dc] bg-white hover:border-[#5c8bd9] hover:bg-blue-50/10'
               }`}
             >
-              <span className="inline-flex rounded-md bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
-                {isUploadingBottom ? 'Uploading...' : isBottomDropActive ? 'Drop bottom visual' : 'Click to change bottom visual'}
-              </span>
-            </div>
-          ) : (
-            <div
-              className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center transition-colors duration-200 ${
-                isUploadingBottom || isBottomDropActive
-                  ? 'bg-black/55'
-                  : 'bg-black/30 group-hover:bg-black/40 group-focus-visible:bg-black/40'
-              }`}
-            >
-              <Upload className="h-5 w-5 text-white/90" aria-hidden="true" />
-              <p className="text-base font-medium text-white">
-                {isUploadingBottom ? 'Uploading...' : isBottomDropActive ? 'Drop bottom visual' : 'Click to add bottom visual'}
-              </p>
-              <p className="text-xs text-gray-200">
-                {isUploadingBottom ? 'Please wait...' : isBottomDropActive ? 'Release to upload' : 'or drag and drop'}
-              </p>
-            </div>
-          )}
-        </button>
+              {bottomImageSrc ? (
+                <div className="relative aspect-video">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={bottomImageSrc}
+                    alt="Event image"
+                    className="h-full w-full object-cover transition duration-200 group-hover:brightness-90 group-focus-visible:brightness-90"
+                  />
+                  <div
+                    className={`absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity duration-200 ${
+                      isUploadingBottom || isBottomDropActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'
+                    }`}
+                  >
+                    <span className="rounded-md bg-black/60 px-3 py-1.5 text-sm font-medium text-white">
+                      {isUploadingBottom ? 'Uploading...' : isBottomDropActive ? 'Drop image' : 'Click to change image'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className={`flex flex-col items-center justify-center gap-2 px-[25.6px] py-[25.6px] ${isBottomDropActive ? 'bg-blue-50/30' : ''}`}>
+                  <ImageIcon className="h-10 w-10 text-[#5c8bd9]" aria-hidden="true" />
+                  <span className="text-sm font-medium text-[#4a5565]">
+                    {isUploadingBottom ? 'Uploading...' : isBottomDropActive ? 'Drop image here' : 'Click to upload images'}
+                  </span>
+                </div>
+              )}
+            </button>
 
-        {canEditBottomImage || croppedImageFiles.bottomImage ? (
-          <div className="flex flex-wrap gap-3">
-            {canEditBottomImage ? (
-              <Button
+            {canEditBottomImage || croppedImageFiles.bottomImage ? (
+              <div className="flex flex-wrap gap-2">
+                {canEditBottomImage ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    isLoading={isPreparingCrop === 'bottomImage'}
+                    onClick={() => { void openExistingCrop('bottomImage', bottomImageSrc) }}
+                  >
+                    Edit / Crop
+                  </Button>
+                ) : null}
+                {croppedImageFiles.bottomImage ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    isLoading={isUploadingBottom}
+                    onClick={() => void resetImageToOriginal('bottomImage')}
+                  >
+                    Undo crop
+                  </Button>
+                ) : null}
+                {canEditBottomImage ? (
+                  <Button type="button" variant="outline" onClick={() => deleteUploadedImage('bottomImage')}>
+                    Delete image
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {fieldErrors.bottomImage ? <p className="text-sm text-red-600">{fieldErrors.bottomImage}</p> : null}
+          </div>
+
+          {/* Videos column */}
+          <div className="space-y-2">
+            <p className="text-base font-semibold text-black">Videos</p>
+
+            {videoSrc ? (
+              <div className="overflow-hidden rounded-[10px] border-[1.6px] border-[#d1d5dc]">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video
+                  src={videoSrc}
+                  className="w-full"
+                  controls
+                  preload="metadata"
+                />
+              </div>
+            ) : (
+              <button
                 type="button"
-                variant="outline"
-                isLoading={isPreparingCrop === 'bottomImage'}
-                onClick={() => {
-                  void openExistingCrop('bottomImage', bottomImageSrc)
-                }}
+                onClick={() => videoInputRef.current?.click()}
+                disabled={isUploadingVideo}
+                aria-label="Upload video"
+                className="group relative w-full cursor-pointer overflow-hidden rounded-[10px] border-[1.6px] border-[#d1d5dc] bg-white text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] focus-visible:ring-offset-2 hover:border-[#5c8bd9] hover:bg-blue-50/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Edit / Crop bottom image
-              </Button>
-            ) : null}
-            {croppedImageFiles.bottomImage ? (
-              <Button type="button" variant="outline" onClick={() => void resetImageToOriginal('bottomImage')}>
-                Reset bottom image
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-        {fieldErrors.bottomImage ? <p className="text-sm text-red-600">{fieldErrors.bottomImage}</p> : null}
+                <div className="flex flex-col items-center justify-center gap-2 px-[25.6px] py-[25.6px]">
+                  <Video className="h-10 w-10 text-[#5c8bd9]" aria-hidden="true" />
+                  <span className="text-sm font-medium text-[#4a5565]">
+                    {isUploadingVideo ? 'Uploading...' : 'Click to upload videos'}
+                  </span>
+                </div>
+              </button>
+            )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <Label htmlFor="visibility">Visibility</Label>
-            <select
-              id="visibility"
-              className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
-              value={form.visibility}
-              onChange={(e) => updateField('visibility', e.target.value as EventFormData['visibility'])}
-            >
-              <option value="PUBLIC">Public</option>
-              <option value="PRIVATE">Private</option>
-            </select>
+            {videoSrc ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  isLoading={isUploadingVideo}
+                  onClick={deleteVideo}
+                >
+                  Delete video
+                </Button>
+              </div>
+            ) : null}
+            {fieldErrors.videoUrl ? <p className="text-sm text-red-600">{fieldErrors.videoUrl}</p> : null}
           </div>
-          <div>
-            <Label htmlFor="cancellationDeadlineHours">Cancellation Deadline (hours)</Label>
-            <Input
+        </div>
+      </section>
+
+      <section className="space-y-4 border-b border-[#d1d5dc] pb-4">
+        <div>
+          <h3 className="text-2xl font-bold text-black">Refund Policy</h3>
+          <p className="mt-1 text-base text-[#4a5565]">Specify how long attendees can request a refund after purchasing a ticket</p>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-[10px] border-[0.8px] border-[#e5e7eb] bg-[#f9fafb] px-4 pt-4 pb-3">
+          <p className="text-base font-semibold text-black">Refund Validity Period *</p>
+
+          <div className="flex items-center gap-3">
+            <input
               id="cancellationDeadlineHours"
               type="number"
               min={0}
-              value={form.cancellationDeadlineHours}
-              onChange={(e) => updateField('cancellationDeadlineHours', Number(e.target.value))}
+              value={cancellationUnit === 'days'
+                ? form.cancellationDeadlineHours / 24
+                : form.cancellationDeadlineHours}
+              onChange={(e) => {
+                const raw = Number(e.target.value)
+                if (!isNaN(raw) && raw >= 0) {
+                  updateField('cancellationDeadlineHours', Math.round(raw * (cancellationUnit === 'days' ? 24 : 1)))
+                }
+              }}
+              className="h-[40px] flex-1 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-white px-4 text-base text-gray-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#5c8bd9] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
+            <div ref={unitDropdownRef} className="relative w-24 shrink-0">
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isUnitOpen}
+                onClick={() => setIsUnitOpen((o) => !o)}
+                className="flex h-[40px] w-full items-center justify-between rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 text-sm text-gray-900 hover:border-[#5c8bd9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9]"
+              >
+                <span>{cancellationUnit}</span>
+                <ChevronDown className={`ml-1 h-4 w-4 shrink-0 text-gray-500 transition-transform ${isUnitOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isUnitOpen && (
+                <div className="absolute top-[calc(100%+8px)] left-0 z-50 w-full rounded-2xl bg-white py-2 shadow-2xl">
+                  {(['hours', 'days'] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      onClick={() => { setCancellationUnit(unit); setIsUnitOpen(false) }}
+                      className={`w-full px-4 py-3 text-left text-[14px] transition-colors hover:bg-gray-50 ${cancellationUnit === unit ? 'font-semibold text-black' : 'text-gray-700'}`}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
+
+          <p className="text-sm text-[#4a5565]">
+            {`Attendees can request a refund within `}
+            <strong className="font-bold">
+              {cancellationUnit === 'days'
+                ? form.cancellationDeadlineHours / 24
+                : form.cancellationDeadlineHours}
+              {` ${cancellationUnit}`}
+            </strong>
+            {` after purchasing their ticket`}
+          </p>
         </div>
       </section>
 
@@ -2790,25 +3102,41 @@ export function EventForm({ mode, initialData, categories = [], initialPromoCode
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-3">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </Button>
-        {isPublishedEvent ? (
+      {isPublishedEvent ? (
+        <div className="flex flex-wrap gap-3">
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+            Cancel
+          </Button>
           <Button onClick={() => submit('save')} isLoading={isSubmitting}>
             Save changes
           </Button>
-        ) : (
-          <>
-            <Button onClick={() => submit('save')} isLoading={isSubmitting}>
-              Save draft
-            </Button>
-            <Button variant="outline" onClick={() => submit('publish')} isLoading={isSubmitting}>
-              Publish event
-            </Button>
-          </>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex gap-4 border-t border-black/10 pt-6">
+          <Button
+            onClick={() => submit('publish')}
+            isLoading={isSubmitting}
+            className="flex-1 h-[50px] rounded-[10px] bg-[#5c8bd9] text-white text-lg font-semibold shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] hover:bg-[#4a7ac8]"
+          >
+            Create Event
+          </Button>
+          <Button
+            onClick={() => submit('save')}
+            isLoading={isSubmitting}
+            className="h-[50px] w-[152px] rounded-[10px] bg-[#e5e7eb] text-[#4a5565] text-lg font-semibold hover:bg-[#d1d5dc]"
+          >
+            Save Draft
+          </Button>
+          <Button
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="h-[50px] w-[120px] rounded-[10px] bg-[#c8414e] text-white text-lg font-semibold hover:bg-[#b43944]"
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
 
       {cropSession ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

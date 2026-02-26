@@ -59,12 +59,13 @@ export async function POST(request: NextRequest) {
       organizerNames,
       sponsorNames,
       speakerPhotos,
+      videoUrl,
       ...input
     } = parsed.data
 
     const normalizedSpeakerNames = normalizeNameList(speakerNames)
-    const normalizedOrganizerNames = normalizeNameList(organizerNames)
-    const normalizedSponsorNames = normalizeNameList(sponsorNames)
+    const normalizedOrganizerNames = (organizerNames || []).map((n) => n.trim())
+    const normalizedSponsorNames = (sponsorNames || []).map((n) => n.trim())
 
     const peopleCreateData = buildPeopleCreateData(
       normalizedSpeakerNames,
@@ -107,18 +108,13 @@ export async function POST(request: NextRequest) {
         postalCode: input.postalCode,
         onlineUrl: input.onlineUrl,
         coverImage: input.coverImage,
-        media: input.bottomImage
-          ? {
-              create: [
-                {
-                  url: input.bottomImage,
-                  type: 'IMAGE',
-                  title: 'BOTTOM_IMAGE',
-                  sortOrder: 999,
-                },
-              ],
-            }
-          : undefined,
+        media: (() => {
+          const items = [
+            ...(input.bottomImage ? [{ url: input.bottomImage, type: 'IMAGE' as const, title: 'BOTTOM_IMAGE', sortOrder: 999 }] : []),
+            ...(videoUrl ? [{ url: videoUrl, type: 'VIDEO' as const, title: 'EVENT_VIDEO', sortOrder: 1000 }] : []),
+          ]
+          return items.length ? { create: items } : undefined
+        })(),
         speakers: peopleCreateData.length
           ? {
               create: peopleCreateData,

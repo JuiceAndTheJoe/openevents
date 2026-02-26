@@ -89,7 +89,6 @@ export default async function EditEventPage({ params }: PageProps) {
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         },
         media: {
-          where: { type: 'IMAGE' },
           orderBy: { sortOrder: 'asc' },
         },
         discountCodes: {
@@ -115,19 +114,20 @@ export default async function EditEventPage({ params }: PageProps) {
   const eventPeople = event.speakers.filter((speaker) => resolveEventPeopleRole(speaker.socialLinks))
   const regularSpeakers = event.speakers.filter((speaker) => !resolveEventPeopleRole(speaker.socialLinks))
   const bottomImage = event.media.find((item) => item.title === 'BOTTOM_IMAGE')?.url || ''
+  const videoUrl = event.media.find((item) => item.type === 'VIDEO')?.url || ''
 
-  const speakerNames = eventPeople
-    .filter((speaker) => resolveEventPeopleRole(speaker.socialLinks) === 'SPEAKER')
-    .map((speaker) => speaker.name)
-    .join(', ')
-  const organizerNames = eventPeople
-    .filter((speaker) => resolveEventPeopleRole(speaker.socialLinks) === 'ORGANIZER')
-    .map((speaker) => speaker.name)
-    .join(', ')
-  const sponsorNames = eventPeople
-    .filter((speaker) => resolveEventPeopleRole(speaker.socialLinks) === 'SPONSOR')
-    .map((speaker) => speaker.name)
-    .join(', ')
+  const speakerPeople = eventPeople.filter((speaker) => resolveEventPeopleRole(speaker.socialLinks) === 'SPEAKER')
+  const initialSpeakers = speakerPeople.map((speaker) => ({
+    id: speaker.id,
+    name: speaker.name,
+    title: speaker.title || '',
+    organization:
+      isRecord(speaker.socialLinks) && speaker.socialLinks.__kind === 'EVENT_PEOPLE'
+        ? String(speaker.socialLinks.organization || '')
+        : '',
+    photo: speaker.photo || '',
+  }))
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
       <EventStatusActions eventId={event.id} status={event.status} />
@@ -135,6 +135,7 @@ export default async function EditEventPage({ params }: PageProps) {
       <EventForm
         mode="edit"
         categories={categories}
+        initialSpeakers={initialSpeakers}
         initialPromoCodes={event.discountCodes.map((dc) => ({
           id: dc.id,
           code: dc.code,
@@ -170,9 +171,7 @@ export default async function EditEventPage({ params }: PageProps) {
           onlineUrl: event.onlineUrl,
           coverImage: event.coverImage,
           bottomImage,
-          speakerNames,
-          organizerNames,
-          sponsorNames,
+          videoUrl,
           visibility: event.visibility,
           cancellationDeadlineHours: event.cancellationDeadlineHours,
           categoryIds: event.categories.map((item) => item.categoryId),

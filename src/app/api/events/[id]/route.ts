@@ -65,9 +65,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       categoryIds,
       status,
       bottomImage,
+      videoUrl,
       speakerNames,
       organizerNames,
       sponsorNames,
+      speakerPhotos,
       ...input
     } = parsed.data
 
@@ -155,12 +157,33 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
+      if (videoUrl !== undefined) {
+        await tx.eventMedia.deleteMany({
+          where: {
+            eventId: id,
+            type: 'VIDEO',
+          },
+        })
+
+        if (videoUrl) {
+          await tx.eventMedia.create({
+            data: {
+              eventId: id,
+              url: videoUrl,
+              type: 'VIDEO',
+              title: 'EVENT_VIDEO',
+              sortOrder: 1000,
+            },
+          })
+        }
+      }
+
       const shouldUpdatePeople = speakerNames !== undefined || organizerNames !== undefined || sponsorNames !== undefined
 
       if (shouldUpdatePeople) {
         const existingSpeakers = await tx.speaker.findMany({
           where: { eventId: id },
-          select: { id: true, name: true, title: true, socialLinks: true },
+          select: { id: true, name: true, title: true, photo: true, socialLinks: true },
           orderBy: { sortOrder: 'asc' },
         })
 
@@ -172,10 +195,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           }
           return ''
         })
+        const existingPhotosByName = new Map(existingSpeakers.map((s) => [s.name, s.photo || '']))
 
         const nextSpeakerNames = speakerNames !== undefined ? normalizeNameList(speakerNames) : existingNames
-        const nextJobTitles = organizerNames !== undefined ? normalizeNameList(organizerNames) : existingTitles
-        const nextOrganizations = sponsorNames !== undefined ? normalizeNameList(sponsorNames) : existingOrgs
+        const nextJobTitles = organizerNames !== undefined ? (organizerNames || []).map((n) => n.trim()) : existingTitles
+        const nextOrganizations = sponsorNames !== undefined ? (sponsorNames || []).map((n) => n.trim()) : existingOrgs
+        const nextPhotos = speakerPhotos !== undefined
+          ? (speakerPhotos || []).map((p) => p || '')
+          : nextSpeakerNames.map((name) => existingPhotosByName.get(name) || '')
 
         if (existingSpeakers.length > 0) {
           await tx.speaker.deleteMany({
@@ -183,7 +210,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           })
         }
 
-        const peopleCreateData = buildPeopleCreateData(nextSpeakerNames, nextJobTitles, nextOrganizations)
+        const peopleCreateData = buildPeopleCreateData(nextSpeakerNames, nextJobTitles, nextOrganizations, nextPhotos)
 
         if (peopleCreateData.length > 0) {
           await tx.speaker.createMany({
