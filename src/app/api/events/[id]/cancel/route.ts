@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { sendEventCancellationEmail } from '@/lib/email'
 import { lockTicketTypes } from '@/lib/orders'
+import { getDiscountUsageUnitsFromItems, releaseDiscountCodeUsage } from '@/lib/orders/discountUsage'
 import { isPayPalConfigured, processRefund } from '@/lib/payments'
 import { formatDateTime } from '@/lib/utils'
 
@@ -247,19 +248,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         for (const order of orders) {
           if (!order.discountCodeId) continue
-          await tx.discountCode.updateMany({
-            where: {
-              id: order.discountCodeId,
-              usedCount: {
-                gt: 0,
-              },
-            },
-            data: {
-              usedCount: {
-                decrement: 1,
-              },
-            },
-          })
+          const usageUnits = getDiscountUsageUnitsFromItems(order.items)
+          await releaseDiscountCodeUsage(tx, order.discountCodeId, usageUnits)
         }
 
         const cancelledEvent = await tx.event.update({

@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { canAccessOrder } from '@/lib/orders/authorization'
 import { lockTicketTypes } from '@/lib/orders'
+import { getDiscountUsageUnitsFromItems, releaseDiscountCodeUsage } from '@/lib/orders/discountUsage'
 import { isCancellationDeadlinePassed } from '@/lib/utils'
 
 interface RouteContext {
@@ -93,6 +94,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
                 },
               },
             })
+          }
+
+          if (order.discountCodeId) {
+            const usageUnits = getDiscountUsageUnitsFromItems(order.items)
+            await releaseDiscountCodeUsage(tx, order.discountCodeId, usageUnits)
           }
 
           // Mark order as cancelled
@@ -233,19 +239,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         if (order.discountCodeId) {
-          await tx.discountCode.updateMany({
-            where: {
-              id: order.discountCodeId,
-              usedCount: {
-                gt: 0,
-              },
-            },
-            data: {
-              usedCount: {
-                decrement: 1,
-              },
-            },
-          })
+          const usageUnits = getDiscountUsageUnitsFromItems(order.items)
+          await releaseDiscountCodeUsage(tx, order.discountCodeId, usageUnits)
         }
 
         return tx.order.update({

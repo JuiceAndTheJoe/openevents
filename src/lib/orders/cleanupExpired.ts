@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { lockTicketTypes } from '@/lib/orders'
+import { getDiscountUsageUnitsFromItems, releaseDiscountCodeUsage } from '@/lib/orders/discountUsage'
 
 const DEFAULT_CLEANUP_LIMIT = 200
 const MAX_CLEANUP_LIMIT = 1000
@@ -110,21 +111,12 @@ export async function cleanupExpiredPendingOrders(limit?: number): Promise<Expir
         }
 
         if (order.discountCodeId) {
-          const releaseDiscount = await tx.discountCode.updateMany({
-            where: {
-              id: order.discountCodeId,
-              usedCount: {
-                gt: 0,
-              },
-            },
-            data: {
-              usedCount: {
-                decrement: 1,
-              },
-            },
-          })
-
-          releasedDiscountUsages += releaseDiscount.count
+          const usageUnits = getDiscountUsageUnitsFromItems(order.items)
+          releasedDiscountUsages += await releaseDiscountCodeUsage(
+            tx,
+            order.discountCodeId,
+            usageUnits
+          )
         }
       }
 

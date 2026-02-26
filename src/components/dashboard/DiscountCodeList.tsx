@@ -26,7 +26,7 @@ export function DiscountCodeList({ discountCodes, deleteAction }: DiscountCodeLi
               <div>
                 <p className="font-medium text-gray-900">{discountCode.code}</p>
                 <p className="text-sm text-gray-600">
-                  {discountCode.discountType} · Value: {discountCode.discountValue} · Uses: {discountCode.usedCount}/{discountCode.maxUses ?? 'Unlimited'} · {discountCode.isActive ? 'Active' : 'Inactive'}
+                  {discountCode.discountType} · Value: {discountCode.discountValue} · Tickets used: {discountCode.usedCount}/{discountCode.maxUses ?? 'Unlimited'} · {discountCode.isActive ? 'Active' : 'Inactive'}
                 </p>
               </div>
               <form action={deleteAction}>

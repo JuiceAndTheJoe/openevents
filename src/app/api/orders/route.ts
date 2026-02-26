@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { sendOrderConfirmationEmail } from '@/lib/email'
 import { lockTicketTypes, prepareOrderItems, generateTicketCreateInput } from '@/lib/orders'
+import { claimDiscountCodeUsage, getDiscountUsageUnitsFromItems } from '@/lib/orders/discountUsage'
 import {
   getCheckoutUnavailableReason,
   getOrderErrorForCheckoutUnavailableReason,
@@ -165,6 +166,8 @@ export async function POST(request: NextRequest) {
         }
 
         let discountCodeRecord: DiscountCodeWithLinks | null = null
+        let discountUsageUnits = 0
+        let discountApplicableTicketTypeIds: string[] = []
 
         if (input.discountCode) {
           discountCodeRecord = await tx.discountCode.findUnique({
@@ -187,14 +190,31 @@ export async function POST(request: NextRequest) {
             throw new Error('Discount code is inactive, expired, or fully used')
           }
 
-          const applicableTicketTypeIds = getApplicableTicketTypeIds(discountCodeRecord)
-          if (applicableTicketTypeIds.length > 0) {
+          discountApplicableTicketTypeIds = getApplicableTicketTypeIds(discountCodeRecord)
+          const appliesToAll = discountApplicableTicketTypeIds.length === 0
+
+          if (discountApplicableTicketTypeIds.length > 0) {
             const hasApplicableItem = preparedOrder.items.some((item) =>
-              applicableTicketTypeIds.includes(item.ticketTypeId)
+              discountApplicableTicketTypeIds.includes(item.ticketTypeId)
             )
 
             if (!hasApplicableItem) {
               throw new Error('Discount code does not apply to selected ticket types')
+            }
+          }
+
+          discountUsageUnits = getDiscountUsageUnitsFromItems(
+            preparedOrder.items.filter((item) =>
+              appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+            )
+          )
+
+          if (discountCodeRecord.maxUses !== null) {
+            const remainingUses = Math.max(0, discountCodeRecord.maxUses - discountCodeRecord.usedCount)
+            if (discountUsageUnits > remainingUses) {
+              throw new Error(
+                `Discount code has only ${remainingUses} use(s) remaining, but ${discountUsageUnits} ticket(s) are selected`
+              )
             }
           }
         }
@@ -203,11 +223,10 @@ export async function POST(request: NextRequest) {
         let discountAmount = 0
 
         if (discountCodeRecord) {
-          const applicableTicketTypeIds = getApplicableTicketTypeIds(discountCodeRecord)
-          const appliesToAll = applicableTicketTypeIds.length === 0
+          const appliesToAll = discountApplicableTicketTypeIds.length === 0
 
           const discountableSubtotal = preparedOrder.items.reduce((sum, item) => {
-            if (appliesToAll || applicableTicketTypeIds.includes(item.ticketTypeId)) {
+            if (appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)) {
               return Number((sum + item.totalPrice).toFixed(2))
             }
             return sum
@@ -323,14 +342,16 @@ export async function POST(request: NextRequest) {
         }
 
         if (discountCodeRecord) {
-          await tx.discountCode.update({
-            where: { id: discountCodeRecord.id },
-            data: {
-              usedCount: {
-                increment: 1,
-              },
-            },
-          })
+          const usageClaimed = await claimDiscountCodeUsage(
+            tx,
+            discountCodeRecord.id,
+            discountUsageUnits,
+            discountCodeRecord.maxUses
+          )
+
+          if (!usageClaimed) {
+            throw new Error('Discount code no longer has enough remaining uses')
+          }
         }
 
         return tx.order.findUniqueOrThrow({
@@ -414,6 +435,7 @@ export async function POST(request: NextRequest) {
         'One or more ticket types were not found for this event',
         'Discount code not found',
         'Discount code is inactive, expired, or fully used',
+        'Discount code no longer has enough remaining uses',
         'Discount code does not apply to selected ticket types',
         'Only one discount code can be applied per order',
       ])
@@ -426,7 +448,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })
       }
 
-      if (handledErrors.has(error.message) || error.message.includes('remaining capacity')) {
+      if (
+        handledErrors.has(error.message) ||
+        error.message.includes('remaining capacity') ||
+        error.message.includes('use(s) remaining')
+      ) {
         return NextResponse.json({ error: error.message }, { status: 400 })
       }
 

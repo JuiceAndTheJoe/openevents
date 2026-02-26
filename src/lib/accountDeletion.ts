@@ -7,6 +7,7 @@ import {
   sendEventCancellationEmail,
 } from '@/lib/email'
 import { lockTicketTypes } from '@/lib/orders'
+import { getDiscountUsageUnitsFromItems, releaseDiscountCodeUsage } from '@/lib/orders/discountUsage'
 import { formatDateTime, generateToken } from '@/lib/utils'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -451,19 +452,8 @@ export async function finalizeAccountDeletionForUser(
 
           for (const order of orders) {
             if (!order.discountCodeId) continue
-            await tx.discountCode.updateMany({
-              where: {
-                id: order.discountCodeId,
-                usedCount: {
-                  gt: 0,
-                },
-              },
-              data: {
-                usedCount: {
-                  decrement: 1,
-                },
-              },
-            })
+            const usageUnits = getDiscountUsageUnitsFromItems(order.items)
+            await releaseDiscountCodeUsage(tx, order.discountCodeId, usageUnits)
           }
 
           await tx.event.update({

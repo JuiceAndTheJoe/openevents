@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { lockTicketTypes } from '@/lib/orders'
+import { getDiscountUsageUnitsFromItems, releaseDiscountCodeUsage } from '@/lib/orders/discountUsage'
 
 /**
  * Expires a pending order reservation if its expiry timestamp has passed.
@@ -79,19 +80,8 @@ export async function expirePendingOrderIfNeeded(orderId: string): Promise<boole
       }
 
       if (order.discountCodeId) {
-        await tx.discountCode.updateMany({
-          where: {
-            id: order.discountCodeId,
-            usedCount: {
-              gt: 0,
-            },
-          },
-          data: {
-            usedCount: {
-              decrement: 1,
-            },
-          },
-        })
+        const usageUnits = getDiscountUsageUnitsFromItems(order.items)
+        await releaseDiscountCodeUsage(tx, order.discountCodeId, usageUnits)
       }
 
       return true
