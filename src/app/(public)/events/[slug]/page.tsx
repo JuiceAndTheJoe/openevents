@@ -314,7 +314,11 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
         >
           Overview
         </h2>
-        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_270px]">
+        <div
+          className={`mt-4 grid grid-cols-1 gap-6 ${
+            event.locationType !== 'ONLINE' ? 'lg:grid-cols-[1fr_270px]' : ''
+          }`}
+        >
           <div>
             {event.description?.trim() ? (
               <p
@@ -339,12 +343,8 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
             )}
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-gray-200">
-            {event.locationType === 'ONLINE' ? (
-              <div className="flex h-[230px] items-center justify-center bg-gray-50 p-4 text-center text-sm text-gray-500">
-                Online event map preview not required.
-              </div>
-            ) : (
+          {event.locationType !== 'ONLINE' ? (
+            <div className="overflow-hidden rounded-xl border border-gray-200">
               <iframe
                 title="Event location map"
                 src={mapEmbedUrl}
@@ -352,8 +352,8 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-            )}
-          </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
