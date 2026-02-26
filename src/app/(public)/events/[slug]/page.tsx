@@ -235,15 +235,19 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
           {/* Right column: edit button (top-right) + price section */}
           <div className="flex w-full flex-col lg:w-[247px] lg:shrink-0">
 
-            {/* Edit button (node 239-221) — pill, right-aligned, flush above price */}
-            <Link
-              href={`/dashboard/events/${event.id}/edit`}
-              className="flex w-fit items-center gap-2 self-end rounded-[50px] bg-[#e5e7eb] py-2 pl-4 pr-4 transition hover:bg-[#d1d5db]"
-              style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
-            >
-              <Pencil className="h-5 w-5 text-[#4a5565]" />
-              <span className="text-[16px] font-semibold leading-6 text-[#4a5565]">Edit</span>
-            </Link>
+            {/* Edit button — only shown to the event owner or super admin */}
+            {isOwnerOrAdmin ? (
+              <Link
+                href={`/dashboard/events/${event.id}/edit`}
+                className="flex w-fit items-center gap-2 self-end rounded-[50px] bg-[#e5e7eb] py-2 pl-4 pr-4 transition hover:bg-[#d1d5db]"
+                style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+              >
+                <Pencil className="h-5 w-5 text-[#4a5565]" />
+                <span className="text-[16px] font-semibold leading-6 text-[#4a5565]">Edit</span>
+              </Link>
+            ) : (
+              <div className="h-10" />
+            )}
 
             {/* Price — 2px below edit button, height 36px */}
             <p

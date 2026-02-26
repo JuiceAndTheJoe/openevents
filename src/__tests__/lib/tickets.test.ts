@@ -76,6 +76,7 @@ describe('Discount Code Functions', () => {
       validFrom: null,
       validUntil: null,
       maxUses: null,
+      minCartAmount: null,
       usedCount: 0,
     }
 

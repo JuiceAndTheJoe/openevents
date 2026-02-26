@@ -37,6 +37,7 @@ const discountCodeBaseSchema = z.object({
   discountType: z.enum(['PERCENTAGE', 'FIXED_AMOUNT', 'FREE_TICKET', 'INVOICE']),
   discountValue: z.number().min(0),
   maxUses: z.number().int().positive().optional().nullable(),
+  minCartAmount: z.number().min(0).optional().nullable(),
   validFrom: z.string().datetime().optional().nullable(),
   validUntil: z.string().datetime().optional().nullable(),
   isActive: z.boolean().default(true),
@@ -69,6 +70,7 @@ export const validateDiscountCodeSchema = z.object({
   eventId: z.string().cuid(),
   code: z.string().min(1),
   ticketTypeIds: z.array(z.string().min(1)).optional(),
+  ticketQuantities: z.record(z.string(), z.number().int().min(0)).optional(),
 })
 
 export type CreateTicketTypeInput = z.infer<typeof createTicketTypeSchema>

@@ -391,6 +391,9 @@ model DiscountCode {
   maxUses       Int?         // null = unlimited
   usedCount     Int          @default(0)
 
+  // Conditions
+  minCartAmount Decimal?     @db.Decimal(10, 2) // Minimum cart amount to activate code
+
   // Validity
   validFrom     DateTime?
   validUntil    DateTime?

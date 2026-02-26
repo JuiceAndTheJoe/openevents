@@ -92,6 +92,14 @@ export default async function EditEventPage({ params }: PageProps) {
           where: { type: 'IMAGE' },
           orderBy: { sortOrder: 'asc' },
         },
+        discountCodes: {
+          include: {
+            ticketTypes: {
+              select: { ticketTypeId: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     }),
     prisma.category.findMany({
@@ -127,6 +135,14 @@ export default async function EditEventPage({ params }: PageProps) {
       <EventForm
         mode="edit"
         categories={categories}
+        initialPromoCodes={event.discountCodes.map((dc) => ({
+          id: dc.id,
+          code: dc.code,
+          discountValue: Number(dc.discountValue).toString(),
+          ticketTypeId: dc.ticketTypes[0]?.ticketTypeId ?? '',
+          maxUses: dc.maxUses !== null ? String(dc.maxUses) : '',
+          minCartAmount: dc.minCartAmount !== null ? String(Number(dc.minCartAmount)) : '',
+        }))}
         initialData={{
           id: event.id,
           slug: event.slug,

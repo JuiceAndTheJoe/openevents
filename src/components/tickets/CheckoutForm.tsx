@@ -821,6 +821,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
             <DiscountCodeInput
               eventId={event.id}
               selectedTicketTypeIds={selectedTicketTypeIds}
+              ticketQuantities={quantities}
               onDiscountChange={setDiscount}
             />
           </CardContent>

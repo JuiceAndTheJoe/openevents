@@ -15,12 +15,14 @@ export interface AppliedDiscount {
 interface DiscountCodeInputProps {
   eventId: string
   selectedTicketTypeIds: string[]
+  ticketQuantities: Record<string, number>
   onDiscountChange: (discount: AppliedDiscount | null) => void
 }
 
 export function DiscountCodeInput({
   eventId,
   selectedTicketTypeIds,
+  ticketQuantities,
   onDiscountChange,
 }: DiscountCodeInputProps) {
   const [code, setCode] = useState('')
@@ -47,6 +49,7 @@ export function DiscountCodeInput({
           eventId,
           code,
           ticketTypeIds: selectedTicketTypeIds,
+          ticketQuantities,
         }),
       })
 

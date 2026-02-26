@@ -213,6 +213,21 @@ export async function POST(request: NextRequest) {
             return sum
           }, 0)
 
+          if (discountCodeRecord.minCartAmount !== null) {
+            const minQuantity = decimalToNumber(discountCodeRecord.minCartAmount)
+            const totalApplicableQuantity = preparedOrder.items.reduce((sum, item) => {
+              if (appliesToAll || applicableTicketTypeIds.includes(item.ticketTypeId)) {
+                return sum + item.quantity
+              }
+              return sum
+            }, 0)
+            if (totalApplicableQuantity < minQuantity) {
+              throw new Error(
+                `At least ${minQuantity} ticket(s) of the applicable type are required for this discount code`
+              )
+            }
+          }
+
           discountAmount = calculateDiscountAmount(
             discountableSubtotal,
             discountCodeRecord.discountType,
@@ -457,7 +472,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Event not found' }, { status: 404 })
       }
 
-      if (handledErrors.has(error.message) || error.message.includes('remaining capacity')) {
+      if (handledErrors.has(error.message) || error.message.includes('remaining capacity') || error.message.includes('ticket(s) of the applicable type')) {
         return NextResponse.json({ error: error.message }, { status: 400 })
       }
 
