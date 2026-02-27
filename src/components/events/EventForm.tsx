@@ -3103,7 +3103,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
       ) : null}
 
       {isPublishedEvent ? (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
@@ -3112,13 +3112,14 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
           </Button>
         </div>
       ) : (
-        <div className="flex gap-4 border-t border-black/10 pt-6">
+        <div className="flex justify-end gap-4 border-t border-black/10 pt-6">
           <Button
-            onClick={() => submit('publish')}
-            isLoading={isSubmitting}
-            className="flex-1 h-[50px] rounded-[10px] bg-[#5c8bd9] text-white text-lg font-semibold shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] hover:bg-[#4a7ac8]"
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="h-[50px] w-[120px] rounded-[10px] bg-[#c8414e] text-white text-lg font-semibold hover:bg-[#b43944]"
           >
-            Publish Event
+            Cancel
           </Button>
           <Button
             onClick={() => submit('save')}
@@ -3128,12 +3129,11 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
             Save Draft
           </Button>
           <Button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="h-[50px] w-[120px] rounded-[10px] bg-[#c8414e] text-white text-lg font-semibold hover:bg-[#b43944]"
+            onClick={() => submit('publish')}
+            isLoading={isSubmitting}
+            className="h-[50px] w-[190px] rounded-[10px] bg-[#5c8bd9] text-white text-lg font-semibold shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] hover:bg-[#4a7ac8]"
           >
-            Cancel
+            Publish Event
           </Button>
         </div>
       )}
