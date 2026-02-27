@@ -32,7 +32,7 @@ type EventDashboardProps = {
       sold: number
       remaining: number | null
     }>
-    dailySales: Array<{ date: string; revenue: number }>
+    dailySales: Array<{ date: string; revenue: number; ticketsSold: number }>
   }
 }
 

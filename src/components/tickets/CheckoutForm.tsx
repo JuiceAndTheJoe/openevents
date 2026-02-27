@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -84,6 +84,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
+  const initialReservationTtlMinutes = getClientOrderReservationTtlMinutes()
 
   const [ticketTypes, setTicketTypes] = useState<SelectableTicketType[]>([])
   const [ticketLoading, setTicketLoading] = useState(true)
@@ -94,12 +95,14 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isRedirecting, setIsRedirecting] = useState(false)
-  const [reservationTtlMinutes, setReservationTtlMinutes] = useState(() =>
-    getClientOrderReservationTtlMinutes()
+  const [reservationTtlMinutes, setReservationTtlMinutes] = useState(initialReservationTtlMinutes)
+  const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(() =>
+    new Date(Date.now() + initialReservationTtlMinutes * 60 * 1000)
   )
-  const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(null)
-  const [reservationSecondsRemaining, setReservationSecondsRemaining] = useState<number | null>(null)
-  const hasExpiryRedirectedRef = useRef(false)
+  const [reservationSecondsRemaining, setReservationSecondsRemaining] = useState<number | null>(
+    Math.max(0, initialReservationTtlMinutes * 60)
+  )
+  const [reservationExpiredInSession, setReservationExpiredInSession] = useState(false)
 
   // Map of ticketTypeId -> AttendeeFormState[]
   const [attendeesByType, setAttendeesByType] = useState<Record<string, AttendeeFormState[]>>({})
@@ -121,8 +124,6 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     postalCode: '',
     country: '',
   })
-  const reservationStorageKey = `checkout-reservation:${event.id}`
-
   const [paymentMethod, setPaymentMethod] = useState<'PAYPAL' | 'INVOICE'>('PAYPAL')
 
   useEffect(() => {
@@ -305,40 +306,12 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   }, [isAuthenticated])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    if (wasCancelled || wasExpired) {
-      window.localStorage.removeItem(reservationStorageKey)
-      return
-    }
-
-    const persistedExpiry = window.localStorage.getItem(reservationStorageKey)
-    if (!persistedExpiry) return
-
-    const parsedExpiry = new Date(persistedExpiry)
-    if (Number.isNaN(parsedExpiry.getTime()) || parsedExpiry.getTime() <= Date.now()) {
-      window.localStorage.removeItem(reservationStorageKey)
-      return
-    }
-
-    setReservationExpiresAt(parsedExpiry)
-  }, [reservationStorageKey, wasCancelled, wasExpired])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    if (reservationExpiresAt) {
-      window.localStorage.setItem(reservationStorageKey, reservationExpiresAt.toISOString())
-      return
-    }
-
-    window.localStorage.removeItem(reservationStorageKey)
-  }, [reservationExpiresAt, reservationStorageKey])
-
-  useEffect(() => {
     if (!reservationExpiresAt) {
-      setReservationSecondsRemaining(null)
-      hasExpiryRedirectedRef.current = false
+      if (reservationExpiredInSession) {
+        setReservationSecondsRemaining(0)
+      } else {
+        setReservationSecondsRemaining(null)
+      }
       return
     }
 
@@ -347,13 +320,8 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
       if (remainingSeconds <= 0) {
         setReservationSecondsRemaining(0)
         setReservationExpiresAt(null)
-
-        if (!hasExpiryRedirectedRef.current) {
-          hasExpiryRedirectedRef.current = true
-          setSubmitError('Your reservation expired. Please start checkout again.')
-          router.replace(`/events/${event.slug}/checkout?expired=true`)
-        }
-
+        setReservationExpiredInSession(true)
+        setSubmitError('Your reservation expired. Refresh the page to start checkout again.')
         return true
       }
 
@@ -370,7 +338,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     return () => {
       window.clearInterval(interval)
     }
-  }, [event.slug, reservationExpiresAt, router])
+  }, [reservationExpiresAt, reservationExpiredInSession])
 
   function handleQuantityChange(ticketTypeId: string, quantity: number) {
     setQuantities((current) => ({
@@ -402,6 +370,11 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
   async function handleSubmit(eventForm: FormEvent<HTMLFormElement>) {
     eventForm.preventDefault()
+
+    if (reservationExpiredInSession || reservationSecondsRemaining === 0) {
+      setSubmitError('Your reservation expired. Refresh the page to start checkout again.')
+      return
+    }
 
     if (selectedItems.length === 0) {
       setSubmitError('Select at least one ticket')
@@ -439,6 +412,8 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     setReservationSecondsRemaining(null)
 
     try {
+      let createdOrderReservationExpiresAt: Date | null = null
+
       const createOrderResponse = await fetch('/api/orders', {
         method: 'POST',
         headers: {
@@ -477,6 +452,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
         if (typeof rawReservationExpiresAt === 'string') {
           const parsedReservationExpiresAt = new Date(rawReservationExpiresAt)
           if (!Number.isNaN(parsedReservationExpiresAt.getTime())) {
+            createdOrderReservationExpiresAt = parsedReservationExpiresAt
             setReservationExpiresAt(parsedReservationExpiresAt)
           }
         }
@@ -496,6 +472,16 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
         if (!payResponse.ok) {
           setSubmitError(payData.error || 'Payment failed')
+          return
+        }
+
+        const reservationExpiredAfterPay =
+          createdOrderReservationExpiresAt !== null &&
+          createdOrderReservationExpiresAt.getTime() <= Date.now()
+
+        if (reservationExpiredAfterPay) {
+          setReservationExpiredInSession(true)
+          setSubmitError('Your reservation expired. Refresh the page to start checkout again.')
           return
         }
 
@@ -851,7 +837,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
             )}
             {reservationSecondsRemaining === 0 && (
               <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                This reservation expired. Start checkout again to reserve tickets.
+                This reservation expired. Refresh the page to start checkout again.
               </p>
             )}
           </CardContent>
@@ -917,7 +903,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
         {wasExpired && (
           <div className="rounded-md border border-red-200 bg-red-50 p-3">
             <p className="text-sm text-red-700">
-              Your previous reservation expired. Select tickets again to continue checkout.
+              Your previous reservation expired. Refresh the page to start checkout again.
             </p>
           </div>
         )}
@@ -928,10 +914,12 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           type="submit"
           className="w-full"
           isLoading={isSubmitting || isRedirecting}
-          disabled={isSubmitting || isRedirecting}
+          disabled={isSubmitting || isRedirecting || reservationExpiredInSession || reservationSecondsRemaining === 0}
         >
           {isRedirecting
             ? 'Redirecting to PayPal...'
+            : reservationExpiredInSession || reservationSecondsRemaining === 0
+              ? 'Refresh Page to Continue'
             : totalAmount === 0
               ? 'Complete Free Order'
               : paymentMethod === 'PAYPAL'

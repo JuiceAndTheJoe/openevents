@@ -5,7 +5,7 @@ const revenueStatuses: OrderStatus[] = ['PAID']
 
 export type DashboardAnalytics = {
   topEvents: Array<{ eventId: string; title: string; revenue: number }>
-  dailySales: Array<{ date: string; revenue: number }>
+  dailySales: Array<{ date: string; revenue: number; ticketsSold: number }>
 }
 
 async function fetchDashboardAnalytics(organizerId: string | null): Promise<DashboardAnalytics> {
@@ -38,7 +38,12 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
           { paidAt: null, createdAt: { gte: thirtyDaysAgo } },
         ],
       },
-      select: { totalAmount: true, createdAt: true, paidAt: true },
+      select: {
+        totalAmount: true,
+        createdAt: true,
+        paidAt: true,
+        items: { select: { quantity: true } },
+      },
     }),
   ])
 
@@ -58,22 +63,26 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
   }))
 
   // Build 30-day trend map (all days initialised to 0)
-  const dailyMap = new Map<string, number>()
+  const dailyMap = new Map<string, { revenue: number; ticketsSold: number }>()
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    dailyMap.set(d.toISOString().slice(0, 10), 0)
+    dailyMap.set(d.toISOString().slice(0, 10), { revenue: 0, ticketsSold: 0 })
   }
   for (const o of trendOrders) {
     const saleDate = o.paidAt ?? o.createdAt
     const day = saleDate.toISOString().slice(0, 10)
-    if (dailyMap.has(day)) {
-      dailyMap.set(day, (dailyMap.get(day) ?? 0) + Number(o.totalAmount.toString()))
+    const dayStats = dailyMap.get(day)
+    if (dayStats) {
+      const orderTickets = o.items.reduce((sum, item) => sum + item.quantity, 0)
+      dayStats.revenue += Number(o.totalAmount.toString())
+      dayStats.ticketsSold += orderTickets
     }
   }
-  const dailySales = Array.from(dailyMap.entries()).map(([date, revenue]) => ({
+  const dailySales = Array.from(dailyMap.entries()).map(([date, stats]) => ({
     date,
-    revenue,
+    revenue: stats.revenue,
+    ticketsSold: stats.ticketsSold,
   }))
 
   return { topEvents, dailySales }
