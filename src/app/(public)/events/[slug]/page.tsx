@@ -4,7 +4,6 @@ import { Calendar, Heart, MapPin, Pencil } from 'lucide-react'
 import { getCurrentUser, hasRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { EventNoticeToast } from '@/components/events/EventNoticeToast'
-import { AddToCalendar } from '@/components/events/AddToCalendar'
 import { DEFAULT_CURRENCY } from '@/lib/constants/currencies'
 import { CHECKOUT_UNAVAILABLE_NOTICE } from '@/lib/orders/checkoutAvailability'
 import { isValidTimeZone } from '@/lib/timezone'
@@ -126,13 +125,6 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
         : notice === CHECKOUT_UNAVAILABLE_NOTICE.NO_PURCHASABLE_TICKETS
           ? 'Checkout is unavailable because there are no tickets currently on sale.'
           : null
-  const calendarDescription = event.description?.trim()
-    || event.descriptionHtml?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-    || undefined
-  const calendarLocation = event.locationType === 'ONLINE'
-    ? event.onlineUrl || 'Online event'
-    : locationText || undefined
-
   type PersonCard = { id: string; name: string; title: string | null; photo: string | null; organization: string | null }
   const speakers: PersonCard[] = event.speakers.map((person) => ({
     id: person.id,
@@ -298,18 +290,6 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 Draft preview
               </span>
             )}
-            <AddToCalendar
-              className="mt-4 w-full"
-              eventSlug={event.slug}
-              event={{
-                title: event.title,
-                description: calendarDescription,
-                location: calendarLocation,
-                startDate: event.startDate.toISOString(),
-                endDate: event.endDate.toISOString(),
-              }}
-            />
-
           </div>
 
         </div>
