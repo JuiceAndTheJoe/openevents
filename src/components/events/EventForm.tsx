@@ -2771,7 +2771,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                       className="text-[14px] font-medium leading-5 text-[#4a5565]"
                       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     >
-                      Ticket Name
+                      Ticket Name <span className="ml-1 text-red-500">*</span>
                     </label>
                     <input
                       id={`ticketTypeName-${index}`}
@@ -2825,7 +2825,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                       className="text-[14px] font-medium leading-5 text-[#4a5565]"
                       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     >
-                      Price
+                      Price <span className="ml-1 text-red-500">*</span>
                     </label>
                     <input
                       id={`ticketPrice-${index}`}
@@ -2853,7 +2853,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                       className="text-[14px] font-medium leading-5 text-[#4a5565]"
                       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     >
-                      Currency
+                      Currency <span className="ml-1 text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <select
