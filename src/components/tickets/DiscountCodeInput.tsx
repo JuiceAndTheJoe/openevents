@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
@@ -29,6 +29,42 @@ export function DiscountCodeInput({
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [appliedCode, setAppliedCode] = useState<string | null>(null)
+  const [appliedCartSignature, setAppliedCartSignature] = useState<string | null>(null)
+
+  const cartSignature = useMemo(() => {
+    const ticketTypeKey = [...selectedTicketTypeIds].sort().join('|')
+    const quantityKey = Object.entries(ticketQuantities)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([ticketTypeId, quantity]) => `${ticketTypeId}:${quantity}`)
+      .join('|')
+
+    return `${ticketTypeKey}::${quantityKey}`
+  }, [selectedTicketTypeIds, ticketQuantities])
+
+  function clearAppliedDiscount(options?: { clearInput?: boolean; message?: string | null }) {
+    setAppliedCode(null)
+    setAppliedCartSignature(null)
+    onDiscountChange(null)
+
+    if (options && 'message' in options) {
+      setError(options.message ?? null)
+    }
+
+    if (options?.clearInput) {
+      setCode('')
+    }
+  }
+
+  useEffect(() => {
+    if (!appliedCode || !appliedCartSignature || appliedCartSignature === cartSignature) {
+      return
+    }
+
+    setAppliedCode(null)
+    setAppliedCartSignature(null)
+    setError('Cart changed. Reapply the discount code for the updated ticket quantity.')
+    onDiscountChange(null)
+  }, [appliedCode, appliedCartSignature, cartSignature, onDiscountChange])
 
   async function handleApply() {
     if (!code.trim()) {
@@ -56,30 +92,28 @@ export function DiscountCodeInput({
       const data = await response.json()
 
       if (!response.ok || !data.valid) {
-        setError(data.reason || data.error || 'Invalid discount code')
-        onDiscountChange(null)
-        setAppliedCode(null)
+        clearAppliedDiscount({
+          message: data.reason || data.error || 'Invalid discount code',
+        })
         return
       }
 
       setAppliedCode(data.discount.code)
+      setAppliedCartSignature(cartSignature)
       onDiscountChange(data.discount as AppliedDiscount)
       setCode(data.discount.code)
     } catch (applyError) {
       console.error('Failed to validate discount code', applyError)
-      setError('Could not validate discount code right now')
-      onDiscountChange(null)
-      setAppliedCode(null)
+      clearAppliedDiscount({
+        message: 'Could not validate discount code right now',
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
   function handleClear() {
-    setAppliedCode(null)
-    setCode('')
-    setError(null)
-    onDiscountChange(null)
+    clearAppliedDiscount({ clearInput: true, message: null })
   }
 
   return (

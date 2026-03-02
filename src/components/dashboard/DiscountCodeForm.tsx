@@ -69,7 +69,7 @@ export function DiscountCodeForm({ title, submitLabel, action, initial }: Discou
         )}
         {showMaxUsesField && (
           <div>
-            <Label htmlFor={`${title}-maxUses`}>Max Tickets</Label>
+            <Label htmlFor={`${title}-maxUses`}>Max discounted tickets (not orders)</Label>
             <Input id={`${title}-maxUses`} name="maxUses" type="number" min="1" defaultValue={initial?.maxUses ?? ''} />
           </div>
         )}

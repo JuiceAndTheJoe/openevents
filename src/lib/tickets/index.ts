@@ -35,13 +35,45 @@ export function normalizeDiscountCode(code: string): string {
   return code.trim().toUpperCase()
 }
 
+export function getDiscountCodeConsumedTicketCount(
+  discountCode: Pick<DiscountCode, 'redeemedTicketCount'>
+): number {
+  return discountCode.redeemedTicketCount
+}
+
+export function getDiscountCodeRemainingTicketUses(
+  discountCode: Pick<DiscountCode, 'maxUses' | 'redeemedTicketCount'>
+): number | null {
+  if (discountCode.maxUses === null) {
+    return null
+  }
+
+  return Math.max(0, discountCode.maxUses - getDiscountCodeConsumedTicketCount(discountCode))
+}
+
+export function getSelectedTicketQuantity(
+  ticketQuantities: Record<string, number | undefined>,
+  applicableTicketTypeIds: string[] = []
+): number {
+  const idsToCount = applicableTicketTypeIds.length > 0
+    ? applicableTicketTypeIds
+    : Object.keys(ticketQuantities)
+
+  return idsToCount.reduce(
+    (sum, id) => sum + Math.max(0, ticketQuantities[id] ?? 0),
+    0
+  )
+}
+
 export function isDiscountCodeActive(discountCode: DiscountCode): boolean {
   const now = new Date()
 
   if (!discountCode.isActive) return false
   if (discountCode.validFrom && discountCode.validFrom > now) return false
   if (discountCode.validUntil && discountCode.validUntil < now) return false
-  if (discountCode.maxUses !== null && discountCode.usedCount >= discountCode.maxUses) return false
+  if (getDiscountCodeRemainingTicketUses(discountCode) === 0) {
+    return false
+  }
 
   return true
 }

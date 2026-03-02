@@ -390,6 +390,7 @@ model DiscountCode {
   // Usage limits
   maxUses       Int?         // null = unlimited
   usedCount     Int          @default(0)
+  redeemedTicketCount Int    @default(0)
 
   // Conditions
   minCartAmount Decimal?     @db.Decimal(10, 2) // Minimum cart amount to activate code

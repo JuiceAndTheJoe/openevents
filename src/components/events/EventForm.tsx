@@ -2711,7 +2711,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-sm font-medium text-[#4a5565]" htmlFor={`promoUsageLimit-${index}`}>
-                        Usage Limit
+                        Max discounted tickets (not orders)
                       </label>
                       <input
                         id={`promoUsageLimit-${index}`}

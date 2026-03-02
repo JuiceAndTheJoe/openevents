@@ -23,6 +23,9 @@ export async function claimDiscountCodeUsage(
         usedCount: {
           increment: usageUnits,
         },
+        redeemedTicketCount: {
+          increment: usageUnits,
+        },
       },
     })
     return true
@@ -31,12 +34,15 @@ export async function claimDiscountCodeUsage(
   const claimed = await tx.discountCode.updateMany({
     where: {
       id: discountCodeId,
-      usedCount: {
+      redeemedTicketCount: {
         lte: maxUses - usageUnits,
       },
     },
     data: {
       usedCount: {
+        increment: usageUnits,
+      },
+      redeemedTicketCount: {
         increment: usageUnits,
       },
     },
@@ -52,7 +58,7 @@ export async function releaseDiscountCodeUsage(
 ): Promise<number> {
   if (usageUnits <= 0) return 0
 
-  const released = await tx.discountCode.updateMany({
+  const releasedUsedCount = await tx.discountCode.updateMany({
     where: {
       id: discountCodeId,
       usedCount: {
@@ -66,21 +72,56 @@ export async function releaseDiscountCodeUsage(
     },
   })
 
-  if (released.count > 0) {
-    return usageUnits
-  }
+  const clampedUsedCount = releasedUsedCount.count === 0
+    ? await tx.discountCode.updateMany({
+        where: {
+          id: discountCodeId,
+          usedCount: {
+            gt: 0,
+          },
+        },
+        data: {
+          usedCount: 0,
+        },
+      })
+    : { count: 0 }
 
-  const clamped = await tx.discountCode.updateMany({
+  const releasedRedeemedTicketCount = await tx.discountCode.updateMany({
     where: {
       id: discountCodeId,
-      usedCount: {
-        gt: 0,
+      redeemedTicketCount: {
+        gte: usageUnits,
       },
     },
     data: {
-      usedCount: 0,
+      redeemedTicketCount: {
+        decrement: usageUnits,
+      },
     },
   })
 
-  return clamped.count > 0 ? usageUnits : 0
+  const clampedRedeemedTicketCount = releasedRedeemedTicketCount.count === 0
+    ? await tx.discountCode.updateMany({
+        where: {
+          id: discountCodeId,
+          redeemedTicketCount: {
+            gt: 0,
+          },
+        },
+        data: {
+          redeemedTicketCount: 0,
+        },
+      })
+    : { count: 0 }
+
+  if (
+    releasedUsedCount.count === 0 &&
+    clampedUsedCount.count === 0 &&
+    releasedRedeemedTicketCount.count === 0 &&
+    clampedRedeemedTicketCount.count === 0
+  ) {
+    return 0
+  }
+
+  return usageUnits
 }

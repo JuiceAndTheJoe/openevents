@@ -15,7 +15,7 @@ import {
   calculateDiscountAmount,
   decimalToNumber,
   getApplicableTicketTypeIds,
-  isDiscountCodeActive,
+  getDiscountCodeRemainingTicketUses,
   normalizeDiscountCode,
 } from '@/lib/tickets'
 import { createOrderSchema } from '@/lib/validations'
@@ -186,7 +186,12 @@ export async function POST(request: NextRequest) {
             throw new Error('Discount code not found')
           }
 
-          if (!isDiscountCodeActive(discountCodeRecord)) {
+          const now = new Date()
+          if (
+            !discountCodeRecord.isActive ||
+            (discountCodeRecord.validFrom && discountCodeRecord.validFrom > now) ||
+            (discountCodeRecord.validUntil && discountCodeRecord.validUntil < now)
+          ) {
             throw new Error('Discount code is inactive, expired, or fully used')
           }
 
@@ -210,11 +215,9 @@ export async function POST(request: NextRequest) {
           )
 
           if (discountCodeRecord.maxUses !== null) {
-            const remainingUses = Math.max(0, discountCodeRecord.maxUses - discountCodeRecord.usedCount)
+            const remainingUses = getDiscountCodeRemainingTicketUses(discountCodeRecord) ?? 0
             if (discountUsageUnits > remainingUses) {
-              throw new Error(
-                `Discount code has only ${remainingUses} use(s) remaining, but ${discountUsageUnits} ticket(s) are selected`
-              )
+              throw new Error('Discount code has no remaining uses for this quantity of tickets.')
             }
           }
         }
@@ -365,7 +368,7 @@ export async function POST(request: NextRequest) {
           )
 
           if (!usageClaimed) {
-            throw new Error('Discount code no longer has enough remaining uses')
+            throw new Error('Discount code has no remaining uses for this quantity of tickets.')
           }
         }
 
@@ -481,7 +484,7 @@ export async function POST(request: NextRequest) {
         'One or more ticket types were not found for this event',
         'Discount code not found',
         'Discount code is inactive, expired, or fully used',
-        'Discount code no longer has enough remaining uses',
+        'Discount code has no remaining uses for this quantity of tickets.',
         'Discount code does not apply to selected ticket types',
         'Only one discount code can be applied per order',
       ])
@@ -497,7 +500,6 @@ export async function POST(request: NextRequest) {
       if (
         handledErrors.has(error.message) ||
         error.message.includes('remaining capacity') ||
-        error.message.includes('use(s) remaining') || 
         error.message.includes('ticket(s) of the applicable type')
       ) {
         return NextResponse.json({ error: error.message }, { status: 400 })

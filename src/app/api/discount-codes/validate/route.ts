@@ -6,6 +6,8 @@ import { validateDiscountCodeSchema } from '@/lib/validations'
 import {
   decimalToNumber,
   getApplicableTicketTypeIds,
+  getDiscountCodeRemainingTicketUses,
+  getSelectedTicketQuantity,
   isDiscountCodeActive,
   normalizeDiscountCode,
 } from '@/lib/tickets'
@@ -67,17 +69,29 @@ export async function POST(request: NextRequest) {
 
     if (discountCode.minCartAmount !== null && input.ticketQuantities !== undefined) {
       const minQuantity = decimalToNumber(discountCode.minCartAmount)
-      const idsToCount = applicableTicketTypeIds.length > 0
-        ? applicableTicketTypeIds
-        : Object.keys(input.ticketQuantities)
-      const totalQuantity = idsToCount.reduce(
-        (sum, id) => sum + (input.ticketQuantities![id] ?? 0),
-        0
+      const totalQuantity = getSelectedTicketQuantity(
+        input.ticketQuantities,
+        applicableTicketTypeIds
       )
       if (totalQuantity < minQuantity) {
         return NextResponse.json({
           valid: false,
           reason: `At least ${minQuantity} ticket(s) of the applicable type are required for this code`,
+        })
+      }
+    }
+
+    if (discountCode.maxUses !== null && input.ticketQuantities !== undefined) {
+      const requestedTicketUses = getSelectedTicketQuantity(
+        input.ticketQuantities,
+        applicableTicketTypeIds
+      )
+      const remainingUses = getDiscountCodeRemainingTicketUses(discountCode) ?? 0
+
+      if (requestedTicketUses > remainingUses) {
+        return NextResponse.json({
+          valid: false,
+          reason: 'Discount code has no remaining uses for this quantity of tickets.',
         })
       }
     }
