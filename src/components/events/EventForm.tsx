@@ -1,7 +1,7 @@
 'use client'
 
 import Cropper, { Area } from 'react-easy-crop'
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { ChangeEvent, DragEvent, FocusEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Image as ImageIcon, Plus, Trash2, Upload, User, Video } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -93,6 +93,7 @@ type EventFormProps = {
 
 type FieldKey =
   | 'title'
+  | 'categoryIds'
   | 'description'
   | 'startDate'
   | 'endDate'
@@ -200,6 +201,7 @@ const allowedVideoMimeTypes = new Set(['video/mp4', 'video/webm', 'video/quickti
 
 const fieldOrder: FieldKey[] = [
   'title',
+  'categoryIds',
   'startDate',
   'endDate',
   'timezone',
@@ -333,7 +335,7 @@ function focusFieldById(id: string) {
     const element = document.getElementById(id)
     if (!element) return
     element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
+    if (element instanceof HTMLElement) {
       element.focus()
     }
   })
@@ -378,6 +380,109 @@ function loadTimezoneOptions(initialTimeZone: string) {
       initialTimeZone,
     ].filter(Boolean))
   )
+}
+
+type FieldValidationMode = 'blur' | 'submit-save' | 'submit-publish'
+
+function isValidUrl(value: string) {
+  try {
+    new URL(value)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function getFieldValidationMessage(key: FieldKey, currentForm: EventFormData, mode: FieldValidationMode): string | undefined {
+  const requireComplete = mode !== 'submit-save'
+  const timezone = isValidTimeZone(currentForm.timezone) ? currentForm.timezone : 'UTC'
+  const startUtc = dateTimeLocalInTimeZoneToUtcIso(currentForm.startDate, timezone)
+  const endUtc = dateTimeLocalInTimeZoneToUtcIso(currentForm.endDate, timezone)
+
+  switch (key) {
+    case 'title':
+      return currentForm.title?.trim() ? undefined : 'Enter an event title.'
+    case 'categoryIds':
+      if (mode === 'submit-save') return undefined
+      return currentForm.categoryIds?.length ? undefined : 'Select at least one category.'
+    case 'description':
+      if (mode === 'submit-save') return undefined
+      return currentForm.description?.trim() ? undefined : 'Add an event description.'
+    case 'startDate':
+      if (!currentForm.startDate?.trim()) return 'Set start date and time.'
+      return startUtc ? undefined : 'Use a valid start date and time.'
+    case 'endDate':
+      if (!currentForm.endDate?.trim()) return 'Set end date and time.'
+      if (!endUtc) return 'Use a valid end date and time.'
+      if (startUtc && new Date(endUtc) <= new Date(startUtc)) return 'End time must be after start time.'
+      return undefined
+    case 'timezone':
+      if (!currentForm.timezone?.trim()) return 'Select a timezone.'
+      return isValidTimeZone(currentForm.timezone) ? undefined : 'Select a valid IANA timezone.'
+    case 'venue':
+      if (!requireComplete || currentForm.locationType === 'ONLINE') return undefined
+      return currentForm.venue?.trim() ? undefined : 'Enter venue.'
+    case 'address':
+      if (!requireComplete || currentForm.locationType === 'ONLINE') return undefined
+      return currentForm.address?.trim() ? undefined : 'Enter address.'
+    case 'city':
+      if (!requireComplete || currentForm.locationType === 'ONLINE') return undefined
+      return currentForm.city?.trim() ? undefined : 'Enter city.'
+    case 'country':
+      if (!requireComplete || currentForm.locationType === 'ONLINE') return undefined
+      return currentForm.country?.trim() ? undefined : 'Enter country.'
+    case 'onlineUrl': {
+      const value = currentForm.onlineUrl?.trim() || ''
+      if (!value) {
+        if (requireComplete && (currentForm.locationType === 'ONLINE' || currentForm.locationType === 'HYBRID')) {
+          return 'Enter an online URL.'
+        }
+        return undefined
+      }
+      return isValidUrl(value) ? undefined : 'Enter a valid URL.'
+    }
+    case 'coverImage':
+    case 'bottomImage':
+    case 'videoUrl':
+      return undefined
+  }
+}
+
+function getTicketFieldValidationMessage(ticketTypes: TicketTypeDraft[], index: number, key: TicketTypeFieldKey): string | undefined {
+  const ticket = ticketTypes[index]
+  if (!ticket) return undefined
+
+  const hasInput = hasAnyTicketInput(ticket)
+  if (!hasInput) return undefined
+
+  if (key === 'name') {
+    const name = ticket.name.trim()
+    if (!name) return 'Enter ticket name.'
+
+    const duplicateCount = ticketTypes.filter((candidate) => candidate.name.trim().toLowerCase() === name.toLowerCase()).length
+    if (duplicateCount > 1) return 'Ticket names must be unique.'
+    return undefined
+  }
+
+  if (key === 'price') {
+    const price = parseTicketPrice(ticket.price)
+    return price === null || price < 0 ? 'Enter a valid price (0 or greater).' : undefined
+  }
+
+  if (key === 'currency') {
+    const currency = normalizeTicketCurrency(ticket.currency)
+    return isSupportedCurrency(currency) ? undefined : 'Select a supported currency.'
+  }
+
+  const capacityRaw = ticket.capacity.trim()
+  if (!capacityRaw) return undefined
+
+  const maxCapacity = Number(capacityRaw)
+  if (!Number.isInteger(maxCapacity) || maxCapacity < 1) {
+    return 'Enter a whole number greater than 0 or leave empty.'
+  }
+
+  return undefined
 }
 
 async function loadImage(src: string) {
@@ -520,7 +625,11 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
   const [isPreparingCrop, setIsPreparingCrop] = useState<ImageTargetField | null>(null)
   const [isApplyingCrop, setIsApplyingCrop] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [touchedFields, setTouchedFields] = useState<Partial<Record<FieldKey, boolean>>>({})
   const [ticketErrors, setTicketErrors] = useState<TicketTypeFieldErrors[]>(
+    initialTicketTypes.map(() => ({}))
+  )
+  const [touchedTicketFields, setTouchedTicketFields] = useState<Partial<Record<TicketTypeFieldKey, boolean>>[]>(
     initialTicketTypes.map(() => ({}))
   )
   const [generalErrors, setGeneralErrors] = useState<string[]>([])
@@ -587,19 +696,110 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
 
   const timezoneOptions = useMemo(() => loadTimezoneOptions(normalizedInitialTimezone), [normalizedInitialTimezone])
 
-  const clearFieldError = (key: FieldKey) => {
+  const setFieldValidationState = (key: FieldKey, message?: string) => {
     setFieldErrors((current) => {
-      if (!current[key]) return current
-      const next = { ...current }
-      delete next[key]
-      return next
+      if (!message) {
+        if (!current[key]) return current
+        const next = { ...current }
+        delete next[key]
+        return next
+      }
+
+      if (current[key] === message) return current
+      return { ...current, [key]: message }
     })
   }
 
+  const clearFieldError = (key: FieldKey) => {
+    setFieldValidationState(key)
+  }
+
+  const markFieldTouched = (key: FieldKey) => {
+    setTouchedFields((current) => (current[key] ? current : { ...current, [key]: true }))
+  }
+
+  const validateField = (key: FieldKey, currentForm: EventFormData = form, mode: FieldValidationMode = 'blur') => {
+    setFieldValidationState(key, getFieldValidationMessage(key, currentForm, mode))
+  }
+
+  const validateFieldIfActive = (key: FieldKey, currentForm: EventFormData, mode: FieldValidationMode = 'blur') => {
+    if (!touchedFields[key] && !fieldErrors[key]) return
+    validateField(key, currentForm, mode)
+  }
+
+  const handleFieldBlur = (key: FieldKey) => {
+    markFieldTouched(key)
+    validateField(key)
+  }
+
+  const handleCompositeFieldBlur = (event: FocusEvent<HTMLElement>, key: FieldKey) => {
+    const relatedTarget = event.relatedTarget
+    if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) {
+      return
+    }
+
+    handleFieldBlur(key)
+  }
+
   const updateField = <K extends keyof EventFormData>(key: K, value: EventFormData[K]) => {
-    setForm((current) => ({ ...current, [key]: value }))
-    if (key in fieldErrors) {
-      clearFieldError(key as FieldKey)
+    const nextForm = { ...form, [key]: value }
+    setForm(nextForm)
+
+    if (key === 'title') {
+      validateFieldIfActive('title', nextForm)
+      return
+    }
+
+    if (key === 'categoryIds') {
+      validateFieldIfActive('categoryIds', nextForm)
+      return
+    }
+
+    if (key === 'description') {
+      validateFieldIfActive('description', nextForm)
+      return
+    }
+
+    if (key === 'startDate') {
+      validateFieldIfActive('startDate', nextForm)
+      validateFieldIfActive('endDate', nextForm)
+      return
+    }
+
+    if (key === 'endDate') {
+      validateFieldIfActive('endDate', nextForm)
+      return
+    }
+
+    if (key === 'timezone') {
+      validateFieldIfActive('timezone', nextForm)
+      validateFieldIfActive('startDate', nextForm)
+      validateFieldIfActive('endDate', nextForm)
+      return
+    }
+
+    if (key === 'locationType') {
+      validateFieldIfActive('venue', nextForm)
+      validateFieldIfActive('address', nextForm)
+      validateFieldIfActive('city', nextForm)
+      validateFieldIfActive('country', nextForm)
+      validateFieldIfActive('onlineUrl', nextForm)
+      return
+    }
+
+    if (
+      key === 'venue' ||
+      key === 'address' ||
+      key === 'city' ||
+      key === 'country' ||
+      key === 'onlineUrl'
+    ) {
+      validateFieldIfActive(key, nextForm)
+      return
+    }
+
+    if (key === 'coverImage' || key === 'bottomImage' || key === 'videoUrl') {
+      clearFieldError(key)
     }
   }
 
@@ -671,31 +871,89 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
 
   // ─────────────────────────────────────────────────────────────────────────
 
-  const clearTicketError = (index: number, key: TicketTypeFieldKey) => {
+  const setTicketFieldValidationState = (index: number, key: TicketTypeFieldKey, message?: string) => {
     setTicketErrors((current) => {
-      if (!current[index]?.[key]) return current
       const next = current.map((errors) => ({ ...errors }))
-      delete next[index][key]
+      const row = next[index] || {}
+
+      if (!message) {
+        if (!row[key]) return current
+        delete row[key]
+        next[index] = row
+        return next
+      }
+
+      if (row[key] === message) return current
+      row[key] = message
+      next[index] = row
       return next
     })
   }
 
-  const updateTicketTypeField = (index: number, key: TicketTypeFieldKey, value: string) => {
-    setForm((current) => {
-      const nextTicketTypes = [...(current.ticketTypes || [])]
-      if (!nextTicketTypes[index]) return current
-
-      nextTicketTypes[index] = {
-        ...nextTicketTypes[index],
-        [key]: key === 'currency' ? normalizeTicketCurrency(value) : value,
-      }
-
-      return {
-        ...current,
-        ticketTypes: nextTicketTypes,
-      }
+  const markTicketFieldTouched = (index: number, key: TicketTypeFieldKey) => {
+    setTouchedTicketFields((current) => {
+      const next = current.map((touched) => ({ ...touched }))
+      const row = next[index] || {}
+      if (row[key]) return current
+      row[key] = true
+      next[index] = row
+      return next
     })
-    clearTicketError(index, key)
+  }
+
+  const validateTicketField = (index: number, key: TicketTypeFieldKey, ticketTypes: TicketTypeDraft[] = form.ticketTypes || []) => {
+    setTicketFieldValidationState(index, key, getTicketFieldValidationMessage(ticketTypes, index, key))
+  }
+
+  const validateTicketFieldIfActive = (index: number, key: TicketTypeFieldKey, ticketTypes: TicketTypeDraft[]) => {
+    if (!touchedTicketFields[index]?.[key] && !ticketErrors[index]?.[key]) return
+    validateTicketField(index, key, ticketTypes)
+  }
+
+  const syncTicketNameValidation = (ticketTypes: TicketTypeDraft[]) => {
+    setTicketErrors((current) =>
+      current.map((errors, index) => {
+        if (!touchedTicketFields[index]?.name && !errors.name) {
+          return errors
+        }
+
+        const nextErrors = { ...errors }
+        const message = getTicketFieldValidationMessage(ticketTypes, index, 'name')
+        if (message) {
+          nextErrors.name = message
+        } else {
+          delete nextErrors.name
+        }
+        return nextErrors
+      })
+    )
+  }
+
+  const handleTicketFieldBlur = (index: number, key: TicketTypeFieldKey) => {
+    markTicketFieldTouched(index, key)
+    validateTicketField(index, key)
+  }
+
+  const updateTicketTypeField = (index: number, key: TicketTypeFieldKey, value: string) => {
+    const nextTicketTypes = [...(form.ticketTypes || [])]
+    if (!nextTicketTypes[index]) return
+
+    nextTicketTypes[index] = {
+      ...nextTicketTypes[index],
+      [key]: key === 'currency' ? normalizeTicketCurrency(value) : value,
+    }
+
+    setForm((current) => ({
+      ...current,
+      ticketTypes: nextTicketTypes,
+    }))
+
+    if (key === 'name') {
+      syncTicketNameValidation(nextTicketTypes)
+      return
+    }
+
+    validateTicketFieldIfActive(index, key, nextTicketTypes)
   }
 
   const addTicketType = () => {
@@ -704,6 +962,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
       ticketTypes: [...(current.ticketTypes || []), createEmptyTicketType()],
     }))
     setTicketErrors((current) => [...current, {}])
+    setTouchedTicketFields((current) => [...current, {}])
     setSubmitError(null)
   }
 
@@ -720,6 +979,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
       ticketTypes: (current.ticketTypes || []).filter((_, ticketIndex) => ticketIndex !== index),
     }))
     setTicketErrors((current) => current.filter((_, ticketIndex) => ticketIndex !== index))
+    setTouchedTicketFields((current) => current.filter((_, ticketIndex) => ticketIndex !== index))
   }
 
   const addPromoCode = () => {
@@ -821,6 +1081,8 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
   }, [openDateTimePanel])
 
   useEffect(() => {
+    const speakerPreviewUrls = speakerPreviewUrlsRef.current
+
     return () => {
       if (bannerObjectUrlRef.current) {
         URL.revokeObjectURL(bannerObjectUrlRef.current)
@@ -837,7 +1099,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
       if (speakerCropObjectUrlRef.current) {
         URL.revokeObjectURL(speakerCropObjectUrlRef.current)
       }
-      for (const url of speakerPreviewUrlsRef.current.values()) {
+      for (const url of speakerPreviewUrls.values()) {
         URL.revokeObjectURL(url)
       }
     }
@@ -1111,94 +1373,44 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
     const nextTicketErrors: TicketTypeFieldErrors[] = (form.ticketTypes || []).map(() => ({}))
     const nextGeneralErrors: string[] = []
     const requireComplete = action === 'publish'
+    const fieldValidationMode: FieldValidationMode = requireComplete ? 'submit-publish' : 'submit-save'
 
     const timezone = isValidTimeZone(form.timezone) ? form.timezone : 'UTC'
     const startUtc = dateTimeLocalInTimeZoneToUtcIso(form.startDate, timezone)
     const endUtc = dateTimeLocalInTimeZoneToUtcIso(form.endDate, timezone)
 
-    if (!form.title?.trim()) nextFieldErrors.title = 'Enter an event title.'
+    for (const key of fieldOrder) {
+      if (key === 'categoryIds' && categories.length === 0) {
+        continue
+      }
 
-    if (!form.startDate?.trim()) {
-      nextFieldErrors.startDate = 'Set start date and time.'
-    } else if (!startUtc) {
-      nextFieldErrors.startDate = 'Use a valid start date and time.'
-    }
-
-    if (!form.endDate?.trim()) {
-      nextFieldErrors.endDate = 'Set end date and time.'
-    } else if (!endUtc) {
-      nextFieldErrors.endDate = 'Use a valid end date and time.'
-    }
-
-    if (!form.timezone?.trim()) {
-      nextFieldErrors.timezone = 'Select a timezone.'
-    } else if (!isValidTimeZone(form.timezone)) {
-      nextFieldErrors.timezone = 'Select a valid IANA timezone.'
-    }
-
-    if (startUtc && endUtc && new Date(endUtc) <= new Date(startUtc)) {
-      nextFieldErrors.endDate = 'End time must be after start time.'
-    }
-
-    if (requireComplete && form.locationType !== 'ONLINE') {
-      if (!form.venue?.trim()) nextFieldErrors.venue = 'Enter venue.'
-      if (!form.address?.trim()) nextFieldErrors.address = 'Enter address.'
-      if (!form.city?.trim()) nextFieldErrors.city = 'Enter city.'
-      if (!form.country?.trim()) nextFieldErrors.country = 'Enter country.'
-    }
-
-    if (
-      requireComplete &&
-      (form.locationType === 'ONLINE' || form.locationType === 'HYBRID') &&
-      !form.onlineUrl?.trim()
-    ) {
-      nextFieldErrors.onlineUrl = 'Enter an online URL.'
-    }
-
-    if (requireComplete && !form.description?.trim()) {
-      nextFieldErrors.description = 'Add an event description.'
+      const message = getFieldValidationMessage(key, form, fieldValidationMode)
+      if (message) {
+        nextFieldErrors[key] = message
+      }
     }
 
     const ticketTypes = form.ticketTypes || []
-    const seenTicketNames = new Map<string, number[]>()
     let hasPublishableTicketType = false
 
     for (let index = 0; index < ticketTypes.length; index += 1) {
       const ticket = ticketTypes[index]
       const rowErrors = nextTicketErrors[index]
-      const name = ticket.name.trim()
-      const price = parseTicketPrice(ticket.price)
-      const currency = normalizeTicketCurrency(ticket.currency)
-      const capacityRaw = ticket.capacity.trim()
-      const maxCapacity = capacityRaw ? Number(capacityRaw) : null
       const hasInput = hasAnyTicketInput(ticket)
 
       if (!requireComplete && !hasInput) {
         continue
       }
 
-      if (!name) rowErrors.name = 'Enter ticket name.'
-      if (price === null || price < 0) rowErrors.price = 'Enter a valid price (0 or greater).'
-      if (!isSupportedCurrency(currency)) rowErrors.currency = 'Select a supported currency.'
-      if (maxCapacity !== null && (!Number.isInteger(maxCapacity) || maxCapacity < 1)) {
-        rowErrors.capacity = 'Enter a whole number greater than 0 or leave empty.'
-      }
-
-      if (name) {
-        const normalizedName = name.toLowerCase()
-        const existingIndexes = seenTicketNames.get(normalizedName) || []
-        seenTicketNames.set(normalizedName, [...existingIndexes, index])
+      for (const ticketField of ticketFieldOrder) {
+        const message = getTicketFieldValidationMessage(ticketTypes, index, ticketField)
+        if (message) {
+          rowErrors[ticketField] = message
+        }
       }
 
       if (Object.keys(rowErrors).length === 0 && hasInput) {
         hasPublishableTicketType = true
-      }
-    }
-
-    for (const duplicateIndexes of seenTicketNames.values()) {
-      if (duplicateIndexes.length < 2) continue
-      for (const index of duplicateIndexes) {
-        nextTicketErrors[index].name = 'Ticket names must be unique.'
       }
     }
 
@@ -1231,6 +1443,19 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
       startUtc,
       endUtc,
     }
+  }
+
+  function focusFirstInvalidControl(fieldErrors: FieldErrors, ticketErrors: TicketTypeFieldErrors[]) {
+    const firstField = fieldOrder.find((key) => Boolean(fieldErrors[key]))
+    if (firstField === 'categoryIds') {
+      setIsCategoryOpen(true)
+    } else if (firstField === 'startDate') {
+      setOpenDateTimePanel('startDate')
+    } else if (firstField === 'endDate') {
+      setOpenDateTimePanel('endDate')
+    }
+
+    focusFirstInvalidField(fieldErrors, ticketErrors)
   }
 
   async function ensureCropSourceFile(targetField: ImageTargetField, fallbackImageSrc: string | null) {
@@ -1682,7 +1907,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
 
     if (shouldBlockSubmit) {
       setGeneralErrors(validationResult.generalErrors)
-      focusFirstInvalidField(validationResult.fieldErrors, validationResult.ticketErrors)
+      focusFirstInvalidControl(validationResult.fieldErrors, validationResult.ticketErrors)
       return
     }
 
@@ -1737,7 +1962,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
         const apiFieldErrors = parseApiValidationErrors(eventJson?.details)
         if (Object.keys(apiFieldErrors).length > 0) {
           setFieldErrors(apiFieldErrors)
-          focusFirstInvalidField(apiFieldErrors, [])
+          focusFirstInvalidControl(apiFieldErrors, [])
         }
 
         throw new Error(eventJson?.error || 'Failed to save event')
@@ -1761,7 +1986,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
           const publishFieldErrors = parsePublishIssueFieldErrors(publishJson?.details)
           if (Object.keys(publishFieldErrors).length > 0) {
             setFieldErrors((current) => ({ ...current, ...publishFieldErrors }))
-            focusFirstInvalidField(publishFieldErrors, [])
+            focusFirstInvalidControl(publishFieldErrors, [])
           }
           throw new Error(publishJson?.error || 'Failed to publish event')
         }
@@ -1797,17 +2022,23 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
 
   function onTimezoneChanged(nextTimezone: string) {
     const fallbackTimezone = isValidTimeZone(nextTimezone) ? nextTimezone : 'UTC'
+    const nextForm = {
+      ...form,
+      timezone: fallbackTimezone,
+      startDate: convertDateTimeLocalBetweenTimeZones(form.startDate, form.timezone || 'UTC', fallbackTimezone),
+      endDate: convertDateTimeLocalBetweenTimeZones(form.endDate, form.timezone || 'UTC', fallbackTimezone),
+    }
 
     setForm((current) => ({
       ...current,
-      timezone: fallbackTimezone,
-      startDate: convertDateTimeLocalBetweenTimeZones(current.startDate, current.timezone || 'UTC', fallbackTimezone),
-      endDate: convertDateTimeLocalBetweenTimeZones(current.endDate, current.timezone || 'UTC', fallbackTimezone),
+      timezone: nextForm.timezone,
+      startDate: nextForm.startDate,
+      endDate: nextForm.endDate,
     }))
 
-    clearFieldError('timezone')
-    clearFieldError('startDate')
-    clearFieldError('endDate')
+    validateFieldIfActive('timezone', nextForm)
+    validateFieldIfActive('startDate', nextForm)
+    validateFieldIfActive('endDate', nextForm)
   }
 
   function onCancel() {
@@ -1885,6 +2116,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
         <h3 className="text-2xl font-bold text-black">Header Image</h3>
 
         <button
+          id="coverImage"
           type="button"
           onClick={() => bannerInputRef.current?.click()}
           disabled={isUploadingBanner}
@@ -1895,6 +2127,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
             void onImageDrop(event, 'coverImage')
           }}
           aria-label={bannerImageSrc ? 'Change banner image' : 'Add banner image'}
+          aria-describedby={fieldErrors.coverImage ? 'coverImage-error' : undefined}
           className={`group relative w-full cursor-pointer overflow-hidden rounded-[14px] border-[1.6px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
             isBannerDropActive
               ? 'border-[#5c8bd9] bg-blue-50/30'
@@ -1957,7 +2190,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
             ) : null}
           </div>
         ) : null}
-        {fieldErrors.coverImage ? <p className="text-sm text-red-600">{fieldErrors.coverImage}</p> : null}
+        {fieldErrors.coverImage ? <p id="coverImage-error" className="text-sm text-red-600">{fieldErrors.coverImage}</p> : null}
       </section>
 
       <section className="space-y-4 border-b border-[#d1d5dc] pb-4">
@@ -1972,11 +2205,12 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
               value={form.title}
               error={fieldErrors.title}
               onChange={(e) => updateField('title', e.target.value)}
+              onBlur={() => handleFieldBlur('title')}
               className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="sponsorNames" required className="text-base font-semibold text-black">Organization</Label>
+            <Label htmlFor="sponsorNames" className="text-base font-semibold text-black">Organization</Label>
             <Input
               id="sponsorNames"
               placeholder="Organization name"
@@ -1988,13 +2222,19 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
         </div>
 
         {categories.length > 0 ? (
-          <div className="flex flex-col gap-2" ref={categoryDropdownRef}>
+          <div className="flex flex-col gap-2" ref={categoryDropdownRef} onBlur={(event) => handleCompositeFieldBlur(event, 'categoryIds')}>
             <Label required className="text-base font-semibold text-black">Category</Label>
             <div className="relative">
               <button
+                id="categoryIds"
                 type="button"
+                aria-haspopup="listbox"
+                aria-expanded={isCategoryOpen}
+                aria-describedby={fieldErrors.categoryIds ? 'categoryIds-error' : undefined}
                 onClick={() => setIsCategoryOpen((open) => !open)}
-                className="flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9]"
+                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] ${
+                  fieldErrors.categoryIds ? 'border-red-500' : 'border-[#d1d5dc]'
+                }`}
               >
                 <span className={form.categoryIds?.length ? 'text-gray-900' : 'text-[#99a1af]'}>
                   {form.categoryIds?.length
@@ -2004,7 +2244,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
               </button>
               {isCategoryOpen ? (
-                <div className="absolute top-[calc(100%+8px)] left-0 z-50 w-[220px] rounded-2xl bg-white py-2 shadow-2xl max-h-72 overflow-y-auto">
+                <div role="listbox" aria-labelledby="categoryIds" className="absolute top-[calc(100%+8px)] left-0 z-50 w-[220px] rounded-2xl bg-white py-2 shadow-2xl max-h-72 overflow-y-auto">
                   {categories.map((cat) => {
                     const selected = form.categoryIds?.includes(cat.id)
                     return (
@@ -2027,6 +2267,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 </div>
               ) : null}
             </div>
+            {fieldErrors.categoryIds ? <p id="categoryIds-error" className="mt-1 text-sm text-red-600">{fieldErrors.categoryIds}</p> : null}
           </div>
         ) : null}
 
@@ -2034,12 +2275,17 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
           <Label htmlFor="description" required className="text-base font-semibold text-black">Description</Label>
           <textarea
             id="description"
-            className="min-h-[169.6px] w-full resize-y rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#99a1af] focus:outline-none focus:ring-2 focus:ring-[#5c8bd9] focus:border-transparent"
+            aria-invalid={fieldErrors.description ? true : undefined}
+            aria-describedby={fieldErrors.description ? 'description-error' : undefined}
+            className={`min-h-[169.6px] w-full resize-y rounded-[10px] border-[0.8px] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#99a1af] focus:outline-none focus:ring-2 focus:border-transparent ${
+              fieldErrors.description ? 'border-red-500 focus:ring-red-500' : 'border-[#d1d5dc] focus:ring-[#5c8bd9]'
+            }`}
             placeholder="Describe your event..."
             value={form.description || ''}
             onChange={(e) => updateField('description', e.target.value)}
+            onBlur={() => handleFieldBlur('description')}
           />
-          {fieldErrors.description ? <p className="mt-1 text-sm text-red-600">{fieldErrors.description}</p> : null}
+          {fieldErrors.description ? <p id="description-error" className="mt-1 text-sm text-red-600">{fieldErrors.description}</p> : null}
         </div>
       </section>
 
@@ -2049,13 +2295,17 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
           {/* Start Date */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" onBlur={(event) => handleCompositeFieldBlur(event, 'startDate')}>
             <Label required className="text-base font-semibold text-black">Start Date</Label>
             <div className="relative">
               <button
+                id="startDate"
                 type="button"
+                aria-describedby={fieldErrors.startDate ? 'startDate-error' : undefined}
                 onClick={() => openCalendarFor('startDate')}
-                className="flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#5c8bd9]"
+                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 ${
+                  fieldErrors.startDate ? 'border-red-500 focus:ring-red-500' : 'border-[#d1d5dc] focus:ring-[#5c8bd9]'
+                }`}
               >
                 <span className={getDatePart(form.startDate) ? 'font-medium text-gray-900' : 'text-[#828283]'}>
                   {getDatePart(form.startDate)
@@ -2111,17 +2361,21 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 </div>
               )}
             </div>
-            {fieldErrors.startDate ? <p className="text-sm text-red-600">{fieldErrors.startDate}</p> : null}
+            {fieldErrors.startDate ? <p id="startDate-error" className="text-sm text-red-600">{fieldErrors.startDate}</p> : null}
           </div>
 
           {/* End Date */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" onBlur={(event) => handleCompositeFieldBlur(event, 'endDate')}>
             <Label required className="text-base font-semibold text-black">End Date</Label>
             <div className="relative">
               <button
+                id="endDate"
                 type="button"
+                aria-describedby={fieldErrors.endDate ? 'endDate-error' : undefined}
                 onClick={() => openCalendarFor('endDate')}
-                className="flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#5c8bd9]"
+                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 ${
+                  fieldErrors.endDate ? 'border-red-500 focus:ring-red-500' : 'border-[#d1d5dc] focus:ring-[#5c8bd9]'
+                }`}
               >
                 <span className={getDatePart(form.endDate) ? 'font-medium text-gray-900' : 'text-[#828283]'}>
                   {getDatePart(form.endDate)
@@ -2177,17 +2431,20 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 </div>
               )}
             </div>
-            {fieldErrors.endDate ? <p className="text-sm text-red-600">{fieldErrors.endDate}</p> : null}
+            {fieldErrors.endDate ? <p id="endDate-error" className="text-sm text-red-600">{fieldErrors.endDate}</p> : null}
           </div>
 
           {/* Start Time */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" onBlur={(event) => handleCompositeFieldBlur(event, 'startDate')}>
             <Label required className="text-base font-semibold text-black">Start Time</Label>
             <div className="relative">
               <button
                 type="button"
+                aria-describedby={fieldErrors.startDate ? 'startDate-error' : undefined}
                 onClick={() => setOpenDateTimePanel((p) => (p === 'startTime' ? null : 'startTime'))}
-                className="flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#5c8bd9]"
+                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 ${
+                  fieldErrors.startDate ? 'border-red-500 focus:ring-red-500' : 'border-[#d1d5dc] focus:ring-[#5c8bd9]'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-gray-500" aria-hidden>
@@ -2239,13 +2496,16 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
           </div>
 
           {/* End Time */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" onBlur={(event) => handleCompositeFieldBlur(event, 'endDate')}>
             <Label required className="text-base font-semibold text-black">End Time</Label>
             <div className="relative">
               <button
                 type="button"
+                aria-describedby={fieldErrors.endDate ? 'endDate-error' : undefined}
                 onClick={() => setOpenDateTimePanel((p) => (p === 'endTime' ? null : 'endTime'))}
-                className="flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#5c8bd9]"
+                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 ${
+                  fieldErrors.endDate ? 'border-red-500 focus:ring-red-500' : 'border-[#d1d5dc] focus:ring-[#5c8bd9]'
+                }`}
               >
                 <div className="flex items-center gap-3">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-gray-500" aria-hidden>
@@ -2302,9 +2562,14 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
             <div className="relative">
               <select
                 id="timezone"
-                className="h-10 w-full appearance-none rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#5c8bd9]"
+                aria-invalid={fieldErrors.timezone ? true : undefined}
+                aria-describedby={fieldErrors.timezone ? 'timezone-error' : undefined}
+                className={`h-10 w-full appearance-none rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 ${
+                  fieldErrors.timezone ? 'border-red-500 focus:ring-red-500' : 'border-[#d1d5dc] focus:ring-[#5c8bd9]'
+                }`}
                 value={form.timezone}
                 onChange={(e) => onTimezoneChanged(e.target.value)}
+                onBlur={() => handleFieldBlur('timezone')}
               >
                 {timezoneOptions.map((tz) => (
                   <option key={tz} value={tz}>{tz}</option>
@@ -2314,7 +2579,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </div>
-            {fieldErrors.timezone ? <p className="mt-1 text-sm text-red-600">{fieldErrors.timezone}</p> : null}
+            {fieldErrors.timezone ? <p id="timezone-error" className="mt-1 text-sm text-red-600">{fieldErrors.timezone}</p> : null}
           </div>
 
         </div>
@@ -2358,6 +2623,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                   value={form.venue || ''}
                   error={fieldErrors.venue}
                   onChange={(e) => updateField('venue', e.target.value)}
+                  onBlur={() => handleFieldBlur('venue')}
                   className="h-[40px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
                 />
               </div>
@@ -2369,6 +2635,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                   value={form.address || ''}
                   error={fieldErrors.address}
                   onChange={(e) => updateField('address', e.target.value)}
+                  onBlur={() => handleFieldBlur('address')}
                   className="h-[40px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
                 />
               </div>
@@ -2380,6 +2647,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                   value={form.city || ''}
                   error={fieldErrors.city}
                   onChange={(e) => updateField('city', e.target.value)}
+                  onBlur={() => handleFieldBlur('city')}
                   className="h-[40px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
                 />
               </div>
@@ -2401,6 +2669,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                   value={form.country || ''}
                   error={fieldErrors.country}
                   onChange={(e) => updateField('country', e.target.value)}
+                  onBlur={() => handleFieldBlur('country')}
                   className="h-[40px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
                 />
               </div>
@@ -2424,6 +2693,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 value={form.onlineUrl || ''}
                 error={fieldErrors.onlineUrl}
                 onChange={(e) => updateField('onlineUrl', e.target.value)}
+                onBlur={() => handleFieldBlur('onlineUrl')}
                 className="h-[50px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
               />
             </div>
@@ -2506,15 +2776,18 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                     <input
                       id={`ticketTypeName-${index}`}
                       type="text"
+                      aria-invalid={rowErrors.name ? true : undefined}
+                      aria-describedby={rowErrors.name ? `ticketTypeName-${index}-error` : undefined}
                       value={ticketType.name}
                       onChange={(event) => updateTicketTypeField(index, 'name', event.target.value)}
+                      onBlur={() => handleTicketFieldBlur(index, 'name')}
                       placeholder="e.g., General Admission"
                       className={`h-[41px] w-full rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black placeholder-[#828283] outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
                         rowErrors.name ? 'border-red-500' : 'border-[#d1d5dc]'
                       }`}
                       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     />
-                    {rowErrors.name ? <p className="text-sm text-red-600">{rowErrors.name}</p> : null}
+                    {rowErrors.name ? <p id={`ticketTypeName-${index}-error`} className="text-sm text-red-600">{rowErrors.name}</p> : null}
                   </div>
 
                   {/* Capacity */}
@@ -2531,15 +2804,18 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                       type="number"
                       min={1}
                       step={1}
+                      aria-invalid={rowErrors.capacity ? true : undefined}
+                      aria-describedby={rowErrors.capacity ? `ticketCapacity-${index}-error` : undefined}
                       value={ticketType.capacity}
                       onChange={(event) => updateTicketTypeField(index, 'capacity', event.target.value)}
+                      onBlur={() => handleTicketFieldBlur(index, 'capacity')}
                       placeholder="Number of tickets available"
                       className={`h-[41px] w-full rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black placeholder-[#828283] outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
                         rowErrors.capacity ? 'border-red-500' : 'border-[#d1d5dc]'
                       }`}
                       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     />
-                    {rowErrors.capacity ? <p className="text-sm text-red-600">{rowErrors.capacity}</p> : null}
+                    {rowErrors.capacity ? <p id={`ticketCapacity-${index}-error`} className="text-sm text-red-600">{rowErrors.capacity}</p> : null}
                   </div>
 
                   {/* Price */}
@@ -2556,15 +2832,18 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                       type="number"
                       min={0}
                       step="0.01"
+                      aria-invalid={rowErrors.price ? true : undefined}
+                      aria-describedby={rowErrors.price ? `ticketPrice-${index}-error` : undefined}
                       value={ticketType.price}
                       onChange={(event) => updateTicketTypeField(index, 'price', event.target.value)}
+                      onBlur={() => handleTicketFieldBlur(index, 'price')}
                       placeholder="0"
                       className={`h-[41px] w-full rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black placeholder-[#828283] outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
                         rowErrors.price ? 'border-red-500' : 'border-[#d1d5dc]'
                       }`}
                       style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                     />
-                    {rowErrors.price ? <p className="text-sm text-red-600">{rowErrors.price}</p> : null}
+                    {rowErrors.price ? <p id={`ticketPrice-${index}-error`} className="text-sm text-red-600">{rowErrors.price}</p> : null}
                   </div>
 
                   {/* Currency */}
@@ -2579,12 +2858,15 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                     <div className="relative">
                       <select
                         id={`ticketCurrency-${index}`}
+                        aria-invalid={rowErrors.currency ? true : undefined}
+                        aria-describedby={rowErrors.currency ? `ticketCurrency-${index}-error` : undefined}
                         className={`h-[41px] w-full appearance-none rounded-[10px] border-[0.8px] bg-white px-4 py-2 text-[16px] text-black outline-none transition focus:border-[#5c8bd9] focus:ring-0 ${
                           rowErrors.currency ? 'border-red-500' : 'border-[#d1d5dc]'
                         }`}
                         style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                         value={legacyCurrency || normalizedCurrency}
                         onChange={(event) => updateTicketTypeField(index, 'currency', event.target.value)}
+                        onBlur={() => handleTicketFieldBlur(index, 'currency')}
                       >
                         {legacyCurrency ? (
                           <option value={legacyCurrency}>{`${legacyCurrency} (unsupported)`}</option>
@@ -2600,7 +2882,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                     {legacyCurrency ? (
                       <p className="text-sm text-amber-700">Select a supported currency before publishing.</p>
                     ) : null}
-                    {rowErrors.currency ? <p className="text-sm text-red-600">{rowErrors.currency}</p> : null}
+                    {rowErrors.currency ? <p id={`ticketCurrency-${index}-error`} className="text-sm text-red-600">{rowErrors.currency}</p> : null}
                   </div>
                 </div>
               </div>
@@ -2906,6 +3188,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
             <p className="text-base font-semibold text-black">Images</p>
 
             <button
+              id="bottomImage"
               type="button"
               onClick={() => bottomInputRef.current?.click()}
               disabled={isUploadingBottom}
@@ -2914,6 +3197,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
               onDragLeave={(event) => onImageDragLeave(event, 'bottomImage')}
               onDrop={(event) => { void onImageDrop(event, 'bottomImage') }}
               aria-label={bottomImageSrc ? 'Change event image' : 'Add event image'}
+              aria-describedby={fieldErrors.bottomImage ? 'bottomImage-error' : undefined}
               className={`group relative w-full cursor-pointer overflow-hidden rounded-[10px] border-[1.6px] text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 ${
                 isBottomDropActive
                   ? 'border-[#5c8bd9] bg-blue-50/30'
@@ -2979,7 +3263,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 ) : null}
               </div>
             ) : null}
-            {fieldErrors.bottomImage ? <p className="text-sm text-red-600">{fieldErrors.bottomImage}</p> : null}
+            {fieldErrors.bottomImage ? <p id="bottomImage-error" className="text-sm text-red-600">{fieldErrors.bottomImage}</p> : null}
           </div>
 
           {/* Videos column */}
@@ -2988,7 +3272,6 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
 
             {videoSrc ? (
               <div className="overflow-hidden rounded-[10px] border-[1.6px] border-[#d1d5dc]">
-                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
                   src={videoSrc}
                   className="w-full"
@@ -2998,10 +3281,12 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
               </div>
             ) : (
               <button
+                id="videoUrl"
                 type="button"
                 onClick={() => videoInputRef.current?.click()}
                 disabled={isUploadingVideo}
                 aria-label="Upload video"
+                aria-describedby={fieldErrors.videoUrl ? 'videoUrl-error' : undefined}
                 className="group relative w-full cursor-pointer overflow-hidden rounded-[10px] border-[1.6px] border-[#d1d5dc] bg-white text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] focus-visible:ring-offset-2 hover:border-[#5c8bd9] hover:bg-blue-50/10 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <div className="flex flex-col items-center justify-center gap-2 px-[25.6px] py-[25.6px]">
@@ -3025,7 +3310,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
                 </Button>
               </div>
             ) : null}
-            {fieldErrors.videoUrl ? <p className="text-sm text-red-600">{fieldErrors.videoUrl}</p> : null}
+            {fieldErrors.videoUrl ? <p id="videoUrl-error" className="text-sm text-red-600">{fieldErrors.videoUrl}</p> : null}
           </div>
         </div>
       </section>
