@@ -779,6 +779,8 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
   )
   const persistedSnapshotRef = useRef(initialPersistedSnapshot)
   const autosaveInFlightRef = useRef(false)
+  const historyGuardActiveRef = useRef(false)
+  const bypassNavigationGuardRef = useRef(false)
   const formRef = useRef(form)
   const speakerDraftsRef = useRef(speakerDrafts)
   const promoCodesRef = useRef(promoCodes)
@@ -1251,7 +1253,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
         setIsPrimaryProgressVisible(entry.isIntersecting)
       },
       {
-        threshold: 0.25,
+        threshold: 0,
       }
     )
 
@@ -1341,12 +1343,38 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
   useEffect(() => {
     if (!hasUnsavedChanges) return
 
+    const currentLocation = `${window.location.pathname}${window.location.search}${window.location.hash}`
+
+    if (!historyGuardActiveRef.current) {
+      window.history.pushState(window.history.state, '', currentLocation)
+      historyGuardActiveRef.current = true
+    }
+
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (bypassNavigationGuardRef.current) return
       event.preventDefault()
       event.returnValue = ''
     }
 
+    const handlePopState = () => {
+      if (bypassNavigationGuardRef.current) {
+        bypassNavigationGuardRef.current = false
+        return
+      }
+
+      if (window.confirm('Discard unsaved changes?')) {
+        bypassNavigationGuardRef.current = true
+        historyGuardActiveRef.current = false
+        window.history.back()
+        return
+      }
+
+      window.history.pushState(window.history.state, '', currentLocation)
+      historyGuardActiveRef.current = true
+    }
+
     const handleDocumentNavigation = (event: MouseEvent) => {
+      if (bypassNavigationGuardRef.current) return
       if (event.defaultPrevented || event.button !== 0) return
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
 
@@ -1366,18 +1394,33 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
       const destination = new URL(link.href, window.location.href)
       if (destination.href === window.location.href) return
 
-      if (!window.confirm('Discard unsaved changes?')) {
-        event.preventDefault()
-        event.stopPropagation()
+      if (window.confirm('Discard unsaved changes?')) {
+        bypassNavigationGuardRef.current = true
+        historyGuardActiveRef.current = false
+        return
       }
+
+      event.preventDefault()
+      event.stopPropagation()
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('popstate', handlePopState)
     document.addEventListener('click', handleDocumentNavigation, true)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('popstate', handlePopState)
       document.removeEventListener('click', handleDocumentNavigation, true)
+
+      if (historyGuardActiveRef.current) {
+        bypassNavigationGuardRef.current = true
+        historyGuardActiveRef.current = false
+        window.history.back()
+        window.setTimeout(() => {
+          bypassNavigationGuardRef.current = false
+        }, 0)
+      }
     }
   }, [hasUnsavedChanges])
 
@@ -2452,11 +2495,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
     validateFieldIfActive('endDate', nextForm)
   }
 
-  function onCancel() {
-    if (hasUnsavedChanges && !window.confirm('Discard unsaved changes?')) {
-      return
-    }
-
+  function performCancelNavigation() {
     if (mode === 'create') {
       router.push('/dashboard/events')
       return
@@ -2468,6 +2507,16 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
     }
 
     router.push('/dashboard/events')
+  }
+
+  function onCancel() {
+    if (hasUnsavedChanges && !window.confirm('Discard unsaved changes?')) {
+      return
+    }
+
+    bypassNavigationGuardRef.current = true
+    historyGuardActiveRef.current = false
+    performCancelNavigation()
   }
 
   const remoteBannerPreviewSrc =
