@@ -31,6 +31,22 @@ export function generateUniqueSlug(text: string): string {
 }
 
 /**
+ * Regenerate a slug from new text while preserving the unique suffix
+ * @param text - The new text to slugify
+ * @param currentSlug - The current slug containing the suffix to preserve
+ * @returns A new slug with the new text and the preserved suffix
+ */
+export function regenerateSlugWithSuffix(text: string, currentSlug: string): string {
+  const baseSlug = generateSlug(text)
+  const parts = currentSlug.split('-')
+  const lastPart = parts[parts.length - 1]
+  if (lastPart && /^[0-9a-f]{8}$/.test(lastPart)) {
+    return `${baseSlug}-${lastPart}`
+  }
+  return generateUniqueSlug(text)
+}
+
+/**
  * Generate a unique order number
  */
 export function generateOrderNumber(): string {
@@ -69,6 +85,44 @@ export function formatCurrency(
 }
 
 /**
+ * Format event price display based on ticket types
+ * Returns consistent formatting for event cards and detail pages
+ */
+export function formatEventPrice(
+  ticketTypes: Array<{ price: number | string; currency: string }>
+): string | null {
+  if (ticketTypes.length === 0) {
+    return null
+  }
+  const prices = ticketTypes.map((t) =>
+    typeof t.price === 'string' ? parseFloat(t.price) : t.price
+  )
+  const minPrice = Math.min(...prices)
+  const maxPrice = Math.max(...prices)
+  const currency = ticketTypes[0]?.currency || 'SEK'
+
+  if (maxPrice === 0) {
+    return 'Free'
+  }
+  if (minPrice === 0 && maxPrice > 0) {
+    const formattedMax = new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(maxPrice)
+    return `Free - ${formattedMax}`
+  }
+  const formattedMin = new Intl.NumberFormat('en', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(minPrice)
+  return `From ${formattedMin}`
+}
+
+/**
  * Format date for display
  */
 export function formatDate(
@@ -100,6 +154,34 @@ export function formatDateTime(
     minute: '2-digit',
     ...options,
   })
+}
+
+/**
+ * Format event date and time with timezone
+ * Produces consistent format: "April 1, 2026 at 10:00 AM GMT+2"
+ */
+export function formatEventDateTime(
+  date: Date | string,
+  timezone?: string
+): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }
+  if (timezone) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: timezone })
+      options.timeZone = timezone
+    } catch {
+      // If invalid timezone, use default
+    }
+  }
+  return d.toLocaleString('en-US', options)
 }
 
 /**

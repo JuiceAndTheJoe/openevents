@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { EventStatus, EventVisibility, LocationType } from '@prisma/client'
 import { Calendar, MapPin, Heart } from 'lucide-react'
+import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
 
 type EventCardProps = {
   event: {
@@ -26,23 +27,8 @@ type EventCardProps = {
 }
 
 export function EventCard({ event }: EventCardProps) {
-  // Price display
-  let priceDisplay: string | null = null
-  if (event.ticketTypes.length > 0) {
-    const min = Math.min(...event.ticketTypes.map((t) => t.price))
-    if (min === 0) {
-      priceDisplay = 'Free'
-    } else {
-      const currency = event.ticketTypes[0]?.currency || 'SEK'
-      const formatted = new Intl.NumberFormat('en', {
-        style: 'currency',
-        currency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(min)
-      priceDisplay = `From ${formatted}`
-    }
-  }
+  // Price display using unified utility
+  const priceDisplay = formatEventPrice(event.ticketTypes)
 
   // Location display
   let locationDisplay: string
@@ -53,14 +39,8 @@ export function EventCard({ event }: EventCardProps) {
     locationDisplay = parts.join(', ') || 'Location TBD'
   }
 
-  // Locale-aware date formatting
-  const formattedDate = new Intl.DateTimeFormat('en', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(event.startDate))
+  // Locale-aware date formatting with timezone
+  const formattedDate = formatEventDateTime(event.startDate)
 
   return (
     <Link

@@ -52,24 +52,31 @@ export default async function EventsPage({ searchParams }: PageProps) {
     }
   }
 
+  // Build AND conditions for search and location filters (#205)
+  const andConditions: Prisma.EventWhereInput[] = []
+
   if (search) {
-    where.AND = [
-      {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
-      },
-    ]
+    andConditions.push({
+      OR: [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ],
+    })
   }
 
   if (location) {
-    where.OR = [
-      { venue: { contains: location, mode: 'insensitive' } },
-      { city: { contains: location, mode: 'insensitive' } },
-      { state: { contains: location, mode: 'insensitive' } },
-      { country: { contains: location, mode: 'insensitive' } },
-    ]
+    andConditions.push({
+      OR: [
+        { venue: { contains: location, mode: 'insensitive' } },
+        { city: { contains: location, mode: 'insensitive' } },
+        { state: { contains: location, mode: 'insensitive' } },
+        { country: { contains: location, mode: 'insensitive' } },
+      ],
+    })
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions
   }
 
   if (startDateParam || endDateParam) {

@@ -235,7 +235,17 @@ export function HeroSearchBar({ categories }: { categories: Category[] }) {
               {categories.map(cat => (
                 <button
                   key={cat.id}
-                  onClick={() => { setSelectedCategory(cat); setOpenPanel(null) }}
+                  onClick={() => {
+                    setSelectedCategory(cat)
+                    setOpenPanel(null)
+                    // Immediately navigate with category filter (#204)
+                    const params = new URLSearchParams()
+                    if (search.trim()) params.set('search', search.trim())
+                    if (selectedDate) params.set('startDate', selectedDate.toISOString().split('T')[0])
+                    if (location.trim()) params.set('location', location.trim())
+                    params.set('category', cat.slug)
+                    router.push(`/events?${params.toString()}`)
+                  }}
                   className={`w-full text-left px-4 py-3 text-[14px] transition-colors hover:bg-gray-50
                     ${selectedCategory?.id === cat.id ? 'font-semibold text-blue-600' : 'text-gray-700'}`}
                 >

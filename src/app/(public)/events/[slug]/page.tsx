@@ -4,9 +4,9 @@ import { Calendar, Heart, MapPin, Pencil } from 'lucide-react'
 import { getCurrentUser, hasRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { EventNoticeToast } from '@/components/events/EventNoticeToast'
-import { DEFAULT_CURRENCY } from '@/lib/constants/currencies'
 import { CHECKOUT_UNAVAILABLE_NOTICE } from '@/lib/orders/checkoutAvailability'
 import { isValidTimeZone } from '@/lib/timezone'
+import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,53 +67,24 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
     notFound()
   }
 
-  const locationText = [event.venue, event.address, event.city, event.state, event.country]
-    .filter(Boolean)
-    .join(', ')
+  // Filter out empty/dash-only values for location (#209)
+  const locationParts = [event.venue, event.address, event.city, event.state, event.country]
+    .filter((part) => part && part.trim() && part.trim() !== '-')
+  const locationText = locationParts.join(', ')
 
   const mapQuery = encodeURIComponent(locationText || event.title)
   const mapEmbedUrl = `https://www.google.com/maps?q=${mapQuery}&output=embed`
 
-  const minPrice = event.ticketTypes.length
-    ? Math.min(...event.ticketTypes.map((ticket) => Number(ticket.price)))
-    : null
-  const currency = event.ticketTypes[0]?.currency || DEFAULT_CURRENCY
+  // Price display using unified utility (#207)
+  const priceDisplay = formatEventPrice(event.ticketTypes)
   const bottomImage = event.media.find((item) => item.title === 'BOTTOM_IMAGE')?.url || null
   const coverImageSrc = `/api/events/${encodeURIComponent(event.slug)}/image?slot=cover&v=${event.updatedAt.getTime()}`
   const bottomImageSrc = `/api/events/${encodeURIComponent(event.slug)}/image?slot=bottom&v=${event.updatedAt.getTime()}`
 
-  const formattedMinPrice = minPrice !== null
-    ? new Intl.NumberFormat('en', {
-        style: 'currency',
-        currency,
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(minPrice)
-    : null
-
+  // Date formatting with timezone (#212)
   const displayTimeZone = isValidTimeZone(event.timezone) ? event.timezone : 'UTC'
-  const startDateLabel = new Intl.DateTimeFormat('en', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: displayTimeZone,
-    day: 'numeric',
-  }).format(event.startDate)
-  const endDateLabel = new Intl.DateTimeFormat('en', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: displayTimeZone,
-    day: 'numeric',
-  }).format(event.endDate)
-  const startTimeLabel = new Intl.DateTimeFormat('en', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: displayTimeZone,
-  }).format(event.startDate)
-  const endTimeLabel = new Intl.DateTimeFormat('en', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: displayTimeZone,
-  }).format(event.endDate)
+  const startDateTimeLabel = formatEventDateTime(event.startDate, displayTimeZone)
+  const endDateTimeLabel = formatEventDateTime(event.endDate, displayTimeZone)
   const startDateKey = new Intl.DateTimeFormat('en-CA', {
     year: 'numeric',
     month: '2-digit',
@@ -127,11 +98,9 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
     timeZone: displayTimeZone,
   }).format(event.endDate)
   const isSameLocalDay = startDateKey === endDateKey
-  const rightDateLabel = isSameLocalDay ? startDateLabel : `${startDateLabel} - ${endDateLabel}`
-  const rightTimeLabel = `${startTimeLabel} - ${endTimeLabel}`
-  const startDateTimeLabel = isSameLocalDay
-    ? `${startDateLabel} at ${rightTimeLabel}`
-    : `${startDateLabel} at ${startTimeLabel} - ${endDateLabel} at ${endTimeLabel}`
+  const rightDateTimeLabel = isSameLocalDay
+    ? startDateTimeLabel
+    : `${startDateTimeLabel} - ${endDateTimeLabel}`
   const notice = firstQueryValue(query.notice)
   const noticeMessage = notice === 'created'
     ? 'Event created'
@@ -282,23 +251,15 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
               className="mt-0.5 text-[24px] font-bold leading-[30px] text-[#5c8bd9]"
               style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
             >
-              {formattedMinPrice === null ? 'Free' : `From ${formattedMinPrice}`}
+              {priceDisplay || 'Free'}
             </p>
 
-            {/* Start */}
+            {/* Date and time */}
             <p
               className="mt-1 text-[15px] leading-6 text-[#364153]"
               style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
             >
-              {rightDateLabel}
-            </p>
-
-            {/* End */}
-            <p
-              className="text-[15px] leading-6 text-[#364153]"
-              style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
-            >
-              {rightTimeLabel}
+              {rightDateTimeLabel}
             </p>
 
             {/* Get tickets — 16px below time */}

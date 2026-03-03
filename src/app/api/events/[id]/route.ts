@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { updateEventSchema } from '@/lib/validations/event'
 import { normalizeNameList, buildPeopleCreateData } from '@/lib/events/utils'
+import { regenerateSlugWithSuffix } from '@/lib/utils'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -116,11 +117,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
+    // Regenerate slug if title is being changed (#208)
+    const newSlug = input.title && input.title !== existingEvent.title
+      ? regenerateSlugWithSuffix(input.title, existingEvent.slug)
+      : undefined
+
     const updatedEvent = await prisma.$transaction(async (tx) => {
       const event = await tx.event.update({
         where: { id },
         data: {
           title: input.title,
+          slug: newSlug,
           description: input.description,
           descriptionHtml: input.descriptionHtml,
           startDate: input.startDate ? new Date(input.startDate) : undefined,
