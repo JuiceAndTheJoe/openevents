@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { Prisma } from '@prisma/client'
-import { requireAuth } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { sendOrderConfirmationEmail, sendInvoiceOrderNotificationEmail } from '@/lib/email'
 import { lockTicketTypes, prepareOrderItems, generateTicketCreateInput } from '@/lib/orders'
@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
         process.env.NEXT_PUBLIC_ORDER_RESERVATION_TTL_MINUTES
     )
 
-    const user = await requireAuth()
+    // Get session optionally - allow both authenticated and anonymous orders
+    const session = await getSession()
+    const user = session?.user || null
+
     const body = await request.json()
 
     // Reject attempts to stack multiple discount codes
@@ -56,11 +59,12 @@ export async function POST(request: NextRequest) {
     }
 
     const input = parsed.data
-    const accountEmail = user.email?.trim() || input.buyer.email?.trim()
+    // Use buyer email from form - always required regardless of auth status
+    const buyerEmail = input.buyer.email?.trim()
 
-    if (!accountEmail) {
+    if (!buyerEmail) {
       return NextResponse.json(
-        { error: 'Authenticated account email is required to place an order' },
+        { error: 'Buyer email is required to place an order' },
         { status: 400 }
       )
     }
@@ -276,13 +280,13 @@ export async function POST(request: NextRequest) {
         const order = await tx.order.create({
           data: {
             orderNumber: generateOrderNumber(),
-            userId: user.id,
+            userId: user?.id ?? null, // Associate with user if logged in, otherwise null
             eventId: input.eventId,
             discountCodeId: discountCodeRecord?.id,
             buyerFirstName: input.buyer.firstName,
             buyerLastName: input.buyer.lastName,
             buyerTitle: input.buyer.title,
-            buyerEmail: accountEmail,
+            buyerEmail: buyerEmail,
             buyerOrganization: input.buyer.organization,
             buyerAddress: input.buyer.address,
             buyerCity: input.buyer.city,

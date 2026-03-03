@@ -151,7 +151,7 @@ export default async function CheckoutStatusPage({ params, searchParams }: Check
         {isSessionExpired && (
           <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 p-3">
             <p className="text-sm text-amber-800">
-              Your session has expired. Please log in to view your complete order details and tickets.
+              Your session has expired, but don't worry - your order was saved. You can view your order details using the link below.
             </p>
           </div>
         )}
@@ -209,7 +209,7 @@ export default async function CheckoutStatusPage({ params, searchParams }: Check
                   {orderStatus.paymentCaptured ? (
                     <>
                       <li>Your payment has been successfully processed</li>
-                      <li>Log in to view your tickets and order details</li>
+                      <li>View your order details and tickets using the link below</li>
                       {orderStatus.buyerEmail && (
                         <li>A confirmation email has been sent to {orderStatus.buyerEmail}</li>
                       )}
@@ -217,13 +217,13 @@ export default async function CheckoutStatusPage({ params, searchParams }: Check
                   ) : orderStatus.status === 'PENDING' ? (
                     <>
                       <li>Your order reservation is still active</li>
-                      <li>Log in to complete your payment</li>
+                      <li>Complete your payment to receive your tickets</li>
                       <li>Note: Reservations expire after a short time</li>
                     </>
                   ) : orderStatus.status === 'PENDING_INVOICE' ? (
                     <>
                       <li>Your invoice order has been created</li>
-                      <li>Log in to view your order details</li>
+                      <li>View your order details using the link below</li>
                     </>
                   ) : orderStatus.status === 'CANCELLED' ? (
                     <>
@@ -236,7 +236,7 @@ export default async function CheckoutStatusPage({ params, searchParams }: Check
                       <li>You can start a new checkout to try again</li>
                     </>
                   ) : (
-                    <li>Log in to view your order status</li>
+                    <li>View your order status using the link below</li>
                   )}
                 </ul>
               </div>
@@ -253,12 +253,14 @@ export default async function CheckoutStatusPage({ params, searchParams }: Check
 
         {/* Action buttons */}
         <div className="flex flex-col gap-3">
-          <Link
-            href={`/login?callbackUrl=/orders/${orderStatus.orderNumber}`}
-            className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Log in to view order
-          </Link>
+          {orderStatus.exists && (
+            <Link
+              href={`/orders/${orderStatus.orderNumber}`}
+              className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              View order details
+            </Link>
+          )}
           {orderStatus.eventSlug && (
             <Link
               href={`/events/${orderStatus.eventSlug}`}

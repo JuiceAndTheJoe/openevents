@@ -1,9 +1,8 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -173,7 +172,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   const [buyer, setBuyer] = useState<BuyerFormState>({
     firstName: '',
     lastName: '',
-    email: session?.user?.email ?? '',
+    email: '',
     title: '',
     organization: '',
     address: '',
@@ -182,6 +181,9 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     country: '',
   })
   const [paymentMethod, setPaymentMethod] = useState<'PAYPAL' | 'INVOICE'>('PAYPAL')
+
+  // Track which ticket types have had their first attendee pre-filled
+  const prefilledTypesRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     async function fetchTicketTypes() {
@@ -215,6 +217,19 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
     fetchTicketTypes()
   }, [event.id])
+
+  // Pre-fill buyer email from session if logged in
+  useEffect(() => {
+    if (isAuthenticated && session?.user?.email) {
+      setBuyer((current) => {
+        // Only set email if it's empty (don't override user edits)
+        if (!current.email) {
+          return { ...current, email: session.user.email || '' }
+        }
+        return current
+      })
+    }
+  }, [isAuthenticated, session?.user?.email])
 
   // Restore checkout state from localStorage when returning from PayPal cancel
   useEffect(() => {
@@ -312,22 +327,31 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   }, [selectedItems])
 
   // Pre-fill first attendee slot of the first ticket type with buyer info
+  // Only pre-fill ONCE when buyer info is complete and attendee slot exists
   useEffect(() => {
     if (selectedItems.length === 0) return
 
+    // Don't pre-fill until buyer has entered all required fields
+    if (!buyer.firstName || !buyer.lastName || !buyer.email) return
+
     const firstTypeId = selectedItems[0].ticketTypeId
+
+    // Only pre-fill once per ticket type
+    if (prefilledTypesRef.current.has(firstTypeId)) return
 
     setAttendeesByType((current) => {
       const slots = current[firstTypeId]
       if (!slots || slots.length === 0) return current
 
-      // Only auto-update if the slot looks empty or still matches old buyer info
       const first = slots[0]
-      const looksUnedited =
-        first.firstName === '' ||
-        first.firstName === buyer.firstName
 
-      if (!looksUnedited) return current
+      // Only pre-fill if the slot is empty
+      if (first.firstName || first.lastName || first.email) {
+        return current
+      }
+
+      // Mark as pre-filled
+      prefilledTypesRef.current.add(firstTypeId)
 
       return {
         ...current,
@@ -351,17 +375,6 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
       setPaymentMethod('INVOICE')
     }
   }, [discount])
-
-  useEffect(() => {
-    const accountEmail = session?.user?.email?.trim()
-    if (!accountEmail) return
-
-    setBuyer((current) => (
-      current.email === accountEmail
-        ? current
-        : { ...current, email: accountEmail }
-    ))
-  }, [session?.user?.email])
 
   // Fetch user profile to get firstName/lastName (not available in session)
   useEffect(() => {
@@ -472,15 +485,15 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
       return
     }
 
-    const accountEmail = session?.user?.email?.trim() || buyer.email.trim()
+    const buyerEmailValue = buyer.email.trim()
 
     if (!buyer.firstName || !buyer.lastName) {
       setSubmitError('First name and last name are required')
       return
     }
 
-    if (!accountEmail) {
-      setSubmitError('Your account does not have an email address. Please update your profile.')
+    if (!buyerEmailValue) {
+      setSubmitError('Email address is required')
       return
     }
 
@@ -519,7 +532,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           })),
           buyer: {
             ...buyer,
-            email: accountEmail,
+            email: buyerEmailValue,
           },
           discountCode: discount?.code,
         }),
@@ -621,63 +634,11 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     }
   }
 
-  // Show login prompt if not authenticated
-  if (!isAuthenticated && !isLoadingAuth) {
-    return (
-      <div className="mx-auto max-w-md">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                <svg
-                  className="h-6 w-6 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="1.5"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-                  />
-                </svg>
-              </div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
-                Sign in to purchase tickets
-              </h2>
-              <p className="mb-6 text-gray-600">
-                You need to log in or create an account to buy tickets for this event.
-              </p>
-              <div className="flex flex-col gap-3">
-                <Link
-                  href={`/login?callbackUrl=/events/${event.slug}/checkout`}
-                  className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Log in
-                </Link>
-                <Link
-                  href={`/register?callbackUrl=/events/${event.slug}/checkout`}
-                  className="inline-flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  Create an account
-                </Link>
-              </div>
-              <p className="mt-4 text-xs text-gray-500">
-                After signing in, you&apos;ll be redirected back to complete your purchase.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Show loading state while checking auth
-  if (isLoadingAuth) {
+  // Show loading state while loading tickets
+  if (ticketLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-gray-500">Loading...</div>
+        <div className="text-gray-500">Loading tickets...</div>
       </div>
     )
   }
@@ -730,13 +691,16 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="buyer-email">Account Email</Label>
-              <p
+              <Label htmlFor="buyer-email" required>
+                Email
+              </Label>
+              <Input
                 id="buyer-email"
-                className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
-              >
-                {session?.user?.email || 'No account email available'}
-              </p>
+                type="email"
+                value={buyer.email}
+                onChange={(eventValue) => updateBuyerField('email', eventValue.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="buyer-title">Title</Label>

@@ -69,10 +69,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.redirect(`${APP_URL}/checkout-error?error=order_not_found`)
     }
 
-    // Check authentication - if session expired, redirect to status page instead of 401
+    // Check authentication - allow both authenticated and anonymous orders
     const user = await getCurrentUser()
-    if (!user) {
-      // Session expired - redirect to a helpful status page
+
+    // For anonymous orders (userId is null), verify the PayPal token matches
+    const isAnonymousOrder = order.userId === null
+    const isValidAnonymousAccess = isAnonymousOrder && order.paymentId === paypalToken
+
+    if (!user && !isValidAnonymousAccess) {
+      // Session expired for authenticated order - redirect to a helpful status page
       // Include the PayPal token so we can check payment status
       const statusUrl = new URL(`${APP_URL}/checkout-status/${order.orderNumber}`)
       statusUrl.searchParams.set('session_expired', 'true')
@@ -80,19 +85,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.redirect(statusUrl.toString())
     }
 
-    const canManageOrder = canAccessOrder({
-      orderUserId: order.userId,
-      organizerUserId: order.event.organizer.userId,
-      requesterUserId: user.id,
-      requesterRoles: user.roles,
-    })
-    if (!canManageOrder) {
-      console.error('[Capture] Forbidden order capture attempt:', {
-        orderId: order.id,
+    // For authenticated users or valid anonymous access, check permissions
+    if (user) {
+      const canManageOrder = canAccessOrder({
         orderUserId: order.userId,
         organizerUserId: order.event.organizer.userId,
         requesterUserId: user.id,
+        requesterRoles: user.roles,
+        isAnonymousOrderWithValidToken: false,
       })
+      if (!canManageOrder) {
+        console.error('[Capture] Forbidden order capture attempt:', {
+          orderId: order.id,
+          orderUserId: order.userId,
+          organizerUserId: order.event.organizer.userId,
+          requesterUserId: user.id,
+        })
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    } else if (!isValidAnonymousAccess) {
+      // This should not happen due to the check above, but just in case
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -1,16 +1,29 @@
-import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { OrderList, type DashboardOrderListItem } from '@/components/dashboard/OrderList'
 import { isCancellationDeadlinePassed } from '@/lib/utils'
+import { EmailLookupForm } from './EmailLookupForm'
 
 export default async function MyTicketsPage() {
   const user = await getCurrentUser()
 
+  // If user is not logged in, show email lookup form
   if (!user) {
-    redirect('/login')
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">My Tickets</h1>
+          <p className="text-sm text-gray-600">
+            Enter your email address to view your tickets and event confirmations.
+          </p>
+        </div>
+
+        <EmailLookupForm />
+      </div>
+    )
   }
 
+  // User is logged in - show their orders
   const orders = await prisma.order.findMany({
     where: {
       userId: user.id,

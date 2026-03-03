@@ -5,9 +5,11 @@ import { useSession, signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 export function Header() {
   const { data: session, status } = useSession()
+  const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
   const accountMenuRef = useRef<HTMLDivElement | null>(null)
@@ -18,6 +20,14 @@ export function Header() {
   const avatarFallback = (session?.user?.email?.[0] || 'U').toUpperCase()
   const displayName = session?.user?.name?.trim() || session?.user?.email?.split('@')[0] || 'Account'
   const profileHref = isOrganizer ? '/dashboard/profile' : '/profile'
+
+  // Determine route context for conditional rendering
+  const isOrganizerRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin')
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/verify-email')
+
+  // Show full auth UI (login/register buttons) on organizer routes and auth pages
+  // On public pages: show user menu if logged in, show subtle "Organizer Login" link if not
+  const isPublicPage = !isOrganizerRoute && !isAuthPage
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent | TouchEvent) {
@@ -142,16 +152,33 @@ export function Header() {
                   ) : null}
                 </div>
               </>
-            ) : (
-              <div className="flex items-center space-x-4">
-                <Link href="/login">
-                  <Button variant="ghost">Sign In</Button>
-                </Link>
-                <Link href="/register">
-                  <Button>Get Started</Button>
-                </Link>
-              </div>
-            )}
+            ) : status === 'unauthenticated' ? (
+              isPublicPage ? (
+                <div className="flex items-center space-x-4">
+                  <Link
+                    href="/my-tickets"
+                    className="text-gray-600 hover:text-gray-900 font-medium"
+                  >
+                    My Tickets
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Organizer Login
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-4">
+                  <Link href="/login">
+                    <Button variant="ghost">Sign In</Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button>Get Started</Button>
+                  </Link>
+                </div>
+              )
+            ) : null}
           </div>
 
           {/* Mobile menu button */}
@@ -235,24 +262,43 @@ export function Header() {
                   Sign out
                 </button>
               </>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/register"
-                  className="block px-3 py-2 text-[#5C8BD9] font-medium hover:bg-gray-50 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Get Started
-                </Link>
-              </>
-            )}
+            ) : status === 'unauthenticated' ? (
+              isPublicPage ? (
+                <>
+                  <Link
+                    href="/my-tickets"
+                    className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    My Tickets
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="block px-3 py-2 text-gray-500 hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Organizer Login
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="block px-3 py-2 text-[#5C8BD9] font-medium hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Get Started
+                  </Link>
+                </>
+              )
+            ) : null}
           </div>
         )}
       </nav>
