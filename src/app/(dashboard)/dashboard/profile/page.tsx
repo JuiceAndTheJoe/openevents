@@ -96,7 +96,7 @@ export default async function OrganizerProfilePage() {
                   href={organizerProfile.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-[#5C8BD9] hover:underline"
                 >
                   {organizerProfile.website}
                 </a>
@@ -142,7 +142,7 @@ export default async function OrganizerProfilePage() {
       <section className="rounded-xl border border-gray-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Recent Events</h2>
-          <Link href="/dashboard/events" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+          <Link href="/dashboard/events" className="text-sm font-medium text-[#5C8BD9] hover:text-[#4a7ac8]">
             Manage Events
           </Link>
         </div>

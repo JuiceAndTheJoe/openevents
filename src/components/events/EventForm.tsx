@@ -4009,7 +4009,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
 
       {isPublishedEvent ? (
         <div className="flex flex-wrap justify-end gap-3">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          <Button type="button" variant="cancel" onClick={onCancel} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button onClick={() => submit('save')} isLoading={isSubmitting} disabled={isSubmitting || isAutosaving}>
@@ -4022,7 +4022,7 @@ export function EventForm({ mode, initialData, initialSpeakers, categories = [],
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="h-[50px] w-[120px] rounded-[10px] bg-[#c8414e] text-white text-lg font-semibold hover:bg-[#b43944]"
+            className="h-[50px] w-[120px] rounded-[10px] bg-[#E5E7EB] text-[#4a5565] text-lg font-semibold hover:bg-[#D1D5DB]"
           >
             Cancel
           </Button>

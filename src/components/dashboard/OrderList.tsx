@@ -89,11 +89,11 @@ export function OrderList({ orders }: OrderListProps) {
                 router.push(confirmationHref)
               }
             }}
-            className="cursor-pointer rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            className="cursor-pointer rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5C8BD9] focus-visible:ring-offset-2"
             aria-label={`View tickets for ${order.event.title}`}
           >
             <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
-              <div className="h-44 w-full bg-gradient-to-r from-blue-500 to-indigo-600">
+              <div className="h-44 w-full bg-gradient-to-r from-[#5C8BD9] to-indigo-600">
                 {order.event.coverImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

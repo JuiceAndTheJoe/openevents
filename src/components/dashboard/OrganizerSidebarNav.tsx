@@ -51,7 +51,7 @@ export function OrganizerSidebarNav() {
             href={item.href}
             className={cn(
               'block rounded-md px-3 py-2 font-medium transition',
-              active ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+              active ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
             )}
             aria-current={active ? 'page' : undefined}
           >
@@ -66,7 +66,7 @@ export function OrganizerSidebarNav() {
             href="/dashboard/profile"
             className={cn(
               'flex-1 rounded-md px-3 py-2 font-medium transition',
-              pathname === '/dashboard/profile' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+              pathname === '/dashboard/profile' ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
             )}
             aria-current={pathname === '/dashboard/profile' ? 'page' : undefined}
           >
@@ -93,7 +93,7 @@ export function OrganizerSidebarNav() {
               href="/dashboard/settings"
               className={cn(
                 'block rounded-md px-3 py-2 font-medium transition',
-                pathname === '/dashboard/settings' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                pathname === '/dashboard/settings' ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
               )}
               aria-current={pathname === '/dashboard/settings' ? 'page' : undefined}
             >
@@ -103,7 +103,7 @@ export function OrganizerSidebarNav() {
               href="/dashboard/settings/account"
               className={cn(
                 'block rounded-md px-3 py-2 font-medium transition',
-                pathname.startsWith('/dashboard/settings/account') ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                pathname.startsWith('/dashboard/settings/account') ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
               )}
               aria-current={pathname.startsWith('/dashboard/settings/account') ? 'page' : undefined}
             >

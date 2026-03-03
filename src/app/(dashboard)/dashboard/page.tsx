@@ -51,7 +51,7 @@ export default async function DashboardHomePage() {
         prisma.event.findMany({
           where: {
             ...eventWhere,
-            startDate: { gte: now },
+            endDate: { gte: now },
           },
           select: { id: true, slug: true, title: true, startDate: true, status: true },
           orderBy: { startDate: 'asc' },

@@ -52,7 +52,7 @@ export function OrderFilters({ initial }: OrderFiltersProps) {
         <input id="dateTo" name="dateTo" type="date" defaultValue={initial.dateTo || ''} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm" />
       </div>
       <div className="md:col-span-6">
-        <button type="submit" className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">Apply Filters</button>
+        <button type="submit" className="rounded-md bg-[#5C8BD9] px-4 py-2 text-sm font-medium text-white">Apply Filters</button>
       </div>
     </form>
   )

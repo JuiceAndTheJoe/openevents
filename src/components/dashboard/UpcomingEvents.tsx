@@ -18,7 +18,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
     <section className="rounded-xl border border-gray-200 bg-white p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Upcoming Events</h2>
-        <Link href="/dashboard/events" className="text-sm text-blue-600 hover:text-blue-700">
+        <Link href="/dashboard/events" className="text-sm text-[#5C8BD9] hover:text-[#4a7ac8]">
           View all
         </Link>
       </div>
@@ -30,7 +30,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
           {events.map((event) => (
             <div key={event.id} className="rounded-lg border border-gray-100 p-3">
               <div className="flex items-center justify-between gap-2">
-                <Link href={`/dashboard/events/${event.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                <Link href={`/dashboard/events/${event.id}`} className="font-medium text-gray-900 hover:text-[#5C8BD9]">
                   {event.title}
                 </Link>
                 <EventStatusBadge status={event.status} />

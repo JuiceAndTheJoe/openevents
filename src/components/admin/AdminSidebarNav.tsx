@@ -32,7 +32,7 @@ export function AdminSidebarNav() {
             href={item.href}
             className={cn(
               'block rounded-md px-3 py-2 font-medium transition',
-              active ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+              active ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
             )}
             aria-current={active ? 'page' : undefined}
           >

@@ -51,7 +51,7 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <span className="text-2xl font-bold text-blue-600">OpenEvents</span>
+              <span className="text-2xl font-bold text-[#5C8BD9]">OpenEvents</span>
             </Link>
           </div>
 
@@ -60,7 +60,7 @@ export function Header() {
             {canManageEvents && (
               <Link
                 href="/create-event"
-                className="inline-flex min-w-[132px] items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                className="inline-flex min-w-[132px] items-center justify-center rounded-lg bg-[#5C8BD9] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#4a7ac8]"
               >
                 Create Event
               </Link>
@@ -193,7 +193,7 @@ export function Header() {
             {canManageEvents && (
               <Link
                 href="/create-event"
-                className="block rounded-lg bg-blue-600 px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-blue-700"
+                className="block rounded-lg bg-[#5C8BD9] px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-[#4a7ac8]"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Create Event
@@ -246,7 +246,7 @@ export function Header() {
                 </Link>
                 <Link
                   href="/register"
-                  className="block px-3 py-2 text-blue-600 font-medium hover:bg-gray-50 rounded-md"
+                  className="block px-3 py-2 text-[#5C8BD9] font-medium hover:bg-gray-50 rounded-md"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Get Started

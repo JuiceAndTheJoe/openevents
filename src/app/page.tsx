@@ -11,11 +11,14 @@ export default async function HomePage() {
     orderBy: { name: 'asc' },
   })
 
+  const now = new Date()
+
   const featuredEvents = await prisma.event.findMany({
     where: {
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
       deletedAt: null,
+      endDate: { gte: now },
     },
     include: {
       organizer: {

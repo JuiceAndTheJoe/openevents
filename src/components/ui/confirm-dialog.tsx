@@ -108,7 +108,7 @@ export function ConfirmDialog({
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <Button
-            variant="outline"
+            variant="cancel"
             data-autofocus
             disabled={isLoading}
             onClick={onClose}

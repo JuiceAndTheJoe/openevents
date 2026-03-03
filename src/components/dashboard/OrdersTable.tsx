@@ -45,7 +45,7 @@ export function OrdersTable({ eventId, orders }: OrdersTableProps) {
             {orders.map((order) => (
               <tr key={order.id}>
                 <td className="px-4 py-3">
-                  <Link href={`/dashboard/events/${eventId}/orders/${order.id}`} className="font-medium text-blue-600 hover:text-blue-700">
+                  <Link href={`/dashboard/events/${eventId}/orders/${order.id}`} className="font-medium text-[#5C8BD9] hover:text-[#4a7ac8]">
                     {order.orderNumber}
                   </Link>
                 </td>

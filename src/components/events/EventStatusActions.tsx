@@ -82,7 +82,7 @@ export function EventStatusActions({ eventId, status }: EventStatusActionsProps)
             </Button>
           ) : null}
           {status === 'PUBLISHED' ? (
-            <Button variant="destructive" isLoading={loadingAction === 'cancel'} onClick={() => setPendingAction('cancel')}>
+            <Button variant="cancel" isLoading={loadingAction === 'cancel'} onClick={() => setPendingAction('cancel')}>
               Cancel Event
             </Button>
           ) : null}

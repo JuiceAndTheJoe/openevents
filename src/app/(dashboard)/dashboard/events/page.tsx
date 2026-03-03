@@ -64,7 +64,7 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
           <h1 className="text-3xl font-bold text-gray-900">{isSuperAdmin ? 'All Events' : 'Your Events'}</h1>
           <p className="text-gray-600">{isSuperAdmin ? 'Search, filter, and manage all platform events.' : 'Search, filter, and manage all organizer events.'}</p>
         </div>
-        <Link href="/create-event" className="inline-flex rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">
+        <Link href="/create-event" className="inline-flex rounded-md bg-[#5C8BD9] px-4 py-2 text-sm font-medium text-white">
           Create New Event
         </Link>
       </div>
@@ -85,7 +85,7 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
           </select>
         </div>
         <div className="flex items-end">
-          <button type="submit" className="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white">Apply</button>
+          <button type="submit" className="h-10 rounded-md bg-[#5C8BD9] px-4 text-sm font-medium text-white">Apply</button>
         </div>
       </form>
 

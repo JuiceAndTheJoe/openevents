@@ -160,7 +160,7 @@ export default async function EventOrdersPage({ params, searchParams }: PageProp
             <option value="">Bulk actions</option>
             <option value="cancel_all_filtered">Cancel all pending orders</option>
           </select>
-          <button type="submit" className="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white">Apply</button>
+          <button type="submit" className="h-10 rounded-md bg-[#5C8BD9] px-4 text-sm font-medium text-white">Apply</button>
         </div>
       </form>
 

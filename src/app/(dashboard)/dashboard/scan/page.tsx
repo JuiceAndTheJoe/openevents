@@ -54,7 +54,7 @@ export default async function DashboardScanPage() {
               <div className="mt-4 flex items-center gap-2">
                 <Link
                   href={`/dashboard/events/${event.id}/scan`}
-                  className="inline-flex rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  className="inline-flex rounded-md bg-[#5C8BD9] px-3 py-2 text-sm font-semibold text-white hover:bg-[#4a7ac8]"
                 >
                   Open Scanner
                 </Link>

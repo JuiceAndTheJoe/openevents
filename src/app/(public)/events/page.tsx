@@ -31,11 +31,13 @@ export default async function EventsPage({ searchParams }: PageProps) {
   const endDateParam = readParam(params.endDate)
   const page = Math.max(Number(readParam(params.page) || '1'), 1)
   const pageSize = 9
+  const now = new Date()
 
   const where: Prisma.EventWhereInput = {
     status: 'PUBLISHED',
     visibility: 'PUBLIC',
-    deletedAt: null, // Exclude soft-deleted events
+    deletedAt: null,
+    endDate: { gte: now }, // Exclude past events
   }
 
   if (category) {

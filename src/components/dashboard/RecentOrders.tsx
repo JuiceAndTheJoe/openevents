@@ -32,7 +32,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
           {orders.map((order) => (
             <div key={order.id} className="rounded-lg border border-gray-100 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Link href={`/dashboard/events/${order.event.id}/orders/${order.id}`} className="font-medium text-gray-900 hover:text-blue-600">
+                <Link href={`/dashboard/events/${order.event.id}/orders/${order.id}`} className="font-medium text-gray-900 hover:text-[#5C8BD9]">
                   {order.orderNumber}
                 </Link>
                 <p className="text-sm font-medium text-gray-900">{formatCurrency(order.totalAmount, order.currency)}</p>

@@ -43,7 +43,7 @@ export function EventDashboard({ event, stats }: EventDashboardProps) {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{event.title}</h1>
             <div className="mt-2 flex items-center gap-2">
-              <EventStatusBadge status={event.status} />
+              <EventStatusBadge status={event.status === 'PUBLISHED' && new Date(event.endDate) < new Date() ? 'PASSED' : event.status} />
               <span className="text-sm text-gray-500">
                 {`Created ${formatDateTime(event.createdAt)}`}
               </span>

@@ -161,7 +161,7 @@ export function EventsTable({ events }: EventsTableProps) {
                   <p className="text-xs text-gray-500">{event.visibility}</p>
                 </td>
                 <td className="px-4 py-3 text-gray-700">{formatDateTime(event.startDate)}</td>
-                <td className="px-4 py-3"><EventStatusBadge status={event.status} /></td>
+                <td className="px-4 py-3"><EventStatusBadge status={event.status === 'PUBLISHED' && new Date(event.endDate) < new Date() ? 'PASSED' : event.status} /></td>
                 <td className="px-4 py-3 text-gray-700">{event._count.orders}</td>
                 <td className="px-4 py-3 text-gray-700">{event._count.ticketTypes}</td>
                 <td className="px-4 py-3">
@@ -185,7 +185,7 @@ export function EventsTable({ events }: EventsTableProps) {
                       </Button>
                     ) : null}
                     {event.status === 'PUBLISHED' ? (
-                      <Button variant="destructive" size="sm" isLoading={busyId === event.id} onClick={() => setPendingCancel({ id: event.id, title: event.title })}>
+                      <Button variant="cancel" size="sm" isLoading={busyId === event.id} onClick={() => setPendingCancel({ id: event.id, title: event.title })}>
                         Cancel
                       </Button>
                     ) : null}
