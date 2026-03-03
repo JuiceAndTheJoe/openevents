@@ -16,38 +16,10 @@ const itemClass =
 export function EventActionButtons({ eventId, eventSlug }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-      {/* Manage dropdown: Edit, Manage Tickets, Manage Discounts */}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <Button variant="outline">
-            Manage
-            <ChevronDown className="ml-1 h-4 w-4" />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            sideOffset={4}
-            align="start"
-            className="z-50 min-w-[176px] rounded-lg border border-gray-200 bg-white p-1 shadow-md"
-          >
-            <DropdownMenu.Item asChild>
-              <Link href={`/dashboard/events/${eventId}/edit`} className={itemClass}>
-                Edit Event
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link href={`/dashboard/events/${eventId}/tickets`} className={itemClass}>
-                Manage Tickets
-              </Link>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item asChild>
-              <Link href={`/dashboard/events/${eventId}/discounts`} className={itemClass}>
-                Manage Discounts
-              </Link>
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      {/* Edit Event button */}
+      <Link href={`/dashboard/events/${eventId}/edit`}>
+        <Button variant="outline">Edit Event</Button>
+      </Link>
 
       {/* Export dropdown: CSV, Excel */}
       <DropdownMenu.Root>
