@@ -130,7 +130,7 @@ export async function GET(request: Request, context: RouteContext) {
     const eventLocation =
       event.locationType === 'ONLINE'
         ? event.onlineUrl || 'Online'
-        : [event.venue, event.city, event.country].filter(Boolean).join(', ')
+        : [event.venue, event.city, event.country].filter(Boolean).join(', ') || 'TBD'
 
     for (const ticket of tickets) {
       const attendeeFirstName = ticket.attendeeFirstName || ticket.order.buyerFirstName

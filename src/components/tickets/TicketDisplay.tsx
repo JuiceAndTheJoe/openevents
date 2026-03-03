@@ -67,7 +67,7 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
   const eventLocation =
     order.event.locationType === 'ONLINE'
       ? order.event.onlineUrl || 'Online event'
-      : [order.event.venue, order.event.city, order.event.country].filter(Boolean).join(', ')
+      : [order.event.venue, order.event.city, order.event.country].filter(Boolean).join(', ') || 'Location TBD'
 
   const isPendingInvoice = order.status === 'PENDING_INVOICE'
   const isPaid = order.status === 'PAID'
