@@ -1,4 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { TicketDisplay } from '@/components/tickets/TicketDisplay'
@@ -28,17 +28,18 @@ function getPageTitle(status: string, paymentMethod: string | null): string {
 
 export default async function OrderConfirmationPage({ params }: ConfirmationPageProps) {
   const user = await getCurrentUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
   const { orderNumber } = await params
 
+  // Try to find the order - allow access if:
+  // 1. User owns the order (userId matches)
+  // 2. User is the organizer of the event
+  // 3. No user is logged in but order exists (anonymous access)
   const order = await prisma.order.findFirst({
     where: {
       orderNumber,
-      OR: [{ userId: user.id }, { event: { organizer: { userId: user.id } } }],
+      ...(user && {
+        OR: [{ userId: user.id }, { event: { organizer: { userId: user.id } } }],
+      }),
     },
     include: {
       event: {
