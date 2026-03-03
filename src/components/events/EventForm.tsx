@@ -562,9 +562,11 @@ function getFieldValidationMessage(
         : "Add an event description.";
     case "startDate":
       if (!currentForm.startDate?.trim()) return "Set start date and time.";
+      if (!currentForm.startDate.includes("T")) return "Set a start time.";
       return startUtc ? undefined : "Use a valid start date and time.";
     case "endDate":
       if (!currentForm.endDate?.trim()) return "Set end time.";
+      if (!currentForm.endDate.includes("T")) return "Set an end time.";
       if (!endUtc) return "Use a valid end time.";
       if (startUtc && new Date(endUtc) <= new Date(startUtc))
         return "End time must be after start time.";
@@ -947,10 +949,6 @@ export function EventForm({
     initialPersistedSnapshot,
   );
   const [isAutosaving, setIsAutosaving] = useState(false);
-  const [hasExplicitTimes, setHasExplicitTimes] = useState(() => ({
-    startDate: Boolean(initialFormState.startDate.split("T")[1]),
-    endDate: Boolean(initialFormState.endDate.split("T")[1]),
-  }));
   const [isPrimaryProgressVisible, setIsPrimaryProgressVisible] =
     useState(true);
   const [recentlyCompletedStep, setRecentlyCompletedStep] = useState<
@@ -994,9 +992,7 @@ export function EventForm({
   const dateTimeComplete =
     !getFieldValidationMessage("startDate", form, "submit-publish") &&
     !getFieldValidationMessage("endDate", form, "submit-publish") &&
-    !getFieldValidationMessage("timezone", form, "submit-publish") &&
-    hasExplicitTimes.startDate &&
-    hasExplicitTimes.endDate;
+    !getFieldValidationMessage("timezone", form, "submit-publish");
 
   const locationComplete =
     !getFieldValidationMessage("venue", form, "submit-publish") &&
@@ -1206,13 +1202,13 @@ export function EventForm({
 
   const updateDatePart = (field: "startDate" | "endDate", datePart: string) => {
     const timePart = getTimePart(form[field]);
-    const newValue = timePart ? `${datePart}T${timePart}` : `${datePart}T00:00`;
+    const newValue = timePart ? `${datePart}T${timePart}` : datePart;
     if (field === "startDate") {
       // endDate always shares the same date as startDate (single-day events)
       const endTimePart = getTimePart(form.endDate);
       const newEndValue = endTimePart
         ? `${datePart}T${endTimePart}`
-        : `${datePart}T00:00`;
+        : datePart;
       const nextForm = { ...form, startDate: newValue, endDate: newEndValue };
       setForm(nextForm);
       validateFieldIfActive("startDate", nextForm);
@@ -1226,7 +1222,6 @@ export function EventForm({
     const datePart = getDatePart(form[field]);
     if (datePart) {
       updateField(field, `${datePart}T${timePart}`);
-      setHasExplicitTimes((current) => ({ ...current, [field]: true }));
     }
   };
 
@@ -3056,6 +3051,17 @@ export function EventForm({
         return;
       }
 
+      if (mode === "edit" && eventSlug) {
+        setToast({
+          message: action === "publish" ? "Event published" : "Event updated",
+          tone: "success",
+        });
+        navigateWithHistoryGuardCleanup(() => {
+          router.push(`/events/${eventSlug}`);
+        });
+        return;
+      }
+
       if (mode === "edit") {
         setToast({
           message: action === "publish" ? "Event published" : "Event updated",
@@ -3953,7 +3959,7 @@ export function EventForm({
                 </div>
               )}
             </div>
-            {(hasExplicitTimes.startDate || hasExplicitTimes.endDate) && form.startDate >= form.endDate && (
+            {getTimePart(form.startDate) && getTimePart(form.endDate) && form.startDate >= form.endDate && (
               <p className="text-sm text-amber-600">Start time must be before end time.</p>
             )}
           </div>
@@ -4076,7 +4082,7 @@ export function EventForm({
                 </div>
               )}
             </div>
-            {(hasExplicitTimes.startDate || hasExplicitTimes.endDate) && form.endDate <= form.startDate && (
+            {getTimePart(form.startDate) && getTimePart(form.endDate) && form.endDate <= form.startDate && (
               <p className="text-sm text-amber-600">End time must be after start time.</p>
             )}
           </div>
