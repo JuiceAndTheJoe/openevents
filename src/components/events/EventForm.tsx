@@ -964,6 +964,7 @@ export function EventForm({
   const autosaveInFlightRef = useRef(false);
   const historyGuardActiveRef = useRef(false);
   const bypassNavigationGuardRef = useRef(false);
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
   const formRef = useRef(form);
   const speakerDraftsRef = useRef(speakerDrafts);
   const promoCodesRef = useRef(promoCodes);
@@ -4599,7 +4600,7 @@ export function EventForm({
                         <option value="GBP">GBP</option>
                         <option value="USD">USD</option>
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4a5565]" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                     </div>
                     {legacyCurrency ? (
                       <p className="text-sm text-amber-700">
