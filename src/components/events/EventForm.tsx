@@ -5514,10 +5514,10 @@ export function EventForm({
           title: form.title,
           description: form.description || "",
           startDate: form.startDate
-            ? dateTimeLocalInTimeZoneToUtcIso(form.startDate, form.timezone)
+            ? (dateTimeLocalInTimeZoneToUtcIso(form.startDate, form.timezone) ?? "")
             : "",
           endDate: form.endDate
-            ? dateTimeLocalInTimeZoneToUtcIso(form.endDate, form.timezone)
+            ? (dateTimeLocalInTimeZoneToUtcIso(form.endDate, form.timezone) ?? "")
             : "",
           timezone: form.timezone,
           locationType: form.locationType,
