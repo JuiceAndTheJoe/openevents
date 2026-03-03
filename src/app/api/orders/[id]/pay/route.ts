@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { z } from 'zod'
-import { requireAuth } from '@/lib/auth'
+import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { sendOrderConfirmationEmail } from '@/lib/email'
 import { canAccessOrder } from '@/lib/orders/authorization'
@@ -29,7 +29,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const { id: orderId } = await context.params
-    const user = await requireAuth()
+    const session = await getSession()
+    const user = session?.user || null
 
     const body = await request.json().catch(() => ({}))
     if (process.env.NODE_ENV === 'development') {
@@ -87,12 +88,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    const canManageOrder = canAccessOrder({
+    // For anonymous orders (no userId), allow access
+    // For orders with userId, verify the requester can access
+    const isAnonymousOrder = !order.userId
+    const canManageOrder = isAnonymousOrder || (user && canAccessOrder({
       orderUserId: order.userId,
       organizerUserId: order.event.organizer.userId,
       requesterUserId: user.id,
       requesterRoles: user.roles,
-    })
+    }))
     if (!canManageOrder) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

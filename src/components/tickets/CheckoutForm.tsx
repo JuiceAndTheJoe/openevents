@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -182,6 +182,9 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
   })
   const [paymentMethod, setPaymentMethod] = useState<'PAYPAL' | 'INVOICE'>('PAYPAL')
 
+  // Track the last buyer values synced to first attendee, to detect manual edits
+  const lastSyncedBuyerRef = useRef<Partial<AttendeeFormState>>({})
+
   useEffect(() => {
     async function fetchTicketTypes() {
       setTicketLoading(true)
@@ -333,24 +336,40 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
       const slots = current[firstTypeId]
       if (!slots || slots.length === 0) return current
 
-      // Only auto-update if the slot looks empty or still matches old buyer info
       const first = slots[0]
-      const looksUnedited =
-        first.firstName === '' ||
-        first.firstName === buyer.firstName
+      const lastSynced = lastSyncedBuyerRef.current
 
-      if (!looksUnedited) return current
+      // For each field, check if it's empty or matches last synced value (not manually edited)
+      const shouldUpdateFirst = first.firstName === '' || first.firstName === lastSynced.firstName
+      const shouldUpdateLast = first.lastName === '' || first.lastName === lastSynced.lastName
+      const shouldUpdateEmail = first.email === '' || first.email === lastSynced.email
+      const shouldUpdateTitle = first.title === '' || first.title === lastSynced.title
+      const shouldUpdateOrg = first.organization === '' || first.organization === lastSynced.organization
+
+      // If no fields should update, skip
+      if (!shouldUpdateFirst && !shouldUpdateLast && !shouldUpdateEmail && !shouldUpdateTitle && !shouldUpdateOrg) {
+        return current
+      }
+
+      // Update ref with new synced values
+      lastSyncedBuyerRef.current = {
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        title: buyer.title,
+        organization: buyer.organization,
+      }
 
       return {
         ...current,
         [firstTypeId]: [
           {
             ...first,
-            firstName: buyer.firstName,
-            lastName: buyer.lastName,
-            email: buyer.email,
-            title: buyer.title,
-            organization: buyer.organization,
+            firstName: shouldUpdateFirst ? buyer.firstName : first.firstName,
+            lastName: shouldUpdateLast ? buyer.lastName : first.lastName,
+            email: shouldUpdateEmail ? buyer.email : first.email,
+            title: shouldUpdateTitle ? buyer.title : first.title,
+            organization: shouldUpdateOrg ? buyer.organization : first.organization,
           },
           ...slots.slice(1),
         ],

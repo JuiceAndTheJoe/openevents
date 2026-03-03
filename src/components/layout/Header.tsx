@@ -21,10 +21,13 @@ export function Header() {
   const displayName = session?.user?.name?.trim() || session?.user?.email?.split('@')[0] || 'Account'
   const profileHref = isOrganizer ? '/dashboard/profile' : '/profile'
 
-  // Determine if we should show auth UI based on current route
+  // Determine route context for conditional rendering
   const isOrganizerRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin')
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/verify-email')
-  const shouldShowAuthUI = isOrganizerRoute || isAuthPage
+
+  // Show full auth UI (login/register buttons) on organizer routes and auth pages
+  // On public pages: show user menu if logged in, show subtle "Organizer Login" link if not
+  const isPublicPage = !isOrganizerRoute && !isAuthPage
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent | TouchEvent) {
@@ -72,7 +75,7 @@ export function Header() {
                 Create Event
               </Link>
             )}
-            {status === 'authenticated' && shouldShowAuthUI ? (
+            {status === 'authenticated' ? (
               <>
                 {canManageEvents && (
                   <Link
@@ -149,15 +152,24 @@ export function Header() {
                   ) : null}
                 </div>
               </>
-            ) : status === 'unauthenticated' && shouldShowAuthUI ? (
-              <div className="flex items-center space-x-4">
-                <Link href="/login">
-                  <Button variant="ghost">Sign In</Button>
+            ) : status === 'unauthenticated' ? (
+              isPublicPage ? (
+                <Link
+                  href="/login"
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Organizer Login
                 </Link>
-                <Link href="/register">
-                  <Button>Get Started</Button>
-                </Link>
-              </div>
+              ) : (
+                <div className="flex items-center space-x-4">
+                  <Link href="/login">
+                    <Button variant="ghost">Sign In</Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button>Get Started</Button>
+                  </Link>
+                </div>
+              )
             ) : null}
           </div>
 
@@ -207,7 +219,7 @@ export function Header() {
               </Link>
             )}
 
-            {status === 'authenticated' && shouldShowAuthUI ? (
+            {status === 'authenticated' ? (
               <>
                 {canManageEvents && (
                   <Link
@@ -242,23 +254,33 @@ export function Header() {
                   Sign out
                 </button>
               </>
-            ) : status === 'unauthenticated' && shouldShowAuthUI ? (
-              <>
+            ) : status === 'unauthenticated' ? (
+              isPublicPage ? (
                 <Link
                   href="/login"
-                  className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                  className="block px-3 py-2 text-gray-500 hover:bg-gray-50 rounded-md"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Sign In
+                  Organizer Login
                 </Link>
-                <Link
-                  href="/register"
-                  className="block px-3 py-2 text-[#5C8BD9] font-medium hover:bg-gray-50 rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Get Started
-                </Link>
-              </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="block px-3 py-2 text-[#5C8BD9] font-medium hover:bg-gray-50 rounded-md"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Get Started
+                  </Link>
+                </>
+              )
             ) : null}
           </div>
         )}
