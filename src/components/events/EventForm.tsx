@@ -564,8 +564,8 @@ function getFieldValidationMessage(
       if (!currentForm.startDate?.trim()) return "Set start date and time.";
       return startUtc ? undefined : "Use a valid start date and time.";
     case "endDate":
-      if (!currentForm.endDate?.trim()) return "Set end date and time.";
-      if (!endUtc) return "Use a valid end date and time.";
+      if (!currentForm.endDate?.trim()) return "Set end time.";
+      if (!endUtc) return "Use a valid end time.";
       if (startUtc && new Date(endUtc) <= new Date(startUtc))
         return "End time must be after start time.";
       return undefined;
@@ -1206,10 +1206,20 @@ export function EventForm({
 
   const updateDatePart = (field: "startDate" | "endDate", datePart: string) => {
     const timePart = getTimePart(form[field]);
-    updateField(
-      field,
-      timePart ? `${datePart}T${timePart}` : `${datePart}T00:00`,
-    );
+    const newValue = timePart ? `${datePart}T${timePart}` : `${datePart}T00:00`;
+    if (field === "startDate") {
+      // endDate always shares the same date as startDate (single-day events)
+      const endTimePart = getTimePart(form.endDate);
+      const newEndValue = endTimePart
+        ? `${datePart}T${endTimePart}`
+        : `${datePart}T00:00`;
+      const nextForm = { ...form, startDate: newValue, endDate: newEndValue };
+      setForm(nextForm);
+      validateFieldIfActive("startDate", nextForm);
+      validateFieldIfActive("endDate", nextForm);
+    } else {
+      updateField(field, newValue);
+    }
   };
 
   const updateTimePart = (field: "startDate" | "endDate", timePart: string) => {
@@ -1502,7 +1512,16 @@ export function EventForm({
     if (mode !== "create" || initialData?.timezone) return;
     const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (isValidTimeZone(browserTimezone)) {
-      setForm((current) => ({ ...current, timezone: browserTimezone }));
+      const updatedForm = { ...initialFormState, timezone: browserTimezone };
+      setForm(updatedForm);
+      const updatedSnapshot = buildDraftStateSnapshot(
+        updatedForm,
+        initialSpeakerDrafts,
+        initialPromoCodes,
+      );
+      setPersistedSnapshot(updatedSnapshot);
+      persistedSnapshotRef.current = updatedSnapshot;
+      initialSnapshotRef.current = buildSnapshot(updatedForm);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1675,15 +1694,16 @@ export function EventForm({
         return;
       }
 
-      if (window.confirm("Discard unsaved changes?")) {
-        bypassNavigationGuardRef.current = true;
-        historyGuardActiveRef.current = false;
-        window.history.back();
-        return;
-      }
-
+      // Re-push state to restore the guard while the dialog is shown.
       window.history.pushState(window.history.state, "", currentLocation);
       historyGuardActiveRef.current = true;
+
+      pendingNavigationRef.current = () => {
+        navigateWithHistoryGuardCleanup(() => {
+          window.history.back();
+        });
+      };
+      setDiscardChangesConfirm(true);
     };
 
     const handleDocumentNavigation = (event: MouseEvent) => {
@@ -1714,9 +1734,10 @@ export function EventForm({
       const destination = new URL(link.href, window.location.href);
       if (destination.href === window.location.href) return;
 
-      if (window.confirm("Discard unsaved changes?")) {
-        event.preventDefault();
-        event.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
+
+      pendingNavigationRef.current = () => {
         navigateWithHistoryGuardCleanup(
           () => {
             if (destination.origin !== window.location.origin) {
@@ -1732,11 +1753,8 @@ export function EventForm({
             keepBypassGuard: destination.origin !== window.location.origin,
           },
         );
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
+      };
+      setDiscardChangesConfirm(true);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -3111,7 +3129,13 @@ export function EventForm({
 
   function doNavigateAway() {
     setDiscardChangesConfirm(false);
-    performCancelNavigation();
+    if (pendingNavigationRef.current) {
+      const navigate = pendingNavigationRef.current;
+      pendingNavigationRef.current = null;
+      navigate();
+    } else {
+      performCancelNavigation();
+    }
   }
 
   function performCancelNavigation() {
@@ -3590,13 +3614,13 @@ export function EventForm({
       >
         <h3 className="text-2xl font-bold text-black">Date &amp; Time</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Start Date */}
+          {/* Date */}
           <div
             className="flex flex-col gap-2"
             onBlur={(event) => handleCompositeFieldBlur(event, "startDate")}
           >
             <Label required className="text-base font-semibold text-black">
-              Start Date
+              Date
             </Label>
             <div className="relative">
               <button
@@ -3627,7 +3651,7 @@ export function EventForm({
                       }).format(
                         new Date(getDatePart(form.startDate) + "T00:00"),
                       )
-                    : "Select start date"}
+                    : "Select date"}
                 </span>
                 <svg
                   width="20"
@@ -3758,168 +3782,55 @@ export function EventForm({
             ) : null}
           </div>
 
-          {/* End Date */}
-          <div
-            className="flex flex-col gap-2"
-            onBlur={(event) => handleCompositeFieldBlur(event, "endDate")}
-          >
-            <Label required className="text-base font-semibold text-black">
-              End Date
+          {/* Time Zone */}
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="timezone"
+              required
+              className="text-base font-semibold text-black"
+            >
+              Time Zone
             </Label>
             <div className="relative">
-              <button
-                id="endDate"
-                type="button"
+              <select
+                id="timezone"
+                aria-invalid={fieldErrors.timezone ? true : undefined}
                 aria-describedby={
-                  fieldErrors.endDate ? "endDate-error" : undefined
+                  fieldErrors.timezone ? "timezone-error" : undefined
                 }
-                onClick={() => openCalendarFor("endDate")}
-                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] transition-colors focus:outline-none focus:ring-2 ${
-                  fieldErrors.endDate
+                className={`h-10 w-full appearance-none rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 ${
+                  fieldErrors.timezone
                     ? "border-red-500 focus:ring-red-500"
                     : "border-[#d1d5dc] focus:ring-[#5c8bd9]"
                 }`}
+                value={form.timezone}
+                onChange={(e) => onTimezoneChanged(e.target.value)}
+                onBlur={() => handleFieldBlur("timezone")}
               >
-                <span
-                  className={
-                    getDatePart(form.endDate)
-                      ? "font-medium text-gray-900"
-                      : "text-[#828283]"
-                  }
-                >
-                  {getDatePart(form.endDate)
-                    ? new Intl.DateTimeFormat("en", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      }).format(new Date(getDatePart(form.endDate) + "T00:00"))
-                    : "Select end date"}
-                </span>
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="shrink-0 text-gray-500"
-                  aria-hidden
-                >
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-              </button>
-              {openDateTimePanel === "endDate" && (
-                <div className="absolute top-[calc(100%+8px)] left-0 z-50 w-[320px] rounded-2xl bg-white p-5 shadow-2xl">
-                  <div className="mb-4 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={prevCalendarMonth}
-                      className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                      aria-label="Previous month"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <polyline points="15 18 9 12 15 6" />
-                      </svg>
-                    </button>
-                    <span className="text-[15px] font-semibold text-gray-900">
-                      {formatCalendarHeader(
-                        calendarNav.year,
-                        calendarNav.month,
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={nextCalendarMonth}
-                      className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-                      aria-label="Next month"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="mb-1 grid grid-cols-7">
-                    {WEEKDAY_LABELS.map((d) => (
-                      <div
-                        key={d}
-                        className="py-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400"
-                      >
-                        {d}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-7 gap-y-0.5">
-                    {buildCalendarCells(
-                      calendarNav.year,
-                      calendarNav.month,
-                    ).map((day, i) => (
-                      <div key={i} className="flex justify-center">
-                        {day ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateDatePart(
-                                "endDate",
-                                `${calendarNav.year}-${String(calendarNav.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-                              );
-                              setOpenDateTimePanel(null);
-                            }}
-                            className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-medium transition-colors ${
-                              isDatePickerDaySelected(
-                                "endDate",
-                                calendarNav.year,
-                                calendarNav.month,
-                                day,
-                              )
-                                ? "bg-blue-600 text-white"
-                                : isCalendarDayToday(
-                                      calendarNav.year,
-                                      calendarNav.month,
-                                      day,
-                                    )
-                                  ? "border-2 border-blue-500 text-blue-600 hover:bg-blue-50"
-                                  : "text-gray-800 hover:bg-gray-100"
-                            }`}
-                          >
-                            {day}
-                          </button>
-                        ) : (
-                          <div className="h-10 w-10" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                {timezoneOptions.map((tz) => (
+                  <option key={tz} value={tz}>
+                    {tz}
+                  </option>
+                ))}
+              </select>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                aria-hidden
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </div>
-            {fieldErrors.endDate ? (
-              <p id="endDate-error" className="text-sm text-red-600">
-                {fieldErrors.endDate}
+            {fieldErrors.timezone ? (
+              <p id="timezone-error" className="mt-1 text-sm text-red-600">
+                {fieldErrors.timezone}
               </p>
             ) : null}
           </div>
@@ -4042,6 +3953,9 @@ export function EventForm({
                 </div>
               )}
             </div>
+            {(hasExplicitTimes.startDate || hasExplicitTimes.endDate) && form.startDate >= form.endDate && (
+              <p className="text-sm text-amber-600">Start time must be before end time.</p>
+            )}
           </div>
 
           {/* End Time */}
@@ -4162,60 +4076,11 @@ export function EventForm({
                 </div>
               )}
             </div>
+            {(hasExplicitTimes.startDate || hasExplicitTimes.endDate) && form.endDate <= form.startDate && (
+              <p className="text-sm text-amber-600">End time must be after start time.</p>
+            )}
           </div>
 
-          {/* Time Zone */}
-          <div className="flex flex-col gap-2">
-            <Label
-              htmlFor="timezone"
-              required
-              className="text-base font-semibold text-black"
-            >
-              Time Zone
-            </Label>
-            <div className="relative">
-              <select
-                id="timezone"
-                aria-invalid={fieldErrors.timezone ? true : undefined}
-                aria-describedby={
-                  fieldErrors.timezone ? "timezone-error" : undefined
-                }
-                className={`h-10 w-full appearance-none rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 pr-8 text-sm text-gray-900 focus:outline-none focus:ring-2 ${
-                  fieldErrors.timezone
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-[#d1d5dc] focus:ring-[#5c8bd9]"
-                }`}
-                value={form.timezone}
-                onChange={(e) => onTimezoneChanged(e.target.value)}
-                onBlur={() => handleFieldBlur("timezone")}
-              >
-                {timezoneOptions.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz}
-                  </option>
-                ))}
-              </select>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                aria-hidden
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </div>
-            {fieldErrors.timezone ? (
-              <p id="timezone-error" className="mt-1 text-sm text-red-600">
-                {fieldErrors.timezone}
-              </p>
-            ) : null}
-          </div>
         </div>
       </section>
 
