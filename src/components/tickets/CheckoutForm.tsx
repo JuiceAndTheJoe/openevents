@@ -21,6 +21,20 @@ interface CheckoutFormProps {
   }
 }
 
+// Checkout state persistence for PayPal cancel recovery
+interface PersistedCheckoutState {
+  eventId: string
+  quantities: Record<string, number>
+  buyer: BuyerFormState
+  attendeesByType: Record<string, AttendeeFormState[]>
+  discountCode: string | null
+  paymentMethod: 'PAYPAL' | 'INVOICE'
+  savedAt: number
+}
+
+const CHECKOUT_STATE_KEY = 'openevents_checkout_state'
+const CHECKOUT_STATE_TTL_MS = 30 * 60 * 1000 // 30 minutes
+
 interface BuyerFormState {
   firstName: string
   lastName: string
@@ -80,6 +94,43 @@ function formatRemainingTime(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
+function saveCheckoutState(state: PersistedCheckoutState): void {
+  try {
+    localStorage.setItem(CHECKOUT_STATE_KEY, JSON.stringify(state))
+  } catch (error) {
+    console.error('Failed to save checkout state:', error)
+  }
+}
+
+function loadCheckoutState(eventId: string): PersistedCheckoutState | null {
+  try {
+    const raw = localStorage.getItem(CHECKOUT_STATE_KEY)
+    if (!raw) return null
+
+    const state = JSON.parse(raw) as PersistedCheckoutState
+
+    // Check if state is for this event and not expired
+    if (state.eventId !== eventId) return null
+    if (Date.now() - state.savedAt > CHECKOUT_STATE_TTL_MS) {
+      localStorage.removeItem(CHECKOUT_STATE_KEY)
+      return null
+    }
+
+    return state
+  } catch (error) {
+    console.error('Failed to load checkout state:', error)
+    return null
+  }
+}
+
+function clearCheckoutState(): void {
+  try {
+    localStorage.removeItem(CHECKOUT_STATE_KEY)
+  } catch (error) {
+    console.error('Failed to clear checkout state:', error)
+  }
+}
+
 export function CheckoutForm({ event }: CheckoutFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -109,9 +160,15 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
   const wasCancelled = searchParams.get('cancelled') === 'true'
   const wasExpired = searchParams.get('expired') === 'true'
+  const wasSessionExpired = searchParams.get('session_expired') === 'true'
 
   const isAuthenticated = status === 'authenticated'
   const isLoadingAuth = status === 'loading'
+
+  // Track if we've restored state from localStorage (to show appropriate message)
+  const [restoredFromSaved, setRestoredFromSaved] = useState(false)
+  // Track the discount code to restore (separate from applied discount)
+  const [pendingDiscountCode, setPendingDiscountCode] = useState<string | null>(null)
 
   const [buyer, setBuyer] = useState<BuyerFormState>({
     firstName: '',
@@ -158,6 +215,40 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
     fetchTicketTypes()
   }, [event.id])
+
+  // Restore checkout state from localStorage when returning from PayPal cancel
+  useEffect(() => {
+    // Only restore if coming back from cancellation and ticket types are loaded
+    if (!wasCancelled || ticketLoading || ticketTypes.length === 0) return
+
+    const savedState = loadCheckoutState(event.id)
+    if (!savedState) return
+
+    // Restore quantities
+    setQuantities(savedState.quantities)
+
+    // Restore buyer info (but keep the current email from session)
+    setBuyer((current) => ({
+      ...savedState.buyer,
+      email: current.email || savedState.buyer.email,
+    }))
+
+    // Restore attendees
+    setAttendeesByType(savedState.attendeesByType)
+
+    // Restore payment method
+    setPaymentMethod(savedState.paymentMethod)
+
+    // Set pending discount code for the DiscountCodeInput to apply
+    if (savedState.discountCode) {
+      setPendingDiscountCode(savedState.discountCode)
+    }
+
+    setRestoredFromSaved(true)
+
+    // Clear saved state after restoring
+    clearCheckoutState()
+  }, [wasCancelled, ticketLoading, ticketTypes.length, event.id])
 
   const selectedItems = useMemo<SummaryLineItem[]>(() => {
     return ticketTypes
@@ -487,6 +578,18 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
         // Check if PayPal redirect is needed
         if (payData.checkout?.type === 'redirect' && payData.checkout?.approvalUrl) {
+          // Save checkout state before redirecting to PayPal
+          // This allows recovery if user cancels or session expires
+          saveCheckoutState({
+            eventId: event.id,
+            quantities,
+            buyer,
+            attendeesByType,
+            discountCode: discount?.code ?? null,
+            paymentMethod,
+            savedAt: Date.now(),
+          })
+
           setIsRedirecting(true)
           window.location.href = payData.checkout.approvalUrl
           return
@@ -494,18 +597,21 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
         // Payment completed (stub mode or already captured)
         if (payData.checkout?.type === 'completed') {
+          clearCheckoutState()
           router.push(`/orders/${payData.order.orderNumber}`)
           return
         }
 
         // Invoice flow
         if (payData.checkout?.type === 'invoice') {
+          clearCheckoutState()
           router.push(`/orders/${payData.order.orderNumber}`)
           return
         }
       }
 
       // Free order or invoice - go directly to confirmation
+      clearCheckoutState()
       router.push(`/orders/${orderNumber}`)
     } catch (error) {
       console.error('Failed to complete checkout', error)
@@ -809,6 +915,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
               selectedTicketTypeIds={selectedTicketTypeIds}
               ticketQuantities={quantities}
               onDiscountChange={setDiscount}
+              initialCode={pendingDiscountCode}
             />
           </CardContent>
         </Card>
@@ -894,16 +1001,29 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
 
         {wasCancelled && (
           <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3">
-            <p className="text-sm text-yellow-800">
-              Payment was cancelled. You can try again when ready.
+            <p className="text-sm font-medium text-yellow-800 mb-1">
+              Payment was cancelled
             </p>
+            <p className="text-sm text-yellow-700">
+              {restoredFromSaved
+                ? 'Your cart and attendee details have been restored. You can continue checkout when ready.'
+                : 'You can try again when ready.'}
+            </p>
+            {wasSessionExpired && (
+              <p className="text-sm text-yellow-700 mt-1">
+                Note: Your session had expired, but you are now logged in again.
+              </p>
+            )}
           </div>
         )}
 
         {wasExpired && (
           <div className="rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-sm font-medium text-red-800 mb-1">
+              Reservation expired
+            </p>
             <p className="text-sm text-red-700">
-              Your previous reservation expired. Refresh the page to start checkout again.
+              Your previous ticket reservation has expired. Your cart has been cleared. Please select your tickets again to start a new reservation.
             </p>
           </div>
         )}

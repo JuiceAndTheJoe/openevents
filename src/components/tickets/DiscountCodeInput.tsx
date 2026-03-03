@@ -17,6 +17,8 @@ interface DiscountCodeInputProps {
   selectedTicketTypeIds: string[]
   ticketQuantities: Record<string, number>
   onDiscountChange: (discount: AppliedDiscount | null) => void
+  /** Optional initial discount code to auto-apply (e.g., restored from saved checkout state) */
+  initialCode?: string | null
 }
 
 export function DiscountCodeInput({
@@ -24,12 +26,14 @@ export function DiscountCodeInput({
   selectedTicketTypeIds,
   ticketQuantities,
   onDiscountChange,
+  initialCode,
 }: DiscountCodeInputProps) {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [appliedCode, setAppliedCode] = useState<string | null>(null)
   const [appliedCartSignature, setAppliedCartSignature] = useState<string | null>(null)
+  const [hasAppliedInitialCode, setHasAppliedInitialCode] = useState(false)
 
   const cartSignature = useMemo(() => {
     const ticketTypeKey = [...selectedTicketTypeIds].sort().join('|')
@@ -65,6 +69,56 @@ export function DiscountCodeInput({
     setError('Cart changed. Reapply the discount code for the updated ticket quantity.')
     onDiscountChange(null)
   }, [appliedCode, appliedCartSignature, cartSignature, onDiscountChange])
+
+  // Auto-apply initial code (e.g., restored from saved checkout state)
+  useEffect(() => {
+    if (!initialCode || hasAppliedInitialCode || appliedCode || selectedTicketTypeIds.length === 0) {
+      return
+    }
+
+    setHasAppliedInitialCode(true)
+    setCode(initialCode)
+
+    // Trigger validation with a slight delay to ensure cart is ready
+    const timeoutId = setTimeout(async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch('/api/discount-codes/validate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            eventId,
+            code: initialCode,
+            ticketTypeIds: selectedTicketTypeIds,
+            ticketQuantities,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok || !data.valid) {
+          setError(data.reason || 'Previously applied discount code is no longer valid')
+          return
+        }
+
+        setAppliedCode(data.discount.code)
+        setAppliedCartSignature(cartSignature)
+        onDiscountChange(data.discount as AppliedDiscount)
+        setCode(data.discount.code)
+      } catch (applyError) {
+        console.error('Failed to auto-apply discount code', applyError)
+        setError('Could not restore discount code')
+      } finally {
+        setIsLoading(false)
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [initialCode, hasAppliedInitialCode, appliedCode, selectedTicketTypeIds, ticketQuantities, eventId, cartSignature, onDiscountChange])
 
   async function handleApply() {
     if (!code.trim()) {
