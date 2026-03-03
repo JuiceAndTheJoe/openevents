@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { EventPreviewModal } from '@/components/events/EventPreviewModal'
 
 type CategoryOption = {
   id: string
@@ -47,6 +49,7 @@ export function CreateEventForm({ categories }: CreateEventFormProps) {
   const [isUploadingBanner, setIsUploadingBanner] = useState(false)
   const [isUploadingBottom, setIsUploadingBottom] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   function updateField<K extends keyof typeof form>(field: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -409,9 +412,35 @@ export function CreateEventForm({ categories }: CreateEventFormProps) {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-3">
+        <Button variant="outline" onClick={() => setShowPreview(true)} disabled={isSubmitting}>
+          <Eye className="mr-2 h-4 w-4" />
+          Preview
+        </Button>
         <Button variant="outline" onClick={() => onSubmit('save')} isLoading={isSubmitting}>Save Draft</Button>
         <Button onClick={() => onSubmit('publish')} isLoading={isSubmitting}>Publish Event</Button>
       </div>
+
+      <EventPreviewModal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        data={{
+          title: form.title,
+          description: form.description,
+          startDate: form.date && form.startTime ? toIso(form.date, form.startTime) : '',
+          endDate: form.date && form.endTime ? toIso(form.date, form.endTime) : '',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+          locationType: form.locationType,
+          venue: form.venue,
+          address: '',
+          city: form.city,
+          state: '',
+          country: form.country,
+          coverImageSrc: form.bannerImage || null,
+          bottomImageSrc: form.bottomImage || null,
+          speakers: [],
+          status: 'DRAFT',
+        }}
+      />
     </div>
   )
 }

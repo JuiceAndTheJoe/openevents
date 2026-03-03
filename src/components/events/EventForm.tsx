@@ -13,6 +13,8 @@ import {
 import { useRouter } from "next/navigation";
 import {
   ChevronDown,
+  Eye,
+  ExternalLink,
   Image as ImageIcon,
   Plus,
   Trash2,
@@ -20,6 +22,7 @@ import {
   User,
   Video,
 } from "lucide-react";
+import { EventPreviewModal } from "@/components/events/EventPreviewModal";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FloatingToast } from "@/components/ui/floating-toast";
@@ -939,6 +942,7 @@ export function EventForm({
 
   const [promoCodes, setPromoCodes] =
     useState<PromoCodeDraft[]>(initialPromoCodes);
+  const [showPreview, setShowPreview] = useState(false);
   const [persistedSnapshot, setPersistedSnapshot] = useState(
     initialPersistedSnapshot,
   );
@@ -3014,9 +3018,22 @@ export function EventForm({
       cleanupObjectUrl("coverImage");
       cleanupObjectUrl("bottomImage");
 
-      if (mode === "create" && eventSlug) {
+      if (mode === "create" && action === "publish" && eventSlug) {
+        // After publishing a new event, navigate to the public page
         navigateWithHistoryGuardCleanup(() => {
           router.push(`/events/${eventSlug}?notice=created`);
+        });
+        return;
+      }
+
+      if (mode === "create" && action === "save" && eventId) {
+        // After saving a draft in create mode, stay in editor context
+        setToast({
+          message: "Draft saved successfully",
+          tone: "success",
+        });
+        navigateWithHistoryGuardCleanup(() => {
+          router.push(`/dashboard/events/${eventId}/edit`);
         });
         return;
       }
@@ -5245,6 +5262,26 @@ export function EventForm({
           <Button
             type="button"
             variant="outline"
+            onClick={() => setShowPreview(true)}
+            disabled={isSubmitting}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            Preview
+          </Button>
+          {form.slug && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => window.open(`/events/${form.slug}`, "_blank")}
+              disabled={isSubmitting}
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View Public Page
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
             onClick={onCancel}
             disabled={isSubmitting}
           >
@@ -5260,6 +5297,26 @@ export function EventForm({
         </div>
       ) : (
         <div className="flex justify-end gap-4 border-t border-black/10 pt-6">
+          <Button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            disabled={isSubmitting}
+            className="h-[50px] rounded-[10px] bg-[#E5E7EB] px-4 text-[#4a5565] text-lg font-semibold hover:bg-[#D1D5DB]"
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            Preview
+          </Button>
+          {mode === "edit" && form.slug && (
+            <Button
+              type="button"
+              onClick={() => window.open(`/events/${form.slug}`, "_blank")}
+              disabled={isSubmitting}
+              className="h-[50px] rounded-[10px] bg-[#E5E7EB] px-4 text-[#4a5565] text-lg font-semibold hover:bg-[#D1D5DB]"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              View Public Page
+            </Button>
+          )}
           <Button
             type="button"
             onClick={onCancel}
@@ -5447,6 +5504,40 @@ export function EventForm({
         onClose={() => {
           pendingNavigationRef.current = null;
           setDiscardChangesConfirm(false);
+        }}
+      />
+
+      <EventPreviewModal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        data={{
+          title: form.title,
+          description: form.description || "",
+          startDate: form.startDate
+            ? dateTimeLocalInTimeZoneToUtcIso(form.startDate, form.timezone)
+            : "",
+          endDate: form.endDate
+            ? dateTimeLocalInTimeZoneToUtcIso(form.endDate, form.timezone)
+            : "",
+          timezone: form.timezone,
+          locationType: form.locationType,
+          venue: form.venue || "",
+          address: form.address || "",
+          city: form.city || "",
+          state: form.state || "",
+          country: form.country || "",
+          coverImageSrc: bannerPreviewSrc || form.coverImage || null,
+          bottomImageSrc: bottomPreviewSrc || form.bottomImage || null,
+          speakers: speakerDrafts
+            .filter((speaker) => speaker.name.trim())
+            .map((speaker) => ({
+              name: speaker.name,
+              title: speaker.title,
+              organization: speaker.organization,
+              previewUrl: speaker.previewUrl,
+              publicUrl: speaker.publicUrl,
+            })),
+          status: form.status,
         }}
       />
     </div>
