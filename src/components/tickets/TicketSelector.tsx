@@ -31,7 +31,7 @@ const getTicketRemainingText = (remaining: number | null, sold: number): string 
   const percentRemaining = (remaining / maxCapacity) * 100
 
   if (percentRemaining <= 20) {
-    return `Only ${remaining} left - Get yours now!`
+    return 'Few tickets left!'
   }
 
   return `${remaining} available`
