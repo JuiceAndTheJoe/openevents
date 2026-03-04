@@ -13,6 +13,8 @@ interface TicketDisplayProps {
     buyerFirstName: string
     buyerLastName: string
     buyerEmail: string
+    subtotal?: { toString(): string } | string | number
+    discountAmount?: { toString(): string } | string | number
     totalAmount: { toString(): string } | string
     currency: string
     event: {
@@ -43,6 +45,11 @@ interface TicketDisplayProps {
         name: string
       }
     }>
+    groupDiscount?: {
+      minQuantity: number
+      discountType: string
+      discountValue: { toString(): string } | string | number
+    } | null
   }
 }
 
@@ -112,13 +119,41 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
                   : parseFloat(item.unitPrice.toString())
                 return (
                   <p key={item.id} className="text-gray-700">
-                    {item.quantity}x {item.ticketType.name} a {price} {order.currency}
+                    {item.quantity}x {item.ticketType.name} à {price} {order.currency}
                   </p>
                 )
               })}
-              <p className="mt-2 font-medium text-gray-900">
-                Summary: {totalTickets} tickets, {order.totalAmount.toString()} {order.currency}
-              </p>
+              {(() => {
+                const discountAmt = order.discountAmount
+                  ? typeof order.discountAmount === 'number'
+                    ? order.discountAmount
+                    : parseFloat(order.discountAmount.toString())
+                  : 0
+                const hasDiscount = discountAmt > 0 && order.groupDiscount
+
+                if (hasDiscount) {
+                  const discountLabel =
+                    order.groupDiscount!.discountType === 'PERCENTAGE'
+                      ? `${parseFloat(order.groupDiscount!.discountValue.toString())}%`
+                      : `${parseFloat(order.groupDiscount!.discountValue.toString())} ${order.currency}`
+                  return (
+                    <>
+                      <p className="mt-2 text-green-700">
+                        Group discount ({order.groupDiscount!.minQuantity}+ tickets, {discountLabel} off): −{discountAmt} {order.currency}
+                      </p>
+                      <p className="font-medium text-gray-900">
+                        Summary: {totalTickets} tickets, {order.totalAmount.toString()} {order.currency}
+                      </p>
+                    </>
+                  )
+                }
+
+                return (
+                  <p className="mt-2 font-medium text-gray-900">
+                    Summary: {totalTickets} tickets, {order.totalAmount.toString()} {order.currency}
+                  </p>
+                )
+              })()}
             </div>
           )}
 

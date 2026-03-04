@@ -72,6 +72,13 @@ export default async function OrderConfirmationPage({ params }: ConfirmationPage
           createdAt: 'asc',
         },
       },
+      groupDiscount: {
+        select: {
+          minQuantity: true,
+          discountType: true,
+          discountValue: true,
+        },
+      },
     },
   })
 
