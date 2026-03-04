@@ -19,6 +19,7 @@ interface OrderSummaryProps {
   totalAmount: number
   currency: string
   discountCode?: string | null
+  groupDiscountMessage?: string | null
 }
 
 export function OrderSummary({
@@ -28,6 +29,7 @@ export function OrderSummary({
   totalAmount,
   currency,
   discountCode,
+  groupDiscountMessage,
 }: OrderSummaryProps) {
   return (
     <Card>
@@ -62,9 +64,20 @@ export function OrderSummary({
           </div>
 
           {discountAmount > 0 && (
-            <div className="flex items-center justify-between text-green-700">
-              <span>{discountCode ? `Discount (${discountCode})` : 'Discount'}</span>
-              <span>-{formatCurrency(discountAmount, currency)}</span>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-green-700">
+                <span>
+                  {discountCode
+                    ? `Discount (${discountCode})`
+                    : groupDiscountMessage
+                      ? 'Group Discount'
+                      : 'Discount'}
+                </span>
+                <span>-{formatCurrency(discountAmount, currency)}</span>
+              </div>
+              {groupDiscountMessage && (
+                <p className="text-xs text-green-600">{groupDiscountMessage}</p>
+              )}
             </div>
           )}
 

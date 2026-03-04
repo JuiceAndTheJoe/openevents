@@ -38,6 +38,17 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
           isVisible: true,
         },
       },
+      groupDiscounts: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          ticketTypeId: true,
+          minQuantity: true,
+          discountType: true,
+          discountValue: true,
+        },
+        orderBy: { minQuantity: 'asc' },
+      },
     },
   })
 
@@ -88,6 +99,13 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
           slug: event.slug,
           title: event.title,
         }}
+        groupDiscounts={event.groupDiscounts.map((gd) => ({
+          id: gd.id,
+          ticketTypeId: gd.ticketTypeId,
+          minQuantity: gd.minQuantity,
+          discountType: gd.discountType,
+          discountValue: Number(gd.discountValue),
+        }))}
       />
     </div>
   )

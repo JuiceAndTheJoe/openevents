@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       organizerNames,
       sponsorNames,
       speakerPhotos,
+      speakerLinks,
       videoUrl,
       ...input
     } = parsed.data
@@ -71,7 +72,8 @@ export async function POST(request: NextRequest) {
       normalizedSpeakerNames,
       normalizedOrganizerNames,
       normalizedSponsorNames,
-      speakerPhotos
+      speakerPhotos,
+      speakerLinks
     )
 
     if (categoryIds.length > 0) {
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
         country: input.country,
         postalCode: input.postalCode,
         onlineUrl: input.onlineUrl,
+        website: input.website,
         coverImage: input.coverImage,
         media: (() => {
           const items = [

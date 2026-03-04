@@ -91,6 +91,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       organizerNames,
       sponsorNames,
       speakerPhotos,
+      speakerLinks,
       ...input
     } = parsed.data
 
@@ -141,6 +142,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           country: input.country,
           postalCode: input.postalCode,
           onlineUrl: input.onlineUrl,
+          website: input.website,
           coverImage: input.coverImage,
           visibility: input.visibility,
           cancellationDeadlineHours: input.cancellationDeadlineHours,
@@ -222,6 +224,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           }
           return ''
         })
+        const existingLinksByName = new Map(existingSpeakers.map((s) => {
+          if (isRecord(s.socialLinks) && s.socialLinks.__kind === 'EVENT_PEOPLE') {
+            return [s.name, String(s.socialLinks.link || '')]
+          }
+          return [s.name, '']
+        }))
         const existingPhotosByName = new Map(existingSpeakers.map((s) => [s.name, s.photo || '']))
 
         const nextSpeakerNames = speakerNames !== undefined ? normalizeNameList(speakerNames) : existingNames
@@ -230,6 +238,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const nextPhotos = speakerPhotos !== undefined
           ? (speakerPhotos || []).map((p) => p || '')
           : nextSpeakerNames.map((name) => existingPhotosByName.get(name) || '')
+        const nextLinks = speakerLinks !== undefined
+          ? (speakerLinks || []).map((l) => l || '')
+          : nextSpeakerNames.map((name) => existingLinksByName.get(name) || '')
 
         if (existingSpeakers.length > 0) {
           await tx.speaker.deleteMany({
@@ -237,7 +248,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           })
         }
 
-        const peopleCreateData = buildPeopleCreateData(nextSpeakerNames, nextJobTitles, nextOrganizations, nextPhotos)
+        const peopleCreateData = buildPeopleCreateData(nextSpeakerNames, nextJobTitles, nextOrganizations, nextPhotos, nextLinks)
 
         if (peopleCreateData.length > 0) {
           await tx.speaker.createMany({

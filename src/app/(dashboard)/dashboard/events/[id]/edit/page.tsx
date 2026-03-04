@@ -126,6 +126,10 @@ export default async function EditEventPage({ params }: PageProps) {
         ? String(speaker.socialLinks.organization || '')
         : '',
     photo: speaker.photo || '',
+    link:
+      isRecord(speaker.socialLinks) && speaker.socialLinks.__kind === 'EVENT_PEOPLE'
+        ? String(speaker.socialLinks.link || '')
+        : '',
   }))
 
   return (
@@ -170,6 +174,7 @@ export default async function EditEventPage({ params }: PageProps) {
           postalCode: event.postalCode,
           onlineUrl: event.onlineUrl,
           coverImage: event.coverImage,
+          website: event.website,
           bottomImage,
           videoUrl,
           visibility: event.visibility,

@@ -207,6 +207,7 @@ model Event {
 
   // Media
   coverImage      String?
+  website         String?      // Event-specific website
 
   // Status & Visibility
   status          EventStatus  @default(DRAFT)

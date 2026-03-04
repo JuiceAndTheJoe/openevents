@@ -12,12 +12,21 @@ import { OrderSummary, type SummaryLineItem } from '@/components/tickets/OrderSu
 import { TicketSelector, type SelectableTicketType } from '@/components/tickets/TicketSelector'
 import { getClientOrderReservationTtlMinutes } from '@/lib/orders/reservation'
 
+interface GroupDiscount {
+  id: string
+  ticketTypeId: string | null
+  minQuantity: number
+  discountType: string
+  discountValue: number
+}
+
 interface CheckoutFormProps {
   event: {
     id: string
     slug: string
     title: string
   }
+  groupDiscounts?: GroupDiscount[]
 }
 
 // Checkout state persistence for PayPal cancel recovery
@@ -56,6 +65,79 @@ interface AttendeeFormState {
 
 function emptyAttendee(): AttendeeFormState {
   return { firstName: '', lastName: '', email: '', title: '', organization: '' }
+}
+
+function calculateBestGroupDiscount(
+  selectedItems: SummaryLineItem[],
+  groupDiscounts: GroupDiscount[]
+): { amount: number; description: string | null } {
+  if (!groupDiscounts || groupDiscounts.length === 0) {
+    return { amount: 0, description: null }
+  }
+
+  let bestDiscount = 0
+  let bestDescription: string | null = null
+
+  // Calculate total quantity across all ticket types
+  const totalQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  // Check discounts that apply to all ticket types (ticketTypeId = null)
+  const globalDiscounts = groupDiscounts
+    .filter((gd) => gd.ticketTypeId === null && totalQuantity >= gd.minQuantity)
+    .sort((a, b) => b.minQuantity - a.minQuantity)
+
+  if (globalDiscounts.length > 0) {
+    const topGlobalDiscount = globalDiscounts[0]
+    const subtotal = selectedItems.reduce((sum, item) => sum + item.totalPrice, 0)
+
+    let discountAmount = 0
+    if (topGlobalDiscount.discountType === 'PERCENTAGE') {
+      discountAmount = (subtotal * topGlobalDiscount.discountValue) / 100
+    } else if (topGlobalDiscount.discountType === 'FIXED') {
+      discountAmount = topGlobalDiscount.discountValue
+    }
+
+    if (discountAmount > bestDiscount) {
+      bestDiscount = discountAmount
+      bestDescription = `Buy ${topGlobalDiscount.minQuantity}+ tickets, get ${
+        topGlobalDiscount.discountType === 'PERCENTAGE'
+          ? `${topGlobalDiscount.discountValue}%`
+          : `$${topGlobalDiscount.discountValue}`
+      } off!`
+    }
+  }
+
+  // Check discounts specific to ticket types
+  for (const item of selectedItems) {
+    const ticketDiscounts = groupDiscounts
+      .filter((gd) => gd.ticketTypeId === item.ticketTypeId && item.quantity >= gd.minQuantity)
+      .sort((a, b) => b.minQuantity - a.minQuantity)
+
+    if (ticketDiscounts.length > 0) {
+      const topTicketDiscount = ticketDiscounts[0]
+
+      let discountAmount = 0
+      if (topTicketDiscount.discountType === 'PERCENTAGE') {
+        discountAmount = (item.totalPrice * topTicketDiscount.discountValue) / 100
+      } else if (topTicketDiscount.discountType === 'FIXED') {
+        discountAmount = topTicketDiscount.discountValue
+      }
+
+      if (discountAmount > bestDiscount) {
+        bestDiscount = discountAmount
+        bestDescription = `Buy ${topTicketDiscount.minQuantity}+ ${item.name} tickets, get ${
+          topTicketDiscount.discountType === 'PERCENTAGE'
+            ? `${topTicketDiscount.discountValue}%`
+            : `$${topTicketDiscount.discountValue}`
+        } off!`
+      }
+    }
+  }
+
+  return {
+    amount: Number(Math.min(bestDiscount, selectedItems.reduce((sum, item) => sum + item.totalPrice, 0)).toFixed(2)),
+    description: bestDescription,
+  }
 }
 
 function calculateDiscountAmount(
@@ -130,7 +212,7 @@ function clearCheckoutState(): void {
   }
 }
 
-export function CheckoutForm({ event }: CheckoutFormProps) {
+export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
@@ -288,10 +370,27 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
     [selectedItems]
   )
 
-  const discountAmount = useMemo(
+  const groupDiscount = useMemo(
+    () => calculateBestGroupDiscount(selectedItems, groupDiscounts),
+    [selectedItems, groupDiscounts]
+  )
+
+  const promoCodeDiscountAmount = useMemo(
     () => calculateDiscountAmount(subtotal, discount, selectedItems),
     [subtotal, discount, selectedItems]
   )
+
+  // Apply the best discount: group discount vs promo code
+  const discountAmount = useMemo(
+    () => Math.max(groupDiscount.amount, promoCodeDiscountAmount),
+    [groupDiscount.amount, promoCodeDiscountAmount]
+  )
+
+  const appliedDiscountType = useMemo(() => {
+    if (discountAmount === 0) return null
+    if (groupDiscount.amount > promoCodeDiscountAmount) return 'group'
+    return 'promo'
+  }, [discountAmount, groupDiscount.amount, promoCodeDiscountAmount])
 
   const totalAmount = useMemo(
     () => Number(Math.max(0, subtotal - discountAmount).toFixed(2)),
@@ -891,6 +990,7 @@ export function CheckoutForm({ event }: CheckoutFormProps) {
           totalAmount={totalAmount}
           currency={selectedItems[0]?.currency ?? 'SEK'}
           discountCode={discount?.code}
+          groupDiscountMessage={appliedDiscountType === 'group' ? groupDiscount.description : null}
         />
 
         <Card>

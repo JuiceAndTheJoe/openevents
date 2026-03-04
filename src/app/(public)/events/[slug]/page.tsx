@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Calendar, ExternalLink, Globe, Heart, MapPin, Pencil } from 'lucide-react'
+import { Calendar, ExternalLink, Globe, MapPin, Pencil } from 'lucide-react'
 import { getCurrentUser, hasRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { EventNoticeToast } from '@/components/events/EventNoticeToast'
@@ -121,14 +121,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
   const organizerWebsite = event.organizer.website ||
     (isRecord(event.organizer.socialLinks) ? (event.organizer.socialLinks.website as string | null) : null)
 
-  type PersonCard = {
-    id: string
-    name: string
-    title: string | null
-    photo: string | null
-    organization: string | null
-    link: string | null
-  }
+  type PersonCard = { id: string; name: string; title: string | null; photo: string | null; organization: string | null; link: string | null }
   const speakers: PersonCard[] = event.speakers.map((person) => ({
     id: person.id,
     name: person.name,
@@ -139,7 +132,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
         ? (person.socialLinks.organization as string | null) || null
         : null,
     link:
-      isRecord(person.socialLinks)
+      isRecord(person.socialLinks) && person.socialLinks.__kind === 'EVENT_PEOPLE'
         ? (person.socialLinks.link as string | null) || null
         : null,
   }))
@@ -166,13 +159,6 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
         ) : (
           <div className="h-[220px] bg-gradient-to-r from-slate-700 to-slate-900 sm:h-[300px] lg:h-[390px]" />
         )}
-        <button
-          type="button"
-          className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)] transition hover:opacity-80"
-          aria-label="Add to favourites"
-        >
-          <Heart className="h-6 w-6 text-gray-400" />
-        </button>
       </section>
 
       <section className="border-b border-[#bfbfbf] pb-8">
@@ -361,6 +347,21 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
         </div>
       </section>
 
+      {event.website && (
+        <section className="border-b border-gray-300 pb-8">
+          <a
+            href={event.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-[#5c8bd9] transition hover:text-[#4a7ac8]"
+            style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+          >
+            <ExternalLink className="h-5 w-5" />
+            <span className="text-[18px] underline">Read more about {event.title} on the event website</span>
+          </a>
+        </section>
+      )}
+
       {speakers.length > 0 ? (
         <section className="border-b border-[#bfbfbf] pb-8">
           <h2
@@ -396,22 +397,23 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 {/* Info */}
                 <div className="flex flex-1 flex-col">
                   <div className="flex items-center gap-2">
-                    <span
-                      className="text-[18px] font-semibold leading-[28px] text-black"
-                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
-                    >
-                      {person.name}
-                    </span>
-                    {person.link && (
+                    {person.link ? (
                       <a
                         href={person.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#5c8bd9] transition hover:text-[#4a7ac8]"
-                        aria-label={`Visit ${person.name}'s website`}
+                        className="text-[18px] font-semibold leading-[28px] text-[#5c8bd9] underline transition hover:text-[#4a7ac8]"
+                        style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                       >
-                        <ExternalLink className="h-4 w-4" />
+                        {person.name}
                       </a>
+                    ) : (
+                      <span
+                        className="text-[18px] font-semibold leading-[28px] text-black"
+                        style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                      >
+                        {person.name}
+                      </span>
                     )}
                   </div>
                   {person.title && (

@@ -85,6 +85,7 @@ type EventFormData = {
   country?: string | null;
   postalCode?: string | null;
   onlineUrl?: string | null;
+  website?: string | null;
   coverImage?: string | null;
   bottomImage?: string | null;
   videoUrl?: string | null;
@@ -104,6 +105,7 @@ type InitialSpeaker = {
   title: string;
   organization: string;
   photo: string;
+  link: string;
 };
 
 type EventFormProps = {
@@ -145,6 +147,7 @@ type SpeakerDraft = {
   name: string;
   title: string;
   organization: string;
+  link: string;
   originalFile: File | null;
   croppedFile: File | null;
   previewUrl: string | null;
@@ -226,6 +229,7 @@ function buildEventPayload(
     description: form.description || "",
     descriptionHtml: undefined,
     onlineUrl: form.onlineUrl?.trim() ? form.onlineUrl.trim() : null,
+    website: form.website?.trim() ? form.website.trim() : null,
     coverImage: form.coverImage || null,
     bottomImage: form.bottomImage || null,
     videoUrl: form.videoUrl || null,
@@ -233,6 +237,7 @@ function buildEventPayload(
     organizerNames: validSpeakerDrafts.map((draft) => draft.title),
     sponsorNames: validSpeakerDrafts.map((draft) => draft.organization),
     speakerPhotos: validSpeakerDrafts.map((draft) => draft.publicUrl),
+    speakerLinks: validSpeakerDrafts.map((draft) => draft.link?.trim() || ""),
     categoryIds: form.categoryIds,
     ticketTypes: undefined,
     ticketTypeId: undefined,
@@ -301,6 +306,7 @@ const fallbackInitialData: EventFormData = {
   country: "",
   postalCode: "",
   onlineUrl: "",
+  website: "",
   coverImage: "",
   bottomImage: "",
   videoUrl: "",
@@ -731,6 +737,7 @@ function buildSnapshot(form: EventFormData) {
     country: form.country || "",
     postalCode: form.postalCode || "",
     onlineUrl: form.onlineUrl || "",
+    website: form.website || "",
     ticketTypes: (form.ticketTypes || []).map((ticket) =>
       buildTicketSnapshot(ticket),
     ),
@@ -804,6 +811,7 @@ export function EventForm({
         name: speaker.name,
         title: speaker.title,
         organization: speaker.organization,
+        link: speaker.link || "",
         originalFile: null,
         croppedFile: null,
         previewUrl: null,
@@ -2027,7 +2035,8 @@ export function EventForm({
           method: "DELETE",
         },
       );
-      if (!response.ok) {
+      // Ignore 404 errors - ticket type may have already been deleted or never existed
+      if (!response.ok && response.status !== 404) {
         const json = await response.json();
         throw new Error(json?.error || "Failed to delete ticket type");
       }
@@ -2742,6 +2751,7 @@ export function EventForm({
         name: "",
         title: "",
         organization: "",
+        link: "",
         originalFile: null,
         croppedFile: null,
         previewUrl: null,
@@ -2765,7 +2775,7 @@ export function EventForm({
 
   function updateSpeakerDraft(
     key: string,
-    field: "name" | "title" | "organization",
+    field: "name" | "title" | "organization" | "link",
     value: string,
   ) {
     setSpeakerDrafts((current) =>
@@ -4243,6 +4253,21 @@ export function EventForm({
               />
             </div>
           ) : null}
+          <div className="md:col-span-2 flex flex-col gap-2">
+            <Label
+              htmlFor="website"
+              className="text-base font-semibold text-black"
+            >
+              Event Website
+            </Label>
+            <Input
+              id="website"
+              placeholder="https://example.com/my-event"
+              value={form.website || ""}
+              onChange={(e) => updateField("website", e.target.value)}
+              className="h-[50px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
+            />
+          </div>
         </div>
       </section>
 
@@ -4795,7 +4820,7 @@ export function EventForm({
                   </div>
 
                   {/* Fields */}
-                  <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <Label>Name</Label>
                       <Input
@@ -4825,6 +4850,20 @@ export function EventForm({
                           updateSpeakerDraft(
                             draft.key,
                             "organization",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Website/Link</Label>
+                      <Input
+                        value={draft.link}
+                        placeholder="https://example.com"
+                        onChange={(e) =>
+                          updateSpeakerDraft(
+                            draft.key,
+                            "link",
                             e.target.value,
                           )
                         }

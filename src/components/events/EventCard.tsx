@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { EventStatus, EventVisibility, LocationType } from '@prisma/client'
-import { Calendar, MapPin, Heart } from 'lucide-react'
+import { Calendar, MapPin } from 'lucide-react'
 import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
 
 type EventCardProps = {
@@ -59,14 +59,6 @@ export function EventCard({ event }: EventCardProps) {
               className="h-full w-full object-cover"
             />
           ) : null}
-          <button
-            type="button"
-            onClick={(e) => e.preventDefault()}
-            className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1),0px_2px_4px_0px_rgba(0,0,0,0.1)]"
-            aria-label="Add to favourites"
-          >
-            <Heart className="h-5 w-5 text-gray-400" />
-          </button>
         </div>
 
         {/* Content section */}
