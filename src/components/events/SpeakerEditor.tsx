@@ -26,6 +26,7 @@ export function SpeakerEditor({ eventId, initialSpeakers }: SpeakerEditorProps) 
     bio: '',
     photo: '',
     email: '',
+    link: '',
   })
   const [error, setError] = useState<string | null>(null)
   const [dragSpeakerId, setDragSpeakerId] = useState<string | null>(null)
@@ -39,6 +40,7 @@ export function SpeakerEditor({ eventId, initialSpeakers }: SpeakerEditorProps) 
         ...newSpeaker,
         photo: newSpeaker.photo || null,
         email: newSpeaker.email || null,
+        socialLinks: newSpeaker.link ? { link: newSpeaker.link } : undefined,
         sortOrder: speakers.length,
       }),
     })
@@ -50,7 +52,7 @@ export function SpeakerEditor({ eventId, initialSpeakers }: SpeakerEditorProps) 
     }
 
     setSpeakers((current) => [...current, json.data])
-    setNewSpeaker({ name: '', title: '', bio: '', photo: '', email: '' })
+    setNewSpeaker({ name: '', title: '', bio: '', photo: '', email: '', link: '' })
   }
 
   async function removeSpeaker(speakerId: string) {
@@ -138,6 +140,7 @@ export function SpeakerEditor({ eventId, initialSpeakers }: SpeakerEditorProps) 
         <Input placeholder="Title" value={newSpeaker.title} onChange={(e) => setNewSpeaker((x) => ({ ...x, title: e.target.value }))} />
         <Input placeholder="Email" value={newSpeaker.email} onChange={(e) => setNewSpeaker((x) => ({ ...x, email: e.target.value }))} />
         <Input placeholder="Photo URL" value={newSpeaker.photo} onChange={(e) => setNewSpeaker((x) => ({ ...x, photo: e.target.value }))} />
+        <Input placeholder="Speaker Website/Link" value={newSpeaker.link} onChange={(e) => setNewSpeaker((x) => ({ ...x, link: e.target.value }))} className="md:col-span-2" />
         <textarea className="min-h-20 rounded-md border border-gray-300 px-3 py-2 text-sm md:col-span-2" placeholder="Bio" value={newSpeaker.bio} onChange={(e) => setNewSpeaker((x) => ({ ...x, bio: e.target.value }))} />
         <div className="md:col-span-2">
           <Button onClick={createSpeaker}>Add Speaker</Button>
