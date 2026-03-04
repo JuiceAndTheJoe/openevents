@@ -12,12 +12,26 @@ let _s3Client: S3Client | null = null
 
 function getS3Client(): S3Client {
   if (!_s3Client) {
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY
+
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        `S3 credentials not configured. Missing: ${[
+          !accessKeyId && 'S3_ACCESS_KEY_ID',
+          !secretAccessKey && 'S3_SECRET_ACCESS_KEY',
+        ]
+          .filter(Boolean)
+          .join(', ')}`
+      )
+    }
+
     _s3Client = new S3Client({
       endpoint: process.env.S3_ENDPOINT,
       region: process.env.S3_REGION || 'us-east-1',
       credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+        accessKeyId,
+        secretAccessKey,
       },
       forcePathStyle: true, // Required for MinIO
     })
