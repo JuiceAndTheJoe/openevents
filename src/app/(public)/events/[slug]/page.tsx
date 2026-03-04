@@ -205,6 +205,18 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 </a>
               )}
             </div>
+            {event.website && (
+              <a
+                href={event.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-[#5c8bd9] transition hover:text-[#4a7ac8]"
+                style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+              >
+                <ExternalLink className="h-5 w-5" />
+                <span className="text-[16px] underline">Event Website</span>
+              </a>
+            )}
             <div className="flex flex-col gap-[12px]">
               {event.locationType !== 'ONLINE' ? (
                 <div className="flex items-start gap-[16px]">
@@ -396,22 +408,23 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 {/* Info */}
                 <div className="flex flex-1 flex-col">
                   <div className="flex items-center gap-2">
-                    <span
-                      className="text-[18px] font-semibold leading-[28px] text-black"
-                      style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
-                    >
-                      {person.name}
-                    </span>
-                    {person.link && (
+                    {person.link ? (
                       <a
                         href={person.link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[#5c8bd9] transition hover:text-[#4a7ac8]"
-                        aria-label={`Visit ${person.name}'s website`}
+                        className="text-[18px] font-semibold leading-[28px] text-[#5c8bd9] underline transition hover:text-[#4a7ac8]"
+                        style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
                       >
-                        <ExternalLink className="h-4 w-4" />
+                        {person.name}
                       </a>
+                    ) : (
+                      <span
+                        className="text-[18px] font-semibold leading-[28px] text-black"
+                        style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                      >
+                        {person.name}
+                      </span>
                     )}
                   </div>
                   {person.title && (

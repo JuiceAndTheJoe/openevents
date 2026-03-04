@@ -141,6 +141,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           country: input.country,
           postalCode: input.postalCode,
           onlineUrl: input.onlineUrl,
+          website: input.website,
           coverImage: input.coverImage,
           visibility: input.visibility,
           cancellationDeadlineHours: input.cancellationDeadlineHours,

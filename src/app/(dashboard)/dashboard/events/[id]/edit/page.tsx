@@ -170,6 +170,7 @@ export default async function EditEventPage({ params }: PageProps) {
           postalCode: event.postalCode,
           onlineUrl: event.onlineUrl,
           coverImage: event.coverImage,
+          website: event.website,
           bottomImage,
           videoUrl,
           visibility: event.visibility,

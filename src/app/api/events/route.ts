@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
         country: input.country,
         postalCode: input.postalCode,
         onlineUrl: input.onlineUrl,
+        website: input.website,
         coverImage: input.coverImage,
         media: (() => {
           const items = [

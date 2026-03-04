@@ -85,6 +85,7 @@ type EventFormData = {
   country?: string | null;
   postalCode?: string | null;
   onlineUrl?: string | null;
+  website?: string | null;
   coverImage?: string | null;
   bottomImage?: string | null;
   videoUrl?: string | null;
@@ -226,6 +227,7 @@ function buildEventPayload(
     description: form.description || "",
     descriptionHtml: undefined,
     onlineUrl: form.onlineUrl?.trim() ? form.onlineUrl.trim() : null,
+    website: form.website?.trim() ? form.website.trim() : null,
     coverImage: form.coverImage || null,
     bottomImage: form.bottomImage || null,
     videoUrl: form.videoUrl || null,
@@ -301,6 +303,7 @@ const fallbackInitialData: EventFormData = {
   country: "",
   postalCode: "",
   onlineUrl: "",
+  website: "",
   coverImage: "",
   bottomImage: "",
   videoUrl: "",
@@ -731,6 +734,7 @@ function buildSnapshot(form: EventFormData) {
     country: form.country || "",
     postalCode: form.postalCode || "",
     onlineUrl: form.onlineUrl || "",
+    website: form.website || "",
     ticketTypes: (form.ticketTypes || []).map((ticket) =>
       buildTicketSnapshot(ticket),
     ),
@@ -4243,6 +4247,21 @@ export function EventForm({
               />
             </div>
           ) : null}
+          <div className="md:col-span-2 flex flex-col gap-2">
+            <Label
+              htmlFor="website"
+              className="text-base font-semibold text-black"
+            >
+              Event Website
+            </Label>
+            <Input
+              id="website"
+              placeholder="https://example.com/my-event"
+              value={form.website || ""}
+              onChange={(e) => updateField("website", e.target.value)}
+              className="h-[50px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
+            />
+          </div>
         </div>
       </section>
 
