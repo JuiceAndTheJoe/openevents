@@ -230,6 +230,7 @@ model Event {
   speakers        Speaker[]
   ticketTypes     TicketType[]
   discountCodes   DiscountCode[]
+  groupDiscounts  GroupDiscount[]
   orders          Order[]
 
   @@index([organizerId])
@@ -371,6 +372,7 @@ model TicketType {
   orderItems    OrderItem[]
   tickets       Ticket[]
   discountCodes DiscountCodeTicketType[]
+  groupDiscounts GroupDiscount[]
 
   @@index([eventId])
   @@map("ticket_types")
@@ -428,6 +430,28 @@ model DiscountCodeTicketType {
 
   @@id([discountCodeId, ticketTypeId])
   @@map("discount_code_ticket_types")
+}
+
+// ============================================================================
+// GROUP DISCOUNTS
+// ============================================================================
+
+model GroupDiscount {
+  id              String      @id @default(cuid())
+  eventId         String
+  ticketTypeId    String?     // null = all ticket types
+  minQuantity     Int         // Buy X tickets
+  discountType    String      @default("PERCENTAGE") // PERCENTAGE or FIXED
+  discountValue   Decimal     @db.Decimal(10, 2)     // Get Y% or $Y off
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  ticketType  TicketType? @relation(fields: [ticketTypeId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("group_discounts")
 }
 
 // ============================================================================
