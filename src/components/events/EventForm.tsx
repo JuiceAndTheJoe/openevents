@@ -2035,7 +2035,8 @@ export function EventForm({
           method: "DELETE",
         },
       );
-      if (!response.ok) {
+      // Ignore 404 errors - ticket type may have already been deleted or never existed
+      if (!response.ok && response.status !== 404) {
         const json = await response.json();
         throw new Error(json?.error || "Failed to delete ticket type");
       }
