@@ -139,7 +139,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
         ? (person.socialLinks.organization as string | null) || null
         : null,
     link:
-      isRecord(person.socialLinks)
+      isRecord(person.socialLinks) && person.socialLinks.__kind === 'EVENT_PEOPLE'
         ? (person.socialLinks.link as string | null) || null
         : null,
   }))
