@@ -54,12 +54,19 @@ async function loadConfigFromOSC() {
     const data = await response.json()
 
     if (data.items && Array.isArray(data.items)) {
+      console.log(`[instrumentation] Received ${data.items.length} config items`)
       for (const item of data.items) {
         if (item.key && item.value && !process.env[item.key]) {
           process.env[item.key] = item.value
-          console.log(`[instrumentation] Set ${item.key}`)
+          console.log(`[instrumentation] Set ${item.key} (${item.value.length} chars)`)
+        } else if (item.key && process.env[item.key]) {
+          console.log(`[instrumentation] Skipped ${item.key} (already set)`)
+        } else if (item.key && !item.value) {
+          console.log(`[instrumentation] Skipped ${item.key} (empty value)`)
         }
       }
+    } else {
+      console.log('[instrumentation] No items array in response:', JSON.stringify(data).slice(0, 200))
     }
 
     console.log('[instrumentation] Config loaded successfully')
