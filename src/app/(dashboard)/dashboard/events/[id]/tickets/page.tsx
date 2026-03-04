@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { requireOrganizerProfile, buildEventWhereClause, canAccessEvent } from '@/lib/dashboard/organizer'
 import { TicketTypeList } from '@/components/dashboard/TicketTypeList'
 import { TicketTypeForm } from '@/components/dashboard/TicketTypeForm'
+import { GroupDiscountEditor } from '@/components/events/GroupDiscountEditor'
 import { DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/constants/currencies'
 
 type PageProps = {
@@ -238,6 +239,17 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
       />
 
       <p className="text-xs text-gray-500">Tip: add <code>?edit=ticketTypeId</code> to the URL to prefill the edit form for a specific ticket type.</p>
+
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Group Discounts</h2>
+        <GroupDiscountEditor
+          eventId={id}
+          ticketTypes={event.ticketTypes.map((ticketType) => ({
+            id: ticketType.id,
+            name: ticketType.name,
+          }))}
+        />
+      </div>
     </div>
   )
 }

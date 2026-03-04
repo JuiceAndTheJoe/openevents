@@ -13,7 +13,8 @@ let _s3Client: S3Client | null = null
 function getS3Client(): S3Client {
   if (!_s3Client) {
     const accessKeyId = process.env.S3_ACCESS_KEY_ID
-    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY
+    // MINIO_PASSWORD is a fallback because OSC filters out keys containing "SECRET_ACCESS_KEY"
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY || process.env.MINIO_PASSWORD
 
     if (!accessKeyId || !secretAccessKey) {
       throw new Error(
