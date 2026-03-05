@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -144,11 +144,6 @@ function calculateBestGroupDiscount(
   }
 }
 
-type AutoFillBuyerSnapshot = Pick<
-  AttendeeFormState,
-  'firstName' | 'lastName' | 'email' | 'title' | 'organization'
->
-
 function calculateDiscountAmount(
   subtotal: number,
   discount: AppliedDiscount | null,
@@ -247,13 +242,6 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
 
   // Map of ticketTypeId -> AttendeeFormState[]
   const [attendeesByType, setAttendeesByType] = useState<Record<string, AttendeeFormState[]>>({})
-  const lastAutoFilledBuyerRef = useRef<AutoFillBuyerSnapshot>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    title: '',
-    organization: '',
-  })
 
   const wasCancelled = searchParams.get('cancelled') === 'true'
   const wasExpired = searchParams.get('expired') === 'true'
@@ -438,58 +426,34 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     })
   }, [selectedItems])
 
-  // Pre-fill first attendee slot of the first ticket type with buyer info
-  // and keep syncing fields that remain auto-filled.
+  // Keep first attendee in the first selected ticket type synced 1:1 with buyer details.
   useEffect(() => {
-    const buyerSnapshot: AutoFillBuyerSnapshot = {
-      firstName: buyer.firstName,
-      lastName: buyer.lastName,
-      email: buyer.email,
-      title: buyer.title,
-      organization: buyer.organization,
-    }
-
-    if (selectedItems.length === 0) {
-      lastAutoFilledBuyerRef.current = buyerSnapshot
-      return
-    }
+    if (selectedItems.length === 0) return
 
     const firstTypeId = selectedItems[0].ticketTypeId
 
     setAttendeesByType((current) => {
       const slots = current[firstTypeId]
-      if (!slots || slots.length === 0) {
-        lastAutoFilledBuyerRef.current = buyerSnapshot
-        return current
-      }
+      if (!slots || slots.length === 0) return current
 
       const first = slots[0]
-      const lastAutoFilledBuyer = lastAutoFilledBuyerRef.current
-      const nextFirst = { ...first }
-      let changed = false
-
-      const fields: Array<keyof AutoFillBuyerSnapshot> = [
-        'firstName',
-        'lastName',
-        'email',
-        'title',
-        'organization',
-      ]
-
-      for (const field of fields) {
-        const currentValue = first[field]
-        const wasAutoFilledOrEmpty =
-          currentValue === '' || currentValue === lastAutoFilledBuyer[field]
-
-        if (!wasAutoFilledOrEmpty) continue
-        if (currentValue === buyerSnapshot[field]) continue
-
-        nextFirst[field] = buyerSnapshot[field]
-        changed = true
+      const nextFirst: AttendeeFormState = {
+        ...first,
+        firstName: buyer.firstName,
+        lastName: buyer.lastName,
+        email: buyer.email,
+        title: buyer.title,
+        organization: buyer.organization,
       }
 
-      lastAutoFilledBuyerRef.current = buyerSnapshot
-      if (!changed) return current
+      const unchanged =
+        first.firstName === nextFirst.firstName &&
+        first.lastName === nextFirst.lastName &&
+        first.email === nextFirst.email &&
+        first.title === nextFirst.title &&
+        first.organization === nextFirst.organization
+
+      if (unchanged) return current
 
       return {
         ...current,
@@ -633,6 +597,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     }
 
     const buyerEmailValue = buyer.email.trim()
+    const firstSelectedTicketTypeId = selectedItems[0]?.ticketTypeId
 
     if (!buyer.firstName || !buyer.lastName) {
       setSubmitError('First name and last name are required')
@@ -648,7 +613,18 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     for (const item of selectedItems) {
       const slots = attendeesByType[item.ticketTypeId] ?? []
       for (let i = 0; i < item.quantity; i++) {
-        const a = slots[i]
+        const linkedToBuyer = item.ticketTypeId === firstSelectedTicketTypeId && i === 0
+        const a = linkedToBuyer
+          ? {
+              ...(slots[i] ?? emptyAttendee()),
+              firstName: buyer.firstName,
+              lastName: buyer.lastName,
+              email: buyerEmailValue,
+              title: buyer.title,
+              organization: buyer.organization,
+            }
+          : slots[i]
+
         if (!a || !a.firstName || !a.lastName || !a.email) {
           const ticketName = ticketTypes.find((t) => t.id === item.ticketTypeId)?.name ?? 'ticket'
           setSubmitError(`Please fill in all attendee details for "${ticketName}" (ticket ${i + 1})`)
@@ -675,7 +651,21 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
           items: selectedItems.map((item) => ({
             ticketTypeId: item.ticketTypeId,
             quantity: item.quantity,
-            attendees: (attendeesByType[item.ticketTypeId] ?? []).slice(0, item.quantity),
+            attendees: (attendeesByType[item.ticketTypeId] ?? [])
+              .slice(0, item.quantity)
+              .map((attendee, index) => {
+                const linkedToBuyer = item.ticketTypeId === firstSelectedTicketTypeId && index === 0
+                if (!linkedToBuyer) return attendee
+
+                return {
+                  ...(attendee ?? emptyAttendee()),
+                  firstName: buyer.firstName,
+                  lastName: buyer.lastName,
+                  email: buyerEmailValue,
+                  title: buyer.title,
+                  organization: buyer.organization,
+                }
+              }),
           })),
           buyer: {
             ...buyer,
@@ -920,6 +910,17 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                   <div key={item.ticketTypeId} className="space-y-4">
                     {Array.from({ length: item.quantity }, (_, i) => {
                       const attendee = slots[i] ?? emptyAttendee()
+                      const isBuyerLinkedAttendee = item.ticketTypeId === selectedItems[0]?.ticketTypeId && i === 0
+                      const attendeeDisplay = isBuyerLinkedAttendee
+                        ? {
+                            ...attendee,
+                            firstName: buyer.firstName,
+                            lastName: buyer.lastName,
+                            email: buyer.email,
+                            title: buyer.title,
+                            organization: buyer.organization,
+                          }
+                        : attendee
                       const label =
                         item.quantity > 1
                           ? `${ticketType?.name ?? 'Ticket'} #${i + 1}`
@@ -932,7 +933,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                         >
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-gray-700">{label}</p>
-                            {buyer.firstName && buyer.lastName && buyer.email && (
+                            {!isBuyerLinkedAttendee && buyer.firstName && buyer.lastName && buyer.email && (
                               <button
                                 type="button"
                                 onClick={() => fillAttendeeFromBuyer(item.ticketTypeId, i)}
@@ -952,9 +953,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                               </Label>
                               <Input
                                 id={`attendee-${item.ticketTypeId}-${i}-first-name`}
-                                value={attendee.firstName}
+                                value={attendeeDisplay.firstName}
                                 onChange={(e) =>
-                                  updateAttendeeField(item.ticketTypeId, i, 'firstName', e.target.value)
+                                  isBuyerLinkedAttendee
+                                    ? updateBuyerField('firstName', e.target.value)
+                                    : updateAttendeeField(item.ticketTypeId, i, 'firstName', e.target.value)
                                 }
                                 required
                               />
@@ -968,9 +971,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                               </Label>
                               <Input
                                 id={`attendee-${item.ticketTypeId}-${i}-last-name`}
-                                value={attendee.lastName}
+                                value={attendeeDisplay.lastName}
                                 onChange={(e) =>
-                                  updateAttendeeField(item.ticketTypeId, i, 'lastName', e.target.value)
+                                  isBuyerLinkedAttendee
+                                    ? updateBuyerField('lastName', e.target.value)
+                                    : updateAttendeeField(item.ticketTypeId, i, 'lastName', e.target.value)
                                 }
                                 required
                               />
@@ -985,9 +990,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                               <Input
                                 id={`attendee-${item.ticketTypeId}-${i}-email`}
                                 type="email"
-                                value={attendee.email}
+                                value={attendeeDisplay.email}
                                 onChange={(e) =>
-                                  updateAttendeeField(item.ticketTypeId, i, 'email', e.target.value)
+                                  isBuyerLinkedAttendee
+                                    ? updateBuyerField('email', e.target.value)
+                                    : updateAttendeeField(item.ticketTypeId, i, 'email', e.target.value)
                                 }
                                 required
                               />
@@ -998,9 +1005,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                               </Label>
                               <Input
                                 id={`attendee-${item.ticketTypeId}-${i}-title`}
-                                value={attendee.title}
+                                value={attendeeDisplay.title}
                                 onChange={(e) =>
-                                  updateAttendeeField(item.ticketTypeId, i, 'title', e.target.value)
+                                  isBuyerLinkedAttendee
+                                    ? updateBuyerField('title', e.target.value)
+                                    : updateAttendeeField(item.ticketTypeId, i, 'title', e.target.value)
                                 }
                               />
                             </div>
@@ -1010,9 +1019,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                               </Label>
                               <Input
                                 id={`attendee-${item.ticketTypeId}-${i}-organization`}
-                                value={attendee.organization}
+                                value={attendeeDisplay.organization}
                                 onChange={(e) =>
-                                  updateAttendeeField(item.ticketTypeId, i, 'organization', e.target.value)
+                                  isBuyerLinkedAttendee
+                                    ? updateBuyerField('organization', e.target.value)
+                                    : updateAttendeeField(item.ticketTypeId, i, 'organization', e.target.value)
                                 }
                               />
                             </div>
