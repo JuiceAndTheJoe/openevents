@@ -64,7 +64,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="mt-4">
-            <HeroSearchBar categories={categories} />
+            <HeroSearchBar categories={categories} showCategoryPills={false} />
           </div>
         </div>
       </section>

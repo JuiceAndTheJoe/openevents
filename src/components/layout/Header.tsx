@@ -70,7 +70,7 @@ export function Header() {
             {canManageEvents && (
               <Link
                 href="/create-event"
-                className="inline-flex min-w-[132px] items-center justify-center rounded-lg bg-[#5C8BD9] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#4a7ac8]"
+                className="inline-flex min-w-[132px] items-center justify-center rounded-lg bg-[#5C8BD9] px-4 py-2 text-sm font-semibold tracking-wide text-white shadow-sm transition hover:bg-[#4a7ac8]"
               >
                 Create Event
               </Link>
@@ -80,7 +80,7 @@ export function Header() {
                 {canManageEvents && (
                   <Link
                     href="/dashboard"
-                    className="text-gray-600 hover:text-gray-900 font-medium"
+                    className={pathname.startsWith('/dashboard') ? 'text-[#5C8BD9] font-semibold' : 'text-gray-600 hover:text-gray-900 font-medium'}
                   >
                     Dashboard
                   </Link>
@@ -88,7 +88,7 @@ export function Header() {
                 {isSuperAdmin && (
                   <Link
                     href="/admin"
-                    className="text-gray-600 hover:text-gray-900 font-medium"
+                    className={pathname.startsWith('/admin') ? 'text-[#5C8BD9] font-semibold' : 'text-gray-600 hover:text-gray-900 font-medium'}
                   >
                     Admin
                   </Link>
@@ -126,7 +126,7 @@ export function Header() {
                     <div className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
                       <Link
                         href={profileHref}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className={`block px-4 py-2 text-sm ${pathname.startsWith(profileHref) ? 'text-[#5C8BD9] font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                         onClick={() => setAccountMenuOpen(false)}
                       >
                         View profile
@@ -156,10 +156,10 @@ export function Header() {
               ) : (
                 <div className="flex items-center space-x-4">
                   <Link href="/login">
-                    <Button variant="ghost">Sign In</Button>
+                    <Button variant="ghost" className={pathname === '/login' ? 'text-[#5C8BD9] font-semibold' : ''}>Sign In</Button>
                   </Link>
                   <Link href="/register">
-                    <Button>Get Started</Button>
+                    <Button className={`tracking-wide ${pathname === '/register' ? 'font-semibold' : ''}`}>Get Started</Button>
                   </Link>
                 </div>
               )
@@ -205,7 +205,7 @@ export function Header() {
             {canManageEvents && (
               <Link
                 href="/create-event"
-                className="block rounded-lg bg-[#5C8BD9] px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-[#4a7ac8]"
+                className="block rounded-lg bg-[#5C8BD9] px-3 py-2.5 text-center text-sm font-semibold tracking-wide text-white hover:bg-[#4a7ac8]"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Create Event
@@ -217,15 +217,24 @@ export function Header() {
                 {canManageEvents && (
                   <Link
                     href="/dashboard"
-                    className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                    className={`block px-3 py-2 rounded-md ${pathname.startsWith('/dashboard') ? 'text-[#5C8BD9] font-semibold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Dashboard
                   </Link>
                 )}
+                {isSuperAdmin && (
+                  <Link
+                    href="/admin"
+                    className={`block px-3 py-2 rounded-md ${pathname.startsWith('/admin') ? 'text-[#5C8BD9] font-semibold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   href={profileHref}
-                  className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                  className={`block px-3 py-2 rounded-md ${pathname.startsWith(profileHref) ? 'text-[#5C8BD9] font-semibold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   View profile
@@ -253,14 +262,14 @@ export function Header() {
                 <>
                   <Link
                     href="/login"
-                    className="block px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
+                    className={`block px-3 py-2 rounded-md ${pathname === '/login' ? 'text-[#5C8BD9] font-semibold' : 'text-gray-600 hover:bg-gray-50 font-medium'}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/register"
-                    className="block px-3 py-2 text-[#5C8BD9] font-medium hover:bg-gray-50 rounded-md"
+                    className={`block px-3 py-2 rounded-md tracking-wide text-[#5C8BD9] ${pathname === '/register' ? 'font-semibold' : 'font-medium hover:bg-gray-50'}`}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     Get Started

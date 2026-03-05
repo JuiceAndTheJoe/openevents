@@ -33,6 +33,7 @@ export function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
@@ -82,6 +83,8 @@ export function LoginForm() {
       clearRememberedEmail()
     }
 
+    let redirecting = false
+
     try {
       const result = await signIn('credentials', {
         email: data.email,
@@ -92,6 +95,9 @@ export function LoginForm() {
       if (result?.error) {
         setError(result.error)
       } else {
+        redirecting = true
+        setIsRedirecting(true)
+
         const callbackUrl = searchParams.get('callbackUrl')
         if (callbackUrl) {
           router.push(callbackUrl)
@@ -109,8 +115,77 @@ export function LoginForm() {
     } catch {
       setError('An unexpected error occurred. Please try again.')
     } finally {
-      setIsLoading(false)
+      if (!redirecting) setIsLoading(false)
     }
+  }
+
+  if (isRedirecting) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white animate-pulse">
+        {/* Navbar skeleton */}
+        <div className="border-b border-gray-200 bg-white">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+            <div className="h-7 w-32 rounded-lg bg-gray-200" />
+            <div className="flex items-center gap-4">
+              <div className="h-5 w-24 rounded bg-gray-200" />
+              <div className="h-5 w-16 rounded bg-gray-200" />
+              <div className="h-9 w-9 rounded-full bg-gray-200" />
+            </div>
+          </div>
+        </div>
+
+        {/* Page content skeleton */}
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          {/* Page header */}
+          <div className="mb-6 space-y-2">
+            <div className="h-8 w-48 rounded-lg bg-gray-200" />
+            <div className="h-5 w-64 rounded bg-gray-200" />
+          </div>
+
+          {/* Stats row */}
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-xl border border-gray-100 bg-gray-50 p-5">
+                <div className="h-4 w-20 rounded bg-gray-200" />
+                <div className="mt-2 h-7 w-12 rounded bg-gray-200" />
+              </div>
+            ))}
+          </div>
+
+          {/* Content blocks */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
+              <div className="mb-4 h-5 w-32 rounded bg-gray-200" />
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg bg-white px-3 py-3">
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-36 rounded bg-gray-200" />
+                      <div className="h-3 w-24 rounded bg-gray-200" />
+                    </div>
+                    <div className="h-5 w-14 rounded-full bg-gray-200" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-5">
+              <div className="mb-4 h-5 w-28 rounded bg-gray-200" />
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <div className="space-y-1.5">
+                      <div className="h-4 w-32 rounded bg-gray-200" />
+                      <div className="h-3 w-20 rounded bg-gray-200" />
+                    </div>
+                    <div className="h-4 w-14 rounded bg-gray-200" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

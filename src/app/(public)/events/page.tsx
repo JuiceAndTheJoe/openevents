@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { EventFilters } from '@/components/events/EventFilters'
+import { HeroSearchBar } from '@/components/events/HeroSearchBar'
 import { EventList } from '@/components/events/EventList'
 
 export const dynamic = 'force-dynamic'
@@ -142,14 +142,14 @@ export default async function EventsPage({ searchParams }: PageProps) {
         <p className="mt-2 text-gray-600">Find events by category, date, and location.</p>
       </div>
 
-      <EventFilters
+      <HeroSearchBar
         categories={categories}
         initial={{
           search,
           category,
           location,
-          startDate: startDateParam,
-          endDate: endDateParam,
+          dateFrom: startDateParam,
+          dateTo: endDateParam,
         }}
       />
 
@@ -160,18 +160,30 @@ export default async function EventsPage({ searchParams }: PageProps) {
           {`Page ${page} of ${totalPages}`}
         </p>
         <div className="flex gap-2">
-          <Link
-            href={buildPageHref(Math.max(1, page - 1))}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700"
-          >
-            Previous
-          </Link>
-          <Link
-            href={buildPageHref(Math.min(totalPages, page + 1))}
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700"
-          >
-            Next
-          </Link>
+          {page <= 1 ? (
+            <span className="rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-300 cursor-not-allowed select-none">
+              Previous
+            </span>
+          ) : (
+            <Link
+              href={buildPageHref(page - 1)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700"
+            >
+              Previous
+            </Link>
+          )}
+          {page >= totalPages ? (
+            <span className="rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-300 cursor-not-allowed select-none">
+              Next
+            </span>
+          ) : (
+            <Link
+              href={buildPageHref(page + 1)}
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700"
+            >
+              Next
+            </Link>
+          )}
         </div>
       </div>
     </div>
