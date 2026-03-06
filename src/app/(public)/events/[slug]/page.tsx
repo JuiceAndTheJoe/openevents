@@ -148,18 +148,16 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
           {checkoutUnavailableMessage}
         </div>
       )}
-      <section className="relative overflow-hidden rounded-2xl bg-gray-900">
-        {event.coverImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
+      {event.coverImage ? (
+        <section className="relative overflow-hidden rounded-2xl bg-gray-900">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={coverImageSrc}
             alt={event.title}
             className="h-[220px] w-full object-cover sm:h-[300px] lg:h-[390px]"
           />
-        ) : (
-          <div className="h-[220px] bg-gradient-to-r from-slate-700 to-slate-900 sm:h-[300px] lg:h-[390px]" />
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="border-b border-[#bfbfbf] pb-8">
         <div className="flex flex-col gap-7 lg:flex-row lg:items-start lg:gap-10">
