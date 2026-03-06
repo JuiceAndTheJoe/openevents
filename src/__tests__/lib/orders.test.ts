@@ -91,6 +91,18 @@ describe('Order Preparation Functions', () => {
       expect(result.items[0].totalPrice).toBe(451.5) // 150.5 * 3
       expect(result.subtotal).toBe(451.5)
     })
+
+    it('should include VAT in prepared prices when enabled', () => {
+      const result = prepareOrderItems(
+        mockTicketTypes,
+        [{ ticketTypeId: 'tt-1', quantity: 2 }],
+        { includeVat: true }
+      )
+
+      expect(result.items[0].unitPrice).toBe(62.5) // 50 * 1.25
+      expect(result.items[0].totalPrice).toBe(125)
+      expect(result.subtotal).toBe(125)
+    })
   })
 
   describe('generateTicketCreateInput', () => {

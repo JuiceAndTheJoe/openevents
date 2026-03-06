@@ -11,6 +11,7 @@ import { DiscountCodeInput, type AppliedDiscount } from '@/components/tickets/Di
 import { OrderSummary, type SummaryLineItem } from '@/components/tickets/OrderSummary'
 import { TicketSelector, type SelectableTicketType } from '@/components/tickets/TicketSelector'
 import { getClientOrderReservationTtlMinutes } from '@/lib/orders/reservation'
+import { getIncludedVatFromVatInclusiveTotal, getPriceIncludingVat } from '@/lib/pricing/vat'
 
 interface GroupDiscount {
   id: string
@@ -284,7 +285,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
         const parsedTicketTypes: SelectableTicketType[] = data.ticketTypes.map(
           (ticket: SelectableTicketType & { price: number | string }) => ({
             ...ticket,
-            price: Number(ticket.price),
+            price: getPriceIncludingVat(Number(ticket.price)),
           })
         )
 
@@ -395,6 +396,10 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
   const totalAmount = useMemo(
     () => Number(Math.max(0, subtotal - discountAmount).toFixed(2)),
     [subtotal, discountAmount]
+  )
+  const includedVat = useMemo(
+    () => getIncludedVatFromVatInclusiveTotal(subtotal),
+    [subtotal]
   )
 
   const selectedTicketTypeIds = useMemo(
@@ -792,6 +797,9 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
             {ticketLoading && <p className="text-sm text-gray-500">Loading tickets...</p>}
             {ticketError && <p className="text-sm text-red-600">{ticketError}</p>}
             {!ticketLoading && !ticketError && (
+              <p className="text-sm text-gray-500">All prices include VAT (25%).</p>
+            )}
+            {!ticketLoading && !ticketError && (
               <TicketSelector
                 ticketTypes={ticketTypes}
                 quantities={quantities}
@@ -1059,6 +1067,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
           subtotal={subtotal}
           discountAmount={discountAmount}
           totalAmount={totalAmount}
+          includedVat={includedVat}
           currency={selectedItems[0]?.currency ?? 'SEK'}
           discountCode={discount?.code}
           groupDiscountMessage={appliedDiscountType === 'group' ? groupDiscount.description : null}

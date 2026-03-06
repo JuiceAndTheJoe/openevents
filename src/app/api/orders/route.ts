@@ -179,7 +179,9 @@ export async function POST(request: NextRequest) {
           throw new Error('One or more ticket types were not found for this event')
         }
 
-        const preparedOrder = prepareOrderItems(ticketTypes, input.items)
+        const preparedOrder = prepareOrderItems(ticketTypes, input.items, {
+          includeVat: true,
+        })
 
         for (const item of preparedOrder.items) {
           const ticketType = ticketTypes.find((ticket) => ticket.id === item.ticketTypeId)

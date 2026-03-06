@@ -17,6 +17,7 @@ interface OrderSummaryProps {
   subtotal: number
   discountAmount: number
   totalAmount: number
+  includedVat: number
   currency: string
   discountCode?: string | null
   groupDiscountMessage?: string | null
@@ -27,6 +28,7 @@ export function OrderSummary({
   subtotal,
   discountAmount,
   totalAmount,
+  includedVat,
   currency,
   discountCode,
   groupDiscountMessage,
@@ -84,6 +86,10 @@ export function OrderSummary({
           <div className="flex items-center justify-between border-t border-gray-200 pt-2 font-semibold text-gray-900">
             <span>Total</span>
             <span>{formatCurrency(totalAmount, currency)}</span>
+          </div>
+          <div className="flex items-center justify-between text-gray-600">
+            <span>Included VAT</span>
+            <span>{formatCurrency(includedVat, currency)}</span>
           </div>
         </div>
       </CardContent>

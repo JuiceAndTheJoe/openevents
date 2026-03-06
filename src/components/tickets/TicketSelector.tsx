@@ -68,7 +68,7 @@ export function TicketSelector({
 
               <div className="flex items-center gap-3">
                 <p className="min-w-24 text-right font-semibold text-gray-900">
-                  {formatCurrency(ticketType.price, ticketType.currency)}
+                  {formatCurrency(ticketType.price, ticketType.currency)} incl. VAT
                 </p>
                 <div className="flex items-center gap-2">
                   <Button

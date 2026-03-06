@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { EventStatus, EventVisibility, LocationType } from '@prisma/client'
 import { Calendar, MapPin } from 'lucide-react'
+import { getPriceIncludingVat } from '@/lib/pricing/vat'
 import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
 
 type EventCardProps = {
@@ -27,8 +28,13 @@ type EventCardProps = {
 }
 
 export function EventCard({ event }: EventCardProps) {
-  // Price display using unified utility
-  const priceDisplay = formatEventPrice(event.ticketTypes)
+  // Price display uses VAT-inclusive values (25% VAT).
+  const ticketTypesWithVat = event.ticketTypes.map((ticketType) => ({
+    ...ticketType,
+    price: getPriceIncludingVat(Number(ticketType.price)),
+  }))
+  const priceDisplay = formatEventPrice(ticketTypesWithVat)
+  const hasPaidTickets = event.ticketTypes.some((ticketType) => Number(ticketType.price) > 0)
 
   // Location display
   let locationDisplay: string
@@ -88,6 +94,7 @@ export function EventCard({ event }: EventCardProps) {
                 style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
               >
                 {priceDisplay}
+                {hasPaidTickets ? ' (incl. VAT)' : ''}
               </span>
             )}
           </div>
