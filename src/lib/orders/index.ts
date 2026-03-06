@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { generateTicketCode } from '@/lib/utils'
 import { decimalToNumber, toMoneyCents, fromMoneyCents } from '@/lib/tickets'
+import { getPriceIncludingVat } from '@/lib/pricing/vat'
 
 export interface AttendeeData {
   firstName: string
@@ -50,7 +51,10 @@ export function prepareOrderItems(
     minPerOrder: number
     maxPerOrder: number | null
   }>,
-  requestedItems: RequestedOrderItem[]
+  requestedItems: RequestedOrderItem[],
+  options?: {
+    includeVat?: boolean
+  }
 ): { items: PreparedOrderItem[]; subtotal: number } {
   const ticketTypeMap = new Map(ticketTypes.map((ticketType) => [ticketType.id, ticketType]))
 
@@ -75,7 +79,8 @@ export function prepareOrderItems(
       )
     }
 
-    const unitPrice = decimalToNumber(ticketType.price)
+    const baseUnitPrice = decimalToNumber(ticketType.price)
+    const unitPrice = options?.includeVat ? getPriceIncludingVat(baseUnitPrice) : baseUnitPrice
     const unitPriceCents = toMoneyCents(unitPrice)
     const totalPriceCents = unitPriceCents * requestedItem.quantity
     subtotalCents += totalPriceCents

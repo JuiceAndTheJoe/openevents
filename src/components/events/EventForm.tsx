@@ -37,6 +37,7 @@ import {
   formatUtcInTimeZoneForInput,
   isValidTimeZone,
 } from "@/lib/timezone";
+import { getPriceIncludingVat } from "@/lib/pricing/vat";
 
 type EventFormMode = "create" | "edit";
 type ImageTargetField = "coverImage" | "bottomImage";
@@ -367,22 +368,54 @@ const ticketFieldOrder: TicketTypeFieldKey[] = [
 
 const commonTimezones = [
   "UTC",
-  "Europe/Stockholm",
   "Europe/London",
+  "Europe/Dublin",
+  "Europe/Lisbon",
+  "Europe/Madrid",
+  "Europe/Paris",
+  "Europe/Brussels",
+  "Europe/Amsterdam",
   "Europe/Berlin",
+  "Europe/Zurich",
+  "Europe/Rome",
+  "Europe/Vienna",
+  "Europe/Prague",
+  "Europe/Warsaw",
+  "Europe/Stockholm",
+  "Europe/Copenhagen",
+  "Europe/Oslo",
+  "Europe/Helsinki",
+  "Europe/Athens",
+  "Europe/Bucharest",
+  "Europe/Kyiv",
+  "Europe/Istanbul",
   "America/New_York",
   "America/Chicago",
   "America/Denver",
   "America/Los_Angeles",
-  "Asia/Tokyo",
+  "America/Toronto",
+  "America/Sao_Paulo",
   "Asia/Dubai",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Asia/Kolkata",
+  "Australia/Sydney",
 ];
+
+function isPreferredTimezoneOption(timeZone: string) {
+  return commonTimezones.includes(timeZone);
+}
 
 function parseTicketPrice(raw?: string): number | null {
   if (!raw?.trim()) return null;
   const parsed = Number(raw);
   if (Number.isNaN(parsed)) return null;
   return parsed;
+}
+
+function formatPriceWithoutGrouping(amount: number) {
+  if (Number.isInteger(amount)) return String(amount);
+  return amount.toFixed(2).replace(/\.?0+$/, "");
 }
 
 function normalizeTicketCurrency(raw?: string) {
@@ -519,20 +552,16 @@ function focusFirstInvalidField(
   }
 }
 
-function loadTimezoneOptions(initialTimeZone: string) {
-  const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const dynamicTimezones =
-    typeof Intl.supportedValuesOf === "function"
-      ? Intl.supportedValuesOf("timeZone")
-      : [];
-
+function loadTimezoneOptions(
+  initialTimeZone: string,
+  selectedTimeZone: string,
+) {
   return Array.from(
     new Set(
       [
         ...commonTimezones,
-        ...dynamicTimezones,
-        localZone,
         initialTimeZone,
+        selectedTimeZone,
       ].filter(Boolean),
     ),
   );
@@ -1004,8 +1033,8 @@ export function EventForm({
   const previousProgressStateRef = useRef<Record<string, boolean>>({});
 
   const timezoneOptions = useMemo(
-    () => loadTimezoneOptions(normalizedInitialTimezone),
-    [normalizedInitialTimezone],
+    () => loadTimezoneOptions(normalizedInitialTimezone, form.timezone),
+    [normalizedInitialTimezone, form.timezone],
   );
 
   const eventDetailsComplete =
@@ -1561,7 +1590,10 @@ export function EventForm({
   useEffect(() => {
     if (mode !== "create" || initialData?.timezone) return;
     const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (isValidTimeZone(browserTimezone)) {
+    if (
+      isValidTimeZone(browserTimezone) &&
+      isPreferredTimezoneOption(browserTimezone)
+    ) {
       const updatedForm = { ...initialFormState, timezone: browserTimezone };
       setForm(updatedForm);
       const updatedSnapshot = buildDraftStateSnapshot(
@@ -4412,6 +4444,11 @@ export function EventForm({
               normalizedCurrency && !isSupportedCurrency(normalizedCurrency)
                 ? normalizedCurrency
                 : null;
+            const ticketPrice = parseTicketPrice(ticketType.price);
+            const priceIncludingVat =
+              ticketPrice !== null && ticketPrice >= 0
+                ? getPriceIncludingVat(ticketPrice)
+                : null;
 
             return (
               <div
@@ -4531,7 +4568,8 @@ export function EventForm({
                       className="text-[14px] font-medium leading-5 text-[#4a5565]"
                       style={{ fontFamily: "var(--font-outfit), sans-serif" }}
                     >
-                      Price <span className="ml-1 text-red-500">*</span>
+                      Price excluding VAT{" "}
+                      <span className="ml-1 text-red-500">*</span>
                     </label>
                     <input
                       id={`ticketPrice-${index}`}
@@ -4565,6 +4603,12 @@ export function EventForm({
                         className="text-sm text-red-600"
                       >
                         {rowErrors.price}
+                      </p>
+                    ) : null}
+                    {priceIncludingVat !== null ? (
+                      <p className="text-xs text-[#4a5565]">
+                        Price including VAT (25%):{" "}
+                        {formatPriceWithoutGrouping(priceIncludingVat)}
                       </p>
                     ) : null}
                   </div>
