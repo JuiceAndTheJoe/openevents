@@ -19,7 +19,7 @@ export function Header() {
   const canManageEvents = Boolean(isOrganizer || isSuperAdmin)
   const avatarFallback = (session?.user?.email?.[0] || 'U').toUpperCase()
   const displayName = session?.user?.name?.trim() || session?.user?.email?.split('@')[0] || 'Account'
-  const profileHref = isOrganizer ? '/dashboard/profile' : '/profile'
+  const profileHref = isSuperAdmin ? '/profile' : isOrganizer ? '/dashboard/profile' : '/profile'
 
   // Determine route context for conditional rendering
   const isOrganizerRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin')
