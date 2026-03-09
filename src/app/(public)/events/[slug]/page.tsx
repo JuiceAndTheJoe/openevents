@@ -457,7 +457,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
           <img
             src={bottomImageSrc}
             alt={`${event.title} visual`}
-            className="h-[230px] w-full object-cover sm:h-[340px]"
+            className="aspect-video w-full object-cover"
           />
         </section>
       ) : null}

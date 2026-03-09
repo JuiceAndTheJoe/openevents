@@ -388,7 +388,7 @@ export function EventPreviewModal({ open, data, onClose }: EventPreviewModalProp
                 <img
                   src={data.bottomImageSrc}
                   alt={`${data.title} visual`}
-                  className="h-[160px] w-full object-cover sm:h-[200px]"
+                  className="aspect-video w-full object-cover"
                 />
               </section>
             )}
