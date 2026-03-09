@@ -216,9 +216,10 @@ export async function POST(request: NextRequest) {
         let discountUsageUnits = 0
         let discountApplicableTicketTypeIds: string[] = []
         let promoCodeDiscountAmount = 0
+        let promoCodeError: string | null = null // Track promo code validation errors
 
         if (input.discountCode) {
-          discountCodeRecord = await tx.discountCode.findUnique({
+          const foundDiscountCode = await tx.discountCode.findUnique({
             where: {
               eventId_code: {
                 eventId: input.eventId,
@@ -230,73 +231,78 @@ export async function POST(request: NextRequest) {
             },
           })
 
-          if (!discountCodeRecord) {
-            throw new Error('Discount code not found')
-          }
+          if (!foundDiscountCode) {
+            promoCodeError = 'Discount code not found'
+          } else {
+            const now = new Date()
+            if (
+              !foundDiscountCode.isActive ||
+              (foundDiscountCode.validFrom && foundDiscountCode.validFrom > now) ||
+              (foundDiscountCode.validUntil && foundDiscountCode.validUntil < now)
+            ) {
+              promoCodeError = 'Discount code is inactive, expired, or fully used'
+            } else {
+              discountApplicableTicketTypeIds = getApplicableTicketTypeIds(foundDiscountCode)
+              const appliesToAll = discountApplicableTicketTypeIds.length === 0
 
-          const now = new Date()
-          if (
-            !discountCodeRecord.isActive ||
-            (discountCodeRecord.validFrom && discountCodeRecord.validFrom > now) ||
-            (discountCodeRecord.validUntil && discountCodeRecord.validUntil < now)
-          ) {
-            throw new Error('Discount code is inactive, expired, or fully used')
-          }
+              if (discountApplicableTicketTypeIds.length > 0) {
+                const hasApplicableItem = preparedOrder.items.some((item) =>
+                  discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                )
 
-          discountApplicableTicketTypeIds = getApplicableTicketTypeIds(discountCodeRecord)
-          const appliesToAll = discountApplicableTicketTypeIds.length === 0
-
-          if (discountApplicableTicketTypeIds.length > 0) {
-            const hasApplicableItem = preparedOrder.items.some((item) =>
-              discountApplicableTicketTypeIds.includes(item.ticketTypeId)
-            )
-
-            if (!hasApplicableItem) {
-              throw new Error('Discount code does not apply to selected ticket types')
-            }
-          }
-
-          discountUsageUnits = getDiscountUsageUnitsFromItems(
-            preparedOrder.items.filter((item) =>
-              appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
-            )
-          )
-
-          if (discountCodeRecord.maxUses !== null) {
-            const remainingUses = getDiscountCodeRemainingTicketUses(discountCodeRecord) ?? 0
-            if (discountUsageUnits > remainingUses) {
-              throw new Error('Discount code has no remaining uses for this quantity of tickets.')
-            }
-          }
-
-          // Calculate promo code discount amount
-          const discountableSubtotal = preparedOrder.items.reduce((sum, item) => {
-            if (appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)) {
-              return Number((sum + item.totalPrice).toFixed(2))
-            }
-            return sum
-          }, 0)
-
-          if (discountCodeRecord.minCartAmount !== null) {
-            const minQuantity = decimalToNumber(discountCodeRecord.minCartAmount)
-            const totalApplicableQuantity = preparedOrder.items.reduce((sum, item) => {
-              if (appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)) {
-                return sum + item.quantity
+                if (!hasApplicableItem) {
+                  promoCodeError = 'Discount code does not apply to selected ticket types'
+                }
               }
-              return sum
-            }, 0)
-            if (totalApplicableQuantity < minQuantity) {
-              throw new Error(
-                `At least ${minQuantity} ticket(s) of the applicable type are required for this discount code`
-              )
+
+              if (!promoCodeError) {
+                discountUsageUnits = getDiscountUsageUnitsFromItems(
+                  preparedOrder.items.filter((item) =>
+                    appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                  )
+                )
+
+                if (foundDiscountCode.maxUses !== null) {
+                  const remainingUses = getDiscountCodeRemainingTicketUses(foundDiscountCode) ?? 0
+                  if (discountUsageUnits > remainingUses) {
+                    promoCodeError = 'Discount code has no remaining uses for this quantity of tickets.'
+                  }
+                }
+              }
+
+              if (!promoCodeError) {
+                // Calculate promo code discount amount
+                const discountableSubtotal = preparedOrder.items.reduce((sum, item) => {
+                  if (appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)) {
+                    return Number((sum + item.totalPrice).toFixed(2))
+                  }
+                  return sum
+                }, 0)
+
+                if (foundDiscountCode.minCartAmount !== null) {
+                  const minQuantity = decimalToNumber(foundDiscountCode.minCartAmount)
+                  const totalApplicableQuantity = preparedOrder.items.reduce((sum, item) => {
+                    if (appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)) {
+                      return sum + item.quantity
+                    }
+                    return sum
+                  }, 0)
+                  if (totalApplicableQuantity < minQuantity) {
+                    promoCodeError = `At least ${minQuantity} ticket(s) of the applicable type are required for this discount code`
+                  }
+                }
+
+                if (!promoCodeError) {
+                  discountCodeRecord = foundDiscountCode
+                  promoCodeDiscountAmount = calculateDiscountAmount(
+                    discountableSubtotal,
+                    foundDiscountCode.discountType,
+                    decimalToNumber(foundDiscountCode.discountValue)
+                  )
+                }
+              }
             }
           }
-
-          promoCodeDiscountAmount = calculateDiscountAmount(
-            discountableSubtotal,
-            discountCodeRecord.discountType,
-            decimalToNumber(discountCodeRecord.discountValue)
-          )
         }
 
         // Fetch and validate group discount if provided
@@ -328,6 +334,7 @@ export async function POST(request: NextRequest) {
         let discountAmount = 0
         let appliedGroupDiscountId: string | null = null
         let appliedDiscountCodeId: string | null = null
+        let promoCodeIgnoredForGroupDiscount = false
 
         if (groupDiscountAmount > promoCodeDiscountAmount) {
           // Group discount wins
@@ -335,10 +342,22 @@ export async function POST(request: NextRequest) {
           appliedGroupDiscountId = groupDiscountRecord?.id ?? null
           // Don't claim promo code usage since we're not using it
           discountUsageUnits = 0
+          // Track if we ignored a valid promo code for a better group discount
+          if (promoCodeDiscountAmount > 0) {
+            promoCodeIgnoredForGroupDiscount = true
+          }
         } else if (promoCodeDiscountAmount > 0) {
           // Promo code wins (or tie goes to promo code)
           discountAmount = promoCodeDiscountAmount
           appliedDiscountCodeId = discountCodeRecord?.id ?? null
+        } else if (promoCodeError && groupDiscountAmount > 0) {
+          // Promo code was invalid but group discount applies - use group discount
+          discountAmount = groupDiscountAmount
+          appliedGroupDiscountId = groupDiscountRecord?.id ?? null
+          promoCodeIgnoredForGroupDiscount = true
+        } else if (promoCodeError) {
+          // Promo code was invalid and no group discount available - throw the error
+          throw new Error(promoCodeError)
         }
 
         const totalAmount = Number(Math.max(0, subtotal - discountAmount).toFixed(2))
@@ -458,7 +477,7 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        return tx.order.findUniqueOrThrow({
+        const finalOrder = await tx.order.findUniqueOrThrow({
           where: { id: order.id },
           include: {
             items: {
@@ -494,70 +513,81 @@ export async function POST(request: NextRequest) {
             },
           },
         })
+
+        // Return order with promo code warning if applicable
+        return {
+          order: finalOrder,
+          promoCodeWarning: promoCodeError && promoCodeIgnoredForGroupDiscount
+            ? `${promoCodeError}. A group discount was applied instead.`
+            : null,
+        }
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       }
     )
 
+    const { order, promoCodeWarning } = createdOrder
+
     revalidateTag('event-analytics', 'max')
     revalidateTag('dashboard-analytics', 'max')
 
-    if (createdOrder.status === 'PAID') {
-      await sendOrderConfirmationEmail(createdOrder.buyerEmail, {
-        orderNumber: createdOrder.orderNumber,
-        eventTitle: createdOrder.event.title,
-        eventDate: formatDateTime(createdOrder.event.startDate),
+    if (order.status === 'PAID') {
+      await sendOrderConfirmationEmail(order.buyerEmail, {
+        orderNumber: order.orderNumber,
+        eventTitle: order.event.title,
+        eventDate: formatDateTime(order.event.startDate),
         eventLocation:
-          createdOrder.event.locationType === 'ONLINE'
-            ? createdOrder.event.onlineUrl || 'Online event'
-            : [createdOrder.event.venue, createdOrder.event.city, createdOrder.event.country]
+          order.event.locationType === 'ONLINE'
+            ? order.event.onlineUrl || 'Online event'
+            : [order.event.venue, order.event.city, order.event.country]
                 .filter(Boolean)
                 .join(', '),
-        tickets: createdOrder.items.map((item) => ({
+        tickets: order.items.map((item) => ({
           name: item.ticketType.name,
           quantity: item.quantity,
-          price: `${item.totalPrice.toString()} ${createdOrder.currency}`,
+          price: `${item.totalPrice.toString()} ${order.currency}`,
         })),
-        totalAmount: `${createdOrder.totalAmount.toString()} ${createdOrder.currency}`,
-        buyerName: `${createdOrder.buyerFirstName} ${createdOrder.buyerLastName}`,
+        totalAmount: `${order.totalAmount.toString()} ${order.currency}`,
+        buyerName: `${order.buyerFirstName} ${order.buyerLastName}`,
       })
     }
 
     // Notify organizer of new invoice order
-    if (createdOrder.status === 'PENDING_INVOICE') {
-      const organizerEmail = createdOrder.event.organizer?.user?.email
+    if (order.status === 'PENDING_INVOICE') {
+      const organizerEmail = order.event.organizer?.user?.email
       if (organizerEmail) {
         await sendInvoiceOrderNotificationEmail(organizerEmail, {
-          orderNumber: createdOrder.orderNumber,
-          eventTitle: createdOrder.event.title,
-          eventId: createdOrder.event.id,
-          buyerName: `${createdOrder.buyerFirstName} ${createdOrder.buyerLastName}`,
-          buyerEmail: createdOrder.buyerEmail,
-          totalAmount: createdOrder.totalAmount.toString(),
-          currency: createdOrder.currency,
-          tickets: createdOrder.items.map((item) => ({
+          orderNumber: order.orderNumber,
+          eventTitle: order.event.title,
+          eventId: order.event.id,
+          buyerName: `${order.buyerFirstName} ${order.buyerLastName}`,
+          buyerEmail: order.buyerEmail,
+          totalAmount: order.totalAmount.toString(),
+          currency: order.currency,
+          tickets: order.items.map((item) => ({
             name: item.ticketType.name,
             quantity: item.quantity,
-            price: `${item.totalPrice.toString()} ${createdOrder.currency}`,
+            price: `${item.totalPrice.toString()} ${order.currency}`,
           })),
         })
       }
     }
 
     return NextResponse.json({
-      order: createdOrder,
+      order,
       checkout: {
-        requiresPayment: createdOrder.status === 'PENDING',
-        isInvoiceFlow: createdOrder.status === 'PENDING_INVOICE',
-        isFreeOrder: createdOrder.status === 'PAID' && createdOrder.paymentMethod === 'FREE',
+        requiresPayment: order.status === 'PENDING',
+        isInvoiceFlow: order.status === 'PENDING_INVOICE',
+        isFreeOrder: order.status === 'PAID' && order.paymentMethod === 'FREE',
         reservationTtlMinutes,
-        reservationExpiresAt: createdOrder.expiresAt?.toISOString() ?? null,
+        reservationExpiresAt: order.expiresAt?.toISOString() ?? null,
       },
       message:
-        createdOrder.status === 'PAID'
+        order.status === 'PAID'
           ? 'Order created and completed successfully'
           : 'Order created successfully',
+      ...(promoCodeWarning && { warning: promoCodeWarning }),
     })
   } catch (error) {
     if (error instanceof Error) {
