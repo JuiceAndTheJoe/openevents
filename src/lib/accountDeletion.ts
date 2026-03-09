@@ -555,6 +555,7 @@ export async function finalizeAccountDeletionForUser(
           lastName: 'User',
           image: null,
           passwordHash: null,
+          mustChangePassword: false,
           emailVerified: null,
           deletedAt: now,
           anonymizedAt: now,

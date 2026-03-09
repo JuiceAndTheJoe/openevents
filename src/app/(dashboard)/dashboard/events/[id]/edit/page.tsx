@@ -1,5 +1,5 @@
-import { notFound, redirect } from 'next/navigation'
-import { getCurrentUser, hasRole } from '@/lib/auth'
+import { notFound } from 'next/navigation'
+import { requireOrganizerProfile, buildEventWhereClause } from '@/lib/dashboard/organizer'
 import { prisma } from '@/lib/db'
 import { EventForm } from '@/components/events/EventForm'
 import { EventStatusActions } from '@/components/events/EventStatusActions'
@@ -31,28 +31,9 @@ type PageProps = {
 
 export default async function EditEventPage({ params }: PageProps) {
   const { id } = await params
-  const user = await getCurrentUser()
+  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
 
-  if (!user) {
-    redirect('/login')
-  }
-
-  if (!hasRole(user.roles, 'ORGANIZER')) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
-          Organizer role is required to manage events.
-        </div>
-      </div>
-    )
-  }
-
-  const organizer = await prisma.organizerProfile.findUnique({
-    where: { userId: user.id },
-    select: { id: true },
-  })
-
-  if (!organizer) {
+  if (!isSuperAdmin && !organizerProfile) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
         <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
@@ -64,10 +45,7 @@ export default async function EditEventPage({ params }: PageProps) {
 
   const [event, categories] = await Promise.all([
     prisma.event.findFirst({
-      where: {
-        id,
-        organizerId: organizer.id,
-      },
+      where: buildEventWhereClause(organizerProfile, isSuperAdmin, { id }),
       include: {
         categories: {
           select: {
@@ -115,7 +93,6 @@ export default async function EditEventPage({ params }: PageProps) {
   }
 
   const eventPeople = event.speakers.filter((speaker) => resolveEventPeopleRole(speaker.socialLinks))
-  const regularSpeakers = event.speakers.filter((speaker) => !resolveEventPeopleRole(speaker.socialLinks))
   const bottomImage = event.media.find((item) => item.title === 'BOTTOM_IMAGE')?.url || ''
 
   const speakerPeople = eventPeople.filter((speaker) => resolveEventPeopleRole(speaker.socialLinks) === 'SPEAKER')

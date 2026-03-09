@@ -32,7 +32,13 @@ export function Header() {
 
   // Determine route context for conditional rendering
   const isOrganizerRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin')
-  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/register') || pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/verify-email')
+  const isAuthPage =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
+    pathname.startsWith('/forgot-password') ||
+    pathname.startsWith('/reset-password') ||
+    pathname.startsWith('/verify-email') ||
+    pathname.startsWith('/choose-password')
 
   // Show full auth UI (login/register buttons) on organizer routes.
   // On public pages and auth pages, keep header minimal for logged-out users.

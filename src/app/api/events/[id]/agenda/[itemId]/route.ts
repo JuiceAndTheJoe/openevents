@@ -24,7 +24,7 @@ type RouteContext = {
   params: Promise<{ id: string; itemId: string }>
 }
 
-async function assertOrganizerOwnsEvent(eventId: string, userId: string) {
+async function assertOrganizerOwnsEvent(eventId: string, userId: string, isSuperAdmin: boolean) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: {
@@ -40,7 +40,7 @@ async function assertOrganizerOwnsEvent(eventId: string, userId: string) {
     return { ok: false as const, status: 404, error: 'Event not found' }
   }
 
-  if (event.organizer.userId !== userId) {
+  if (!isSuperAdmin && event.organizer.userId !== userId) {
     return { ok: false as const, status: 403, error: 'Forbidden' }
   }
 
@@ -50,9 +50,10 @@ async function assertOrganizerOwnsEvent(eventId: string, userId: string) {
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const user = await requireRole('ORGANIZER')
+    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
     const { id: eventId, itemId } = await context.params
 
-    const ownership = await assertOrganizerOwnsEvent(eventId, user.id)
+    const ownership = await assertOrganizerOwnsEvent(eventId, user.id, isSuperAdmin)
     if (!ownership.ok) {
       return NextResponse.json({ error: ownership.error }, { status: ownership.status })
     }
@@ -132,9 +133,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const user = await requireRole('ORGANIZER')
+    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
     const { id: eventId, itemId } = await context.params
 
-    const ownership = await assertOrganizerOwnsEvent(eventId, user.id)
+    const ownership = await assertOrganizerOwnsEvent(eventId, user.id, isSuperAdmin)
     if (!ownership.ok) {
       return NextResponse.json({ error: ownership.error }, { status: ownership.status })
     }

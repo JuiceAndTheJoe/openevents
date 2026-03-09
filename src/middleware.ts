@@ -8,6 +8,7 @@
  * because ioredis is not compatible with Edge runtime.
  */
 import { NextResponse, type NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 
 /**
  * Check if origin is valid for CSRF protection
@@ -60,6 +61,35 @@ export async function middleware(request: NextRequest) {
       })
 
       return new NextResponse('CSRF check failed', { status: 403 })
+    }
+  }
+
+  const pathname = request.nextUrl.pathname
+  const isApiRoute = pathname.startsWith('/api')
+  const isChoosePasswordPage = pathname === '/choose-password'
+
+  if (!isApiRoute) {
+    const token = await getToken({ req: request })
+    const mustChangePassword = Boolean(token && token.mustChangePassword)
+
+    if (mustChangePassword && !isChoosePasswordPage) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/choose-password'
+      const callbackTarget = `${pathname}${request.nextUrl.search}`
+      if (callbackTarget !== '/choose-password') {
+        url.searchParams.set('callbackUrl', callbackTarget)
+      }
+      return NextResponse.redirect(url)
+    }
+
+    if (token && !mustChangePassword && isChoosePasswordPage) {
+      const roles = Array.isArray(token.roles) ? token.roles : []
+      const url = request.nextUrl.clone()
+      url.pathname = roles.includes('ORGANIZER') || roles.includes('SUPER_ADMIN')
+        ? '/dashboard'
+        : '/events'
+      url.search = ''
+      return NextResponse.redirect(url)
     }
   }
 

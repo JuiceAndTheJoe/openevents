@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { getCurrentUser, hasRole } from '@/lib/auth'
 import { UsersTable } from '@/components/admin/UsersTable'
+import { CreateUserForm } from '@/components/admin/CreateUserForm'
 import { Role } from '@prisma/client'
 import { WorkspacePageHeader } from '@/components/layout/WorkspaceShell'
 
@@ -101,8 +102,10 @@ export default async function AdminUsersPage({
     <div className="space-y-6">
       <WorkspacePageHeader
         title="User Management"
-        description="Manage platform user roles and organizer permissions."
+        description="Create accounts with one-time passwords and manage account types."
       />
+
+      <CreateUserForm />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">

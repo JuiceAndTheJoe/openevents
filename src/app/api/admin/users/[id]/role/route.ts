@@ -2,12 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
+import { Role } from '@prisma/client'
 
 const roleUpdateSchema = z.object({
-  action: z.enum(['promote', 'demote']),
+  role: z.enum(['ATTENDEE', 'ORGANIZER', 'SUPER_ADMIN']),
 })
 
-// POST: Update user role (promote to ORGANIZER or demote)
+function resolveTargetRoles(role: Role): Role[] {
+  if (role === 'SUPER_ADMIN') {
+    return ['ATTENDEE', 'ORGANIZER', 'SUPER_ADMIN']
+  }
+
+  if (role === 'ORGANIZER') {
+    return ['ATTENDEE', 'ORGANIZER']
+  }
+
+  return ['ATTENDEE']
+}
+
+// POST: Set account type for a user
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,27 +31,23 @@ export async function POST(
     const { id } = await params
     const body = await request.json()
 
-    // Validate input
     const validationResult = roleUpdateSchema.safeParse(body)
     if (!validationResult.success) {
       return NextResponse.json(
         {
           error: 'Validation failed',
-          message: 'Please provide a valid action (promote or demote).',
+          message: 'Please provide a valid account type.',
           details: validationResult.error.flatten().fieldErrors,
         },
         { status: 400 }
       )
     }
 
-    const { action } = validationResult.data
+    const { role } = validationResult.data
 
-    // Find the user
     const user = await prisma.user.findUnique({
       where: { id, deletedAt: null },
-      include: {
-        roles: true,
-      },
+      include: { roles: true },
     })
 
     if (!user) {
@@ -48,79 +57,80 @@ export async function POST(
       )
     }
 
-    // Prevent self-modification
     if (user.id === admin.id) {
       return NextResponse.json(
-        { error: 'Forbidden', message: 'You cannot modify your own role.' },
+        { error: 'Forbidden', message: 'You cannot modify your own account type.' },
         { status: 403 }
       )
     }
 
-    const hasOrganizerRole = user.roles.some((r) => r.role === 'ORGANIZER')
+    const currentRoles = user.roles.map((entry) => entry.role)
+    const targetRoles = resolveTargetRoles(role)
 
-    if (action === 'promote') {
-      if (hasOrganizerRole) {
+    const removingSuperAdmin = currentRoles.includes('SUPER_ADMIN') && !targetRoles.includes('SUPER_ADMIN')
+    if (removingSuperAdmin) {
+      const superAdminCount = await prisma.userRole.count({
+        where: { role: 'SUPER_ADMIN' },
+      })
+
+      if (superAdminCount <= 1) {
         return NextResponse.json(
-          { error: 'Already organizer', message: 'User is already an organizer.' },
+          { error: 'Forbidden', message: 'At least one super admin is required.' },
           { status: 400 }
         )
       }
+    }
 
-      // Promote user to ORGANIZER in a transaction
-      await prisma.$transaction(async (tx) => {
-        // Grant ORGANIZER role
+    await prisma.$transaction(async (tx) => {
+      const toCreate = targetRoles.filter((r) => !currentRoles.includes(r))
+      const toDelete = currentRoles.filter((r) => !targetRoles.includes(r))
+
+      for (const roleToCreate of toCreate) {
         await tx.userRole.create({
           data: {
             userId: user.id,
-            role: 'ORGANIZER',
+            role: roleToCreate,
             grantedBy: admin.id,
           },
         })
+      }
 
-        // Check if organizer profile exists
+      if (toDelete.length > 0) {
+        await tx.userRole.deleteMany({
+          where: {
+            userId: user.id,
+            role: { in: toDelete },
+          },
+        })
+      }
+
+      if (targetRoles.includes('ORGANIZER')) {
         const existingProfile = await tx.organizerProfile.findUnique({
           where: { userId: user.id },
+          select: { id: true },
         })
 
-        // Create organizer profile if it doesn't exist
         if (!existingProfile) {
-          const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
+          const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
           await tx.organizerProfile.create({
             data: {
               userId: user.id,
-              orgName: userName || user.email,
+              orgName: fullName || user.email,
               description: '',
             },
           })
         }
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: 'User promoted to organizer successfully.',
-      })
-    } else {
-      // Demote: remove ORGANIZER role
-      if (!hasOrganizerRole) {
-        return NextResponse.json(
-          { error: 'Not an organizer', message: 'User is not an organizer.' },
-          { status: 400 }
-        )
       }
+    })
 
-      // Remove ORGANIZER role (keep profile for data retention)
-      await prisma.userRole.deleteMany({
-        where: {
-          userId: user.id,
-          role: 'ORGANIZER',
-        },
-      })
-
-      return NextResponse.json({
-        success: true,
-        message: 'Organizer role removed successfully.',
-      })
-    }
+    return NextResponse.json({
+      success: true,
+      message: 'Account type updated successfully.',
+      data: {
+        userId: user.id,
+        accountType: role,
+      },
+    })
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'Unauthorized') {

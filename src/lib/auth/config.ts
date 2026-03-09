@@ -15,6 +15,7 @@ declare module 'next-auth' {
       image?: string | null
       roles: Role[]
       emailVerified: Date | null
+      mustChangePassword: boolean
     }
   }
 
@@ -25,6 +26,7 @@ declare module 'next-auth' {
     image?: string | null
     roles: Role[]
     emailVerified: Date | null
+    mustChangePassword: boolean
   }
 }
 
@@ -34,6 +36,7 @@ declare module 'next-auth/jwt' {
     image?: string | null
     roles: Role[]
     emailVerified: Date | null
+    mustChangePassword: boolean
   }
 }
 
@@ -99,6 +102,7 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           roles: user.roles.map((r) => r.role),
           emailVerified: user.emailVerified,
+          mustChangePassword: user.mustChangePassword,
         }
       },
     }),
@@ -132,11 +136,16 @@ export const authOptions: NextAuthOptions = {
       return true
     },
     async jwt({ token, user, trigger, session }) {
+      if (typeof token.mustChangePassword !== 'boolean') {
+        token.mustChangePassword = false
+      }
+
       if (user) {
         token.id = user.id
         token.image = user.image
         token.roles = user.roles
         token.emailVerified = user.emailVerified
+        token.mustChangePassword = user.mustChangePassword
         token.name = user.name
         token.email = user.email
       }
@@ -159,6 +168,7 @@ export const authOptions: NextAuthOptions = {
           token.name = null
           token.image = null
           token.emailVerified = null
+          token.mustChangePassword = false
           return token
         }
 
@@ -170,6 +180,7 @@ export const authOptions: NextAuthOptions = {
           token.name = null
           token.image = null
           token.emailVerified = null
+          token.mustChangePassword = false
           return token
         }
 
@@ -177,6 +188,7 @@ export const authOptions: NextAuthOptions = {
         token.roles = dbUser.roles.map((r) => r.role)
         token.email = dbUser.email
         token.name = `${dbUser.firstName || ''} ${dbUser.lastName || ''}`.trim() || null
+        token.mustChangePassword = dbUser.mustChangePassword
       }
 
       return token
@@ -187,6 +199,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = ''
         session.user.roles = []
         session.user.emailVerified = null
+        session.user.mustChangePassword = false
         session.user.email = ''
         session.user.name = null
         session.user.image = null
@@ -207,6 +220,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = ''
         session.user.roles = []
         session.user.emailVerified = null
+        session.user.mustChangePassword = false
         session.user.email = ''
         session.user.name = null
         session.user.image = null
@@ -218,6 +232,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = ''
         session.user.roles = []
         session.user.emailVerified = null
+        session.user.mustChangePassword = false
         session.user.email = ''
         session.user.name = null
         session.user.image = null
@@ -227,6 +242,7 @@ export const authOptions: NextAuthOptions = {
       session.user.id = dbUser.id
       session.user.roles = dbUser.roles.map((entry) => entry.role)
       session.user.emailVerified = dbUser.emailVerified
+      session.user.mustChangePassword = dbUser.mustChangePassword
       session.user.email = dbUser.email
       session.user.name = `${dbUser.firstName || ''} ${dbUser.lastName || ''}`.trim() || null
       session.user.image = dbUser.image ?? null

@@ -18,17 +18,21 @@ type UsersTableProps = {
   currentAdminId: string
 }
 
+type AccountType = 'ATTENDEE' | 'ORGANIZER' | 'SUPER_ADMIN'
+
+function resolveAccountType(roles: Role[]): AccountType {
+  if (roles.includes('SUPER_ADMIN')) return 'SUPER_ADMIN'
+  if (roles.includes('ORGANIZER')) return 'ORGANIZER'
+  return 'ATTENDEE'
+}
+
 export function UsersTable({ users, currentAdminId }: UsersTableProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedTypes, setSelectedTypes] = useState<Record<string, AccountType>>({})
 
-  async function handleRoleAction(userId: string, action: 'promote' | 'demote') {
-    const confirmMessage =
-      action === 'promote'
-        ? 'Are you sure you want to make this user an organizer?'
-        : 'Are you sure you want to remove the organizer role from this user?'
-
-    if (!confirm(confirmMessage)) {
+  async function handleAccountTypeUpdate(userId: string, role: AccountType) {
+    if (!confirm(`Are you sure you want to set account type to ${role}?`)) {
       return
     }
 
@@ -39,12 +43,12 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
       const response = await fetch(`/api/admin/users/${userId}/role`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ role }),
       })
 
       const json = await response.json()
       if (!response.ok) {
-        throw new Error(json?.message || json?.error || 'Failed to update role')
+        throw new Error(json?.message || json?.error || 'Failed to update account type')
       }
 
       window.location.reload()
@@ -76,15 +80,17 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
               <th className="px-4 py-3 text-left font-medium text-gray-600">Email</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Roles</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Joined</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Account Type</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {users.map((user) => {
               const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
-              const isOrganizer = user.roles.includes('ORGANIZER')
-              const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
               const isSelf = user.id === currentAdminId
+              const currentType = resolveAccountType(user.roles)
+              const selectedType = selectedTypes[user.id] ?? currentType
+              const hasChanges = selectedType !== currentType
 
               return (
                 <tr key={user.id}>
@@ -114,27 +120,34 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
+                    <select
+                      value={selectedType}
+                      disabled={isSelf || busyId === user.id}
+                      onChange={(event) => {
+                        setSelectedTypes((prev) => ({
+                          ...prev,
+                          [user.id]: event.target.value as AccountType,
+                        }))
+                      }}
+                      className="h-9 min-w-[150px] rounded-md border border-gray-300 bg-white px-3 text-sm"
+                    >
+                      <option value="ATTENDEE">ATTENDEE</option>
+                      <option value="ORGANIZER">ORGANIZER</option>
+                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       {isSelf ? (
                         <span className="text-xs text-gray-400">You</span>
-                      ) : isSuperAdmin ? (
-                        <span className="text-xs text-gray-400">Super Admin</span>
-                      ) : isOrganizer ? (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          isLoading={busyId === user.id}
-                          onClick={() => handleRoleAction(user.id, 'demote')}
-                        >
-                          Remove Organizer
-                        </Button>
                       ) : (
                         <Button
                           size="sm"
                           isLoading={busyId === user.id}
-                          onClick={() => handleRoleAction(user.id, 'promote')}
+                          disabled={!hasChanges}
+                          onClick={() => handleAccountTypeUpdate(user.id, selectedType)}
                         >
-                          Make Organizer
+                          Update
                         </Button>
                       )}
                     </div>

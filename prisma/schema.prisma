@@ -19,6 +19,7 @@ model User {
   email             String    @unique
   emailVerified     DateTime?
   passwordHash      String?
+  mustChangePassword Boolean  @default(false)
   firstName         String?
   lastName          String?
   image             String?

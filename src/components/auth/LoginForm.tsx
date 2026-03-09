@@ -98,14 +98,23 @@ export function LoginForm() {
         redirecting = true
         setIsRedirecting(true)
 
+        const session = await getSession()
         const callbackUrl = searchParams.get('callbackUrl')
+        if (session?.user?.mustChangePassword) {
+          const choosePasswordUrl = callbackUrl
+            ? `/choose-password?callbackUrl=${encodeURIComponent(callbackUrl)}`
+            : '/choose-password'
+          router.push(choosePasswordUrl)
+          router.refresh()
+          return
+        }
+
         if (callbackUrl) {
           router.push(callbackUrl)
           router.refresh()
           return
         }
 
-        const session = await getSession()
         const roles = session?.user?.roles || []
         const isOrganizerOrAdmin =
           roles.includes('ORGANIZER') || roles.includes('SUPER_ADMIN')

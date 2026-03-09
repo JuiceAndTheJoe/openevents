@@ -29,6 +29,7 @@ export async function getCurrentUser() {
       lastName: true,
       image: true,
       emailVerified: true,
+      mustChangePassword: true,
       deletionScheduledFor: true,
       roles: {
         select: {
@@ -54,6 +55,7 @@ export async function getCurrentUser() {
     image: dbUser.image,
     roles: dbUser.roles.map((entry) => entry.role),
     emailVerified: dbUser.emailVerified,
+    mustChangePassword: dbUser.mustChangePassword,
   }
 }
 
@@ -68,8 +70,11 @@ export async function requireAuth() {
 export async function requireRole(roles: Role | Role[]) {
   const user = await requireAuth()
   const requiredRoles = Array.isArray(roles) ? roles : [roles]
+  const effectiveRoles = requiredRoles.includes('ORGANIZER')
+    ? [...new Set<Role>([...requiredRoles, 'SUPER_ADMIN'])]
+    : requiredRoles
 
-  const hasRole = user.roles.some((role) => requiredRoles.includes(role))
+  const hasRole = user.roles.some((role) => effectiveRoles.includes(role))
   if (!hasRole) {
     throw new Error('Forbidden: Insufficient permissions')
   }

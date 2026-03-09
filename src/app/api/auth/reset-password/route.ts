@@ -62,7 +62,10 @@ export async function POST(request: NextRequest) {
       // Update user's password
       await tx.user.update({
         where: { id: resetToken.userId },
-        data: { passwordHash },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+        },
       })
 
       // Delete the used token

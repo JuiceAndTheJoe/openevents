@@ -137,7 +137,10 @@ export default async function AccountSettingsPage({ searchParams }: PageProps) {
 
     await prisma.user.update({
       where: { id: currentUser.id },
-      data: { passwordHash: newHash },
+      data: {
+        passwordHash: newHash,
+        mustChangePassword: false,
+      },
     })
 
     revalidatePath('/dashboard/settings/account')

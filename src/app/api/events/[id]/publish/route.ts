@@ -55,6 +55,7 @@ function getPublishActionHint(issues: PublishIssue[], eventId: string): ActionHi
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
     const user = await requireRole('ORGANIZER')
+    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
     const { id } = await context.params
 
     const event = await prisma.event.findUnique({
@@ -75,7 +76,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     if (!event) return errorResponse('Event not found.', 404)
 
-    if (event.organizer.userId !== user.id) {
+    if (!isSuperAdmin && event.organizer.userId !== user.id) {
       return errorResponse('You do not have permission to publish this event.', 403)
     }
 

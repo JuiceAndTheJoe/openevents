@@ -27,10 +27,24 @@ async function ensureUniqueSlug(title: string): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const user = await requireRole('ORGANIZER')
-    const organizerProfile = await prisma.organizerProfile.findUnique({
+    let organizerProfile = await prisma.organizerProfile.findUnique({
       where: { userId: user.id },
       select: { id: true },
     })
+
+    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+
+    if (!organizerProfile && isSuperAdmin) {
+      const fullName = (user.name || '').trim()
+      organizerProfile = await prisma.organizerProfile.create({
+        data: {
+          userId: user.id,
+          orgName: fullName || user.email,
+          description: '',
+        },
+        select: { id: true },
+      })
+    }
 
     if (!organizerProfile) {
       return NextResponse.json(
