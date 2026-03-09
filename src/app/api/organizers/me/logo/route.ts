@@ -2,41 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireRole } from '@/lib/auth'
 import { getDownloadPresignedUrl } from '@/lib/storage'
-
-function extractObjectKeyFromUrl(image: string): string | null {
-  if (!image) return null
-
-  if (!image.startsWith('http://') && !image.startsWith('https://')) {
-    return image.replace(/^\/+/, '')
-  }
-
-  try {
-    const parsed = new URL(image)
-    const bucket = process.env.S3_BUCKET_NAME || 'openevents'
-    const path = decodeURIComponent(parsed.pathname).replace(/^\/+/, '')
-
-    if (path.startsWith(`${bucket}/`)) {
-      return path.slice(bucket.length + 1)
-    }
-
-    if (
-      path.startsWith('events/') ||
-      path.startsWith('speakers/') ||
-      path.startsWith('users/') ||
-      path.startsWith('organizers/')
-    ) {
-      return path
-    }
-
-    if (parsed.host.startsWith(`${bucket}.`)) {
-      return path
-    }
-
-    return null
-  } catch {
-    return null
-  }
-}
+import { extractObjectKeyFromStorageRef } from '@/lib/storage/object-key'
 
 export async function GET() {
   try {
@@ -51,7 +17,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Logo not found' }, { status: 404 })
     }
 
-    const key = extractObjectKeyFromUrl(profile.logo)
+    const key = extractObjectKeyFromStorageRef(profile.logo, ['events', 'speakers', 'users', 'organizers'])
     if (!key) {
       return NextResponse.json({ error: 'Invalid logo key' }, { status: 400 })
     }

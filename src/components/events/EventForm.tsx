@@ -5072,88 +5072,89 @@ export function EventForm({
                 </p>
               </div>
             )}
-            {speakerDrafts.map((draft, index) => (
-              <div
-                key={draft.key}
-                className="rounded-[10px] border border-[#828283] bg-[#f9fafb] p-4"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-lg font-semibold text-gray-800">
-                    Speaker {index + 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeSpeakerDraft(draft.key)}
-                    className="text-gray-400 transition-colors hover:text-red-500"
-                    aria-label={`Remove Speaker ${index + 1}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+            {speakerDrafts.map((draft, index) => {
+              const persistedImageSrc = draft.speakerId
+                ? `/api/speakers/${encodeURIComponent(draft.speakerId)}/image?v=${imageVersion}`
+                : null
+              const speakerImageSrc = draft.previewUrl ?? persistedImageSrc
 
-                <div className="flex items-start gap-4">
-                  {/* Circular image area */}
-                  <div className="shrink-0">
-                    {draft.previewUrl || draft.publicUrl ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openSpeakerReCrop(draft.key)}
-                          className="relative h-24 w-24 overflow-hidden rounded-full border border-[#d1d5dc] bg-[#e5e7eb]"
-                          aria-label="Edit photo"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={
-                              draft.previewUrl ??
-                              (draft.speakerId
-                                ? `/api/speakers/${draft.speakerId}/image`
-                                : draft.publicUrl)
-                            }
-                            alt={draft.name || `Speaker ${index + 1}`}
-                            className="h-full w-full object-cover"
-                          />
-                          {draft.isUploading ? (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
-                              <span className="text-xs font-medium text-white">
-                                Uploading…
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 opacity-0 transition-opacity hover:opacity-100">
-                              <span className="text-xs font-medium text-white">
-                                Edit
-                              </span>
-                            </div>
-                          )}
-                        </button>
-                        {!draft.isUploading ? (
-                          <button
-                            type="button"
-                            onClick={() => deleteSpeakerImage(draft.key)}
-                            className="text-xs text-gray-400 transition-colors hover:text-red-500"
-                          >
-                            Delete
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => triggerSpeakerImageSelect(draft.key)}
-                        className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-[#d1d5dc] bg-[#e5e7eb] transition-colors hover:bg-gray-200"
-                        aria-label="Upload photo"
-                      >
-                        <User className="h-8 w-8 text-gray-400" />
-                        <span className="mt-1 text-xs text-gray-500">
-                          Upload
-                        </span>
-                      </button>
-                    )}
+              return (
+                <div
+                  key={draft.key}
+                  className="rounded-[10px] border border-[#828283] bg-[#f9fafb] p-4"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-lg font-semibold text-gray-800">
+                      Speaker {index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeSpeakerDraft(draft.key)}
+                      className="text-gray-400 transition-colors hover:text-red-500"
+                      aria-label={`Remove Speaker ${index + 1}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
 
-                  {/* Fields */}
-                  <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="flex items-start gap-4">
+                    {/* Circular image area */}
+                    <div className="shrink-0">
+                      {speakerImageSrc ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openSpeakerReCrop(draft.key)}
+                            className="relative h-24 w-24 overflow-hidden rounded-full border border-[#d1d5dc] bg-[#e5e7eb]"
+                            aria-label="Edit photo"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={speakerImageSrc}
+                              alt={draft.name || `Speaker ${index + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+                            {draft.isUploading ? (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                                <span className="text-xs font-medium text-white">
+                                  Uploading…
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/30 opacity-0 transition-opacity hover:opacity-100">
+                                <span className="text-xs font-medium text-white">
+                                  Edit
+                                </span>
+                              </div>
+                            )}
+                          </button>
+                          {!draft.isUploading ? (
+                            <button
+                              type="button"
+                              onClick={() => deleteSpeakerImage(draft.key)}
+                              className="text-xs text-gray-400 transition-colors hover:text-red-500"
+                            >
+                              Delete
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => triggerSpeakerImageSelect(draft.key)}
+                          className="flex h-24 w-24 flex-col items-center justify-center rounded-full border border-[#d1d5dc] bg-[#e5e7eb] transition-colors hover:bg-gray-200"
+                          aria-label="Upload photo"
+                        >
+                          <User className="h-8 w-8 text-gray-400" />
+                          <span className="mt-1 text-xs text-gray-500">
+                            Upload
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Fields */}
+                    <div className="flex-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <Label>Name</Label>
                       <Input
@@ -5202,10 +5203,11 @@ export function EventForm({
                         }
                       />
                     </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
@@ -5590,11 +5592,11 @@ export function EventForm({
               name: speaker.name,
               title: speaker.title,
               organization: speaker.organization,
-              previewUrl: speaker.previewUrl,
-              publicUrl:
-                speaker.speakerId
+              imageSrc:
+                speaker.previewUrl ??
+                (speaker.speakerId
                   ? `/api/speakers/${encodeURIComponent(speaker.speakerId)}/image?v=${imageVersion}`
-                  : speaker.publicUrl,
+                  : null),
             })),
           status: form.status,
         }}

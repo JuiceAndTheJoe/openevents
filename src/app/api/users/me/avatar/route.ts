@@ -2,29 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
 import { getDownloadPresignedUrl } from '@/lib/storage'
-
-function extractObjectKeyFromImageUrl(image: string): string | null {
-  if (!image) return null
-
-  // If key is stored directly (e.g. users/abc/file.jpg)
-  if (!image.startsWith('http://') && !image.startsWith('https://')) {
-    return image
-  }
-
-  try {
-    const parsed = new URL(image)
-    const bucket = process.env.S3_BUCKET_NAME || 'openevents'
-    const prefix = `/${bucket}/`
-
-    if (!parsed.pathname.startsWith(prefix)) {
-      return null
-    }
-
-    return decodeURIComponent(parsed.pathname.slice(prefix.length))
-  } catch {
-    return null
-  }
-}
+import { extractObjectKeyFromStorageRef } from '@/lib/storage/object-key'
 
 export async function GET() {
   try {
@@ -38,7 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No profile image' }, { status: 404 })
     }
 
-    const key = extractObjectKeyFromImageUrl(dbUser.image)
+    const key = extractObjectKeyFromStorageRef(dbUser.image, ['users'])
     if (!key) {
       return NextResponse.json({ error: 'Invalid image key' }, { status: 400 })
     }

@@ -2,39 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser, hasRole } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { getDownloadPresignedUrl } from '@/lib/storage'
+import { extractObjectKeyFromStorageRef } from '@/lib/storage/object-key'
 
 type RouteContext = {
   params: Promise<{ id: string }>
-}
-
-function extractObjectKeyFromUrl(image: string): string | null {
-  if (!image) return null
-
-  if (!image.startsWith('http://') && !image.startsWith('https://')) {
-    return image.replace(/^\/+/, '')
-  }
-
-  try {
-    const parsed = new URL(image)
-    const bucket = process.env.S3_BUCKET_NAME || 'openevents-media'
-    const path = decodeURIComponent(parsed.pathname).replace(/^\/+/, '')
-
-    if (path.startsWith(`${bucket}/`)) {
-      return path.slice(bucket.length + 1)
-    }
-
-    if (path.startsWith('events/') || path.startsWith('speakers/') || path.startsWith('users/')) {
-      return path
-    }
-
-    if (parsed.host.startsWith(`${bucket}.`)) {
-      return path
-    }
-
-    return null
-  } catch {
-    return null
-  }
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -90,7 +61,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Image not found' }, { status: 404 })
     }
 
-    const key = extractObjectKeyFromUrl(imageUrl)
+    const key = extractObjectKeyFromStorageRef(imageUrl, ['events', 'speakers', 'users'])
     if (!key) {
       return NextResponse.json({ error: 'Invalid image key' }, { status: 400 })
     }

@@ -9,8 +9,7 @@ type SpeakerPreview = {
   name: string
   title: string
   organization: string
-  previewUrl: string | null
-  publicUrl: string
+  imageSrc: string | null
 }
 
 type EventPreviewData = {
@@ -348,10 +347,10 @@ export function EventPreviewModal({ open, data, onClose }: EventPreviewModalProp
                       className="flex h-24 w-full max-w-[280px] items-center gap-3 rounded-xl bg-gray-50 px-4"
                     >
                       <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gray-200">
-                        {speaker.previewUrl || speaker.publicUrl ? (
+                        {speaker.imageSrc ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={speaker.previewUrl || speaker.publicUrl}
+                            src={speaker.imageSrc}
                             alt={speaker.name}
                             className="h-full w-full rounded-full object-cover"
                           />
