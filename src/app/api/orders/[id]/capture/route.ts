@@ -276,25 +276,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     )
 
-    // Send confirmation email
-    await sendOrderConfirmationEmail(paidOrder.buyerEmail, {
-      orderNumber: paidOrder.orderNumber,
-      eventTitle: paidOrder.event.title,
-      eventDate: formatDateTime(paidOrder.event.startDate),
-      eventLocation:
-        paidOrder.event.locationType === 'ONLINE'
-          ? paidOrder.event.onlineUrl || 'Online event'
-          : [paidOrder.event.venue, paidOrder.event.city, paidOrder.event.country]
-              .filter(Boolean)
-              .join(', '),
-      tickets: paidOrder.items.map((item) => ({
-        name: item.ticketType.name,
-        quantity: item.quantity,
-        price: `${item.totalPrice.toString()} ${paidOrder.currency}`,
-      })),
-      totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
-      buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
-    })
+    // Email failures must not fail a successful payment flow.
+    try {
+      await sendOrderConfirmationEmail(paidOrder.buyerEmail, {
+        orderNumber: paidOrder.orderNumber,
+        eventTitle: paidOrder.event.title,
+        eventDate: formatDateTime(paidOrder.event.startDate),
+        eventLocation:
+          paidOrder.event.locationType === 'ONLINE'
+            ? paidOrder.event.onlineUrl || 'Online event'
+            : [paidOrder.event.venue, paidOrder.event.city, paidOrder.event.country]
+                .filter(Boolean)
+                .join(', '),
+        tickets: paidOrder.items.map((item) => ({
+          name: item.ticketType.name,
+          quantity: item.quantity,
+          price: `${item.totalPrice.toString()} ${paidOrder.currency}`,
+        })),
+        totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
+        buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+      })
+    } catch (emailError) {
+      console.error('[Capture] Confirmation email failed after successful payment:', emailError)
+    }
 
     revalidateTag('event-analytics', 'max')
     revalidateTag('dashboard-analytics', 'max')
