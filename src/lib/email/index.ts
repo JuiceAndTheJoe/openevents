@@ -568,6 +568,8 @@ export async function sendInvoiceOrderNotificationEmail(
     totalAmount: string
     currency: string
     tickets: Array<{ name: string; quantity: number; price: string }>
+    vatRate?: number | null
+    vatAmount?: string | null
   }
 ): Promise<void> {
   const ticketRows = details.tickets
@@ -618,6 +620,12 @@ export async function sendInvoiceOrderNotificationEmail(
                 ${ticketRows}
               </tbody>
               <tfoot>
+                ${details.vatRate && details.vatRate > 0 ? `
+                <tr>
+                  <td colspan="2" style="padding: 8px; text-align: right;">VAT (${Math.round(details.vatRate * 100)}%):</td>
+                  <td style="padding: 8px; text-align: right;">${details.vatAmount ?? '0.00'} ${details.currency}</td>
+                </tr>
+                ` : ''}
                 <tr>
                   <td colspan="2" style="padding: 8px; text-align: right;"><strong>Total:</strong></td>
                   <td style="padding: 8px; text-align: right;"><strong>${details.totalAmount} ${details.currency}</strong></td>

@@ -27,6 +27,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { FloatingToast } from "@/components/ui/floating-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CountryCombobox } from "@/components/ui/country-combobox";
 import {
   DEFAULT_CURRENCY,
   isSupportedCurrency,
@@ -38,6 +39,8 @@ import {
   isValidTimeZone,
 } from "@/lib/timezone";
 import { getPriceIncludingVat } from "@/lib/pricing/vat";
+import { getVatRateForCountryNameOrCode } from "@/lib/pricing/vatRates";
+import { COUNTRIES } from "@/lib/pricing/countries";
 
 type EventFormMode = "create" | "edit";
 type ImageTargetField = "coverImage" | "bottomImage";
@@ -634,10 +637,17 @@ function getFieldValidationMessage(
       if (!requireComplete || currentForm.locationType === "ONLINE")
         return undefined;
       return currentForm.city?.trim() ? undefined : "Enter city.";
-    case "country":
-      if (!requireComplete || currentForm.locationType === "ONLINE")
-        return undefined;
-      return currentForm.country?.trim() ? undefined : "Enter country.";
+    case "country": {
+      if (currentForm.locationType === "ONLINE") return undefined;
+      const countryValue = currentForm.country?.trim() ?? "";
+      if (!countryValue) {
+        return requireComplete ? "Enter country." : undefined;
+      }
+      const isKnown = COUNTRIES.some(
+        (c) => c.name.toLowerCase() === countryValue.toLowerCase()
+      );
+      return isKnown ? undefined : "Please write a valid country.";
+    }
     case "onlineUrl": {
       const value = currentForm.onlineUrl?.trim() || "";
       if (!value) {
@@ -4348,14 +4358,12 @@ export function EventForm({
                 >
                   Country
                 </Label>
-                <Input
+                <CountryCombobox
                   id="country"
-                  placeholder="Country"
                   value={form.country || ""}
                   error={fieldErrors.country}
-                  onChange={(e) => updateField("country", e.target.value)}
+                  onChange={(v) => updateField("country", v)}
                   onBlur={() => handleFieldBlur("country")}
-                  className="h-[40px] rounded-[10px] border-[#e5e7eb] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#828283]"
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -4453,9 +4461,10 @@ export function EventForm({
                 ? normalizedCurrency
                 : null;
             const ticketPrice = parseTicketPrice(ticketType.price);
+            const eventVatRate = getVatRateForCountryNameOrCode(form.country || "");
             const priceIncludingVat =
               ticketPrice !== null && ticketPrice >= 0
-                ? getPriceIncludingVat(ticketPrice)
+                ? getPriceIncludingVat(ticketPrice, eventVatRate)
                 : null;
 
             return (
@@ -4615,7 +4624,7 @@ export function EventForm({
                     ) : null}
                     {priceIncludingVat !== null ? (
                       <p className="text-xs text-[#4a5565]">
-                        Price including VAT (25%):{" "}
+                        Price including VAT ({Math.round(eventVatRate * 100)}%):{" "}
                         {formatPriceWithoutGrouping(priceIncludingVat)}
                       </p>
                     ) : null}

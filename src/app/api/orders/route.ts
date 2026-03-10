@@ -20,6 +20,8 @@ import {
 } from '@/lib/tickets'
 import { createOrderSchema } from '@/lib/validations'
 import { formatDateTime, generateOrderNumber, isTicketAvailable } from '@/lib/utils'
+import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
+import { getIncludedVatFromVatInclusiveTotal } from '@/lib/pricing/vat'
 
 type DiscountCodeWithLinks = Prisma.DiscountCodeGetPayload<{
   include: { ticketTypes: true }
@@ -179,9 +181,8 @@ export async function POST(request: NextRequest) {
           throw new Error('One or more ticket types were not found for this event')
         }
 
-        const preparedOrder = prepareOrderItems(ticketTypes, input.items, {
-          includeVat: true,
-        })
+        const vatRate = getVatRateForCountryNameOrCode(event.country ?? '')
+        const preparedOrder = prepareOrderItems(ticketTypes, input.items, { vatRate })
 
         for (const item of preparedOrder.items) {
           const ticketType = ticketTypes.find((ticket) => ticket.id === item.ticketTypeId)
@@ -361,6 +362,7 @@ export async function POST(request: NextRequest) {
         }
 
         const totalAmount = Number(Math.max(0, subtotal - discountAmount).toFixed(2))
+        const vatAmount = getIncludedVatFromVatInclusiveTotal(totalAmount, vatRate)
 
         let status: 'PENDING' | 'PENDING_INVOICE' | 'PAID' = 'PENDING'
         let paymentMethod: 'PAYPAL' | 'INVOICE' | 'FREE' = 'PAYPAL'
@@ -395,6 +397,8 @@ export async function POST(request: NextRequest) {
             subtotal,
             discountAmount,
             totalAmount,
+            vatRate,
+            vatAmount,
             currency: ticketTypes[0]?.currency ?? 'SEK',
             status,
             paymentMethod,
@@ -570,6 +574,8 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             price: `${item.totalPrice.toString()} ${order.currency}`,
           })),
+          vatRate: order.vatRate ? parseFloat(order.vatRate.toString()) : null,
+          vatAmount: order.vatAmount ? order.vatAmount.toString() : null,
         })
       }
     }

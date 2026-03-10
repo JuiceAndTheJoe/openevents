@@ -53,7 +53,7 @@ export function prepareOrderItems(
   }>,
   requestedItems: RequestedOrderItem[],
   options?: {
-    includeVat?: boolean
+    vatRate?: number
   }
 ): { items: PreparedOrderItem[]; subtotal: number } {
   const ticketTypeMap = new Map(ticketTypes.map((ticketType) => [ticketType.id, ticketType]))
@@ -80,7 +80,8 @@ export function prepareOrderItems(
     }
 
     const baseUnitPrice = decimalToNumber(ticketType.price)
-    const unitPrice = options?.includeVat ? getPriceIncludingVat(baseUnitPrice) : baseUnitPrice
+    const vatRate = options?.vatRate ?? 0
+    const unitPrice = vatRate > 0 ? getPriceIncludingVat(baseUnitPrice, vatRate) : baseUnitPrice
     const unitPriceCents = toMoneyCents(unitPrice)
     const totalPriceCents = unitPriceCents * requestedItem.quantity
     subtotalCents += totalPriceCents

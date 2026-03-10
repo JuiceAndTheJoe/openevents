@@ -98,6 +98,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
           id: event.id,
           slug: event.slug,
           title: event.title,
+          country: event.country,
         }}
         groupDiscounts={event.groupDiscounts.map((gd) => ({
           id: gd.id,

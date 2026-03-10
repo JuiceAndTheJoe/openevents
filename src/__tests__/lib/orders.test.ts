@@ -96,7 +96,7 @@ describe('Order Preparation Functions', () => {
       const result = prepareOrderItems(
         mockTicketTypes,
         [{ ticketTypeId: 'tt-1', quantity: 2 }],
-        { includeVat: true }
+        { vatRate: 0.25 }
       )
 
       expect(result.items[0].unitPrice).toBe(62.5) // 50 * 1.25

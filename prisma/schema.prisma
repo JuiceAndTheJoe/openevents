@@ -484,6 +484,8 @@ model Order {
   subtotal        Decimal      @db.Decimal(10, 2)
   discountAmount  Decimal      @db.Decimal(10, 2) @default(0)
   totalAmount     Decimal      @db.Decimal(10, 2)
+  vatRate         Decimal      @db.Decimal(5, 4)  @default(0.25)
+  vatAmount       Decimal      @db.Decimal(10, 2) @default(0)
   currency        String       @default("SEK")
 
   // Status

@@ -60,7 +60,18 @@ export async function getUploadPresignedUrl(
     ContentType: contentType,
   })
 
-  return getSignedUrl(getS3Client(), command, { expiresIn })
+  const signedUrl = await getSignedUrl(getS3Client(), command, { expiresIn })
+
+  // The signed URL is built using S3_ENDPOINT, which may be an internal address
+  // unreachable from browsers. Rewrite it to S3_PUBLIC_URL so the browser can
+  // PUT directly to the storage endpoint.
+  const internalEndpoint = process.env.S3_ENDPOINT
+  const publicEndpoint = process.env.S3_PUBLIC_URL
+  if (publicEndpoint && internalEndpoint && publicEndpoint !== internalEndpoint) {
+    return signedUrl.replace(internalEndpoint, publicEndpoint)
+  }
+
+  return signedUrl
 }
 
 /**

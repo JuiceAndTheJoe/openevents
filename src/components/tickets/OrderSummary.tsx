@@ -18,6 +18,7 @@ interface OrderSummaryProps {
   discountAmount: number
   totalAmount: number
   includedVat: number
+  vatRate: number
   currency: string
   discountCode?: string | null
   groupDiscountMessage?: string | null
@@ -29,6 +30,7 @@ export function OrderSummary({
   discountAmount,
   totalAmount,
   includedVat,
+  vatRate,
   currency,
   discountCode,
   groupDiscountMessage,
@@ -88,7 +90,7 @@ export function OrderSummary({
             <span>{formatCurrency(totalAmount, currency)}</span>
           </div>
           <div className="flex items-center justify-between text-gray-600">
-            <span>Included VAT</span>
+            <span>VAT ({Math.round(vatRate * 100)}%)</span>
             <span>{formatCurrency(includedVat, currency)}</span>
           </div>
         </div>

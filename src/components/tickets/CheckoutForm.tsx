@@ -12,6 +12,9 @@ import { OrderSummary, type SummaryLineItem } from '@/components/tickets/OrderSu
 import { TicketSelector, type SelectableTicketType } from '@/components/tickets/TicketSelector'
 import { getClientOrderReservationTtlMinutes } from '@/lib/orders/reservation'
 import { getIncludedVatFromVatInclusiveTotal, getPriceIncludingVat } from '@/lib/pricing/vat'
+import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
+import { COUNTRIES } from '@/lib/pricing/countries'
+import { CountryCombobox } from '@/components/ui/country-combobox'
 
 interface GroupDiscount {
   id: string
@@ -26,6 +29,7 @@ interface CheckoutFormProps {
     id: string
     slug: string
     title: string
+    country: string | null
   }
   groupDiscounts?: GroupDiscount[]
 }
@@ -231,6 +235,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
   const [discount, setDiscount] = useState<AppliedDiscount | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [countryError, setCountryError] = useState<string | null>(null)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [reservationTtlMinutes, setReservationTtlMinutes] = useState(initialReservationTtlMinutes)
   const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(() =>
@@ -285,7 +290,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
         const parsedTicketTypes: SelectableTicketType[] = data.ticketTypes.map(
           (ticket: SelectableTicketType & { price: number | string }) => ({
             ...ticket,
-            price: getPriceIncludingVat(Number(ticket.price)),
+            price: Number(ticket.price),
           })
         )
 
@@ -348,8 +353,18 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     clearCheckoutState()
   }, [wasCancelled, ticketLoading, ticketTypes.length, event.id])
 
+  const vatRate = useMemo(
+    () => getVatRateForCountryNameOrCode(event.country ?? ''),
+    [event.country]
+  )
+
+  const displayTicketTypes = useMemo(
+    () => ticketTypes.map((tt) => ({ ...tt, price: getPriceIncludingVat(tt.price, vatRate) })),
+    [ticketTypes, vatRate]
+  )
+
   const selectedItems = useMemo<SummaryLineItem[]>(() => {
-    return ticketTypes
+    return displayTicketTypes
       .map((ticketType) => {
         const quantity = quantities[ticketType.id] ?? 0
         if (quantity === 0) return null
@@ -364,7 +379,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
         }
       })
       .filter((item): item is SummaryLineItem => item !== null)
-  }, [quantities, ticketTypes])
+  }, [quantities, displayTicketTypes])
 
   const subtotal = useMemo(
     () => Number(selectedItems.reduce((sum, item) => sum + item.totalPrice, 0).toFixed(2)),
@@ -398,8 +413,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     [subtotal, discountAmount]
   )
   const includedVat = useMemo(
-    () => getIncludedVatFromVatInclusiveTotal(subtotal),
-    [subtotal]
+    () => getIncludedVatFromVatInclusiveTotal(subtotal, vatRate),
+    [subtotal, vatRate]
   )
 
   const selectedTicketTypeIds = useMemo(
@@ -557,6 +572,12 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     }))
   }
 
+  function validateCountry(value: string): string | null {
+    if (!value.trim()) return null
+    const isValid = COUNTRIES.some((c) => c.name.toLowerCase() === value.trim().toLowerCase())
+    return isValid ? null : 'Please write a valid country.'
+  }
+
   function updateAttendeeField(
     ticketTypeId: string,
     index: number,
@@ -613,6 +634,12 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
       return
     }
 
+    const countryValidationError = validateCountry(buyer.country)
+    if (countryValidationError) {
+      setCountryError(countryValidationError)
+      return
+    }
+
     // Validate all attendee slots are filled
     for (const item of selectedItems) {
       const slots = attendeesByType[item.ticketTypeId] ?? []
@@ -630,7 +657,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
           : slots[i]
 
         if (!a || !a.firstName || !a.lastName || !a.email) {
-          const ticketName = ticketTypes.find((t) => t.id === item.ticketTypeId)?.name ?? 'ticket'
+          const ticketName = displayTicketTypes.find((t) => t.id === item.ticketTypeId)?.name ?? 'ticket'
           setSubmitError(`Please fill in all attendee details for "${ticketName}" (ticket ${i + 1})`)
           return
         }
@@ -797,11 +824,13 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
             {ticketLoading && <p className="text-sm text-gray-500">Loading tickets...</p>}
             {ticketError && <p className="text-sm text-red-600">{ticketError}</p>}
             {!ticketLoading && !ticketError && (
-              <p className="text-sm text-gray-500">All prices include VAT (25%).</p>
+              <p className="text-sm text-gray-500">
+                All prices include VAT ({Math.round(vatRate * 100)}%).
+              </p>
             )}
             {!ticketLoading && !ticketError && (
               <TicketSelector
-                ticketTypes={ticketTypes}
+                ticketTypes={displayTicketTypes}
                 quantities={quantities}
                 onQuantityChange={handleQuantityChange}
               />
@@ -890,10 +919,16 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="buyer-country">Country</Label>
-              <Input
+              <CountryCombobox
                 id="buyer-country"
                 value={buyer.country}
-                onChange={(eventValue) => updateBuyerField('country', eventValue.target.value)}
+                placeholder="Search country…"
+                error={countryError ?? undefined}
+                onChange={(v) => {
+                  updateBuyerField('country', v)
+                  if (countryError) setCountryError(validateCountry(v))
+                }}
+                onBlur={() => setCountryError(validateCountry(buyer.country))}
               />
             </div>
           </CardContent>
@@ -910,7 +945,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
             </CardHeader>
             <CardContent className="space-y-6">
               {selectedItems.map((item) => {
-                const ticketType = ticketTypes.find((t) => t.id === item.ticketTypeId)
+                const ticketType = displayTicketTypes.find((t) => t.id === item.ticketTypeId)
                 const slots = attendeesByType[item.ticketTypeId] ?? []
 
                 return (
@@ -1068,6 +1103,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
           discountAmount={discountAmount}
           totalAmount={totalAmount}
           includedVat={includedVat}
+          vatRate={vatRate}
           currency={selectedItems[0]?.currency ?? 'SEK'}
           discountCode={discount?.code}
           groupDiscountMessage={appliedDiscountType === 'group' ? groupDiscount.description : null}

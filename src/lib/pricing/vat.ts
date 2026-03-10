@@ -9,14 +9,16 @@ function fromCents(amountInCents: number): number {
   return Number((amountInCents / 100).toFixed(2))
 }
 
-export function getPriceIncludingVat(priceExcludingVat: number): number {
+export function getPriceIncludingVat(priceExcludingVat: number, vatRate: number = VAT_RATE): number {
+  const multiplier = 1 + vatRate
   const priceExcludingVatCents = toCents(priceExcludingVat)
-  const priceIncludingVatCents = Math.round(priceExcludingVatCents * VAT_MULTIPLIER)
+  const priceIncludingVatCents = Math.round(priceExcludingVatCents * multiplier)
   return fromCents(priceIncludingVatCents)
 }
 
-export function getIncludedVatFromVatInclusiveTotal(totalIncludingVat: number): number {
+export function getIncludedVatFromVatInclusiveTotal(totalIncludingVat: number, vatRate: number = VAT_RATE): number {
+  const multiplier = 1 + vatRate
   const totalIncludingVatCents = toCents(totalIncludingVat)
-  const totalExcludingVatCents = Math.round(totalIncludingVatCents / VAT_MULTIPLIER)
+  const totalExcludingVatCents = Math.round(totalIncludingVatCents / multiplier)
   return fromCents(totalIncludingVatCents - totalExcludingVatCents)
 }

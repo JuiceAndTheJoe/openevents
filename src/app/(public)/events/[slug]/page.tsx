@@ -7,6 +7,7 @@ import { EventNoticeToast } from '@/components/events/EventNoticeToast'
 import { CHECKOUT_UNAVAILABLE_NOTICE } from '@/lib/orders/checkoutAvailability'
 import { isValidTimeZone } from '@/lib/timezone'
 import { getPriceIncludingVat } from '@/lib/pricing/vat'
+import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
 import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -77,10 +78,10 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
   const mapQuery = encodeURIComponent(locationText || event.title)
   const mapEmbedUrl = `https://www.google.com/maps?q=${mapQuery}&output=embed`
 
-  // Price display uses VAT-inclusive values (25% VAT).
+  const eventVatRate = getVatRateForCountryNameOrCode(event.country ?? '')
   const ticketTypesWithVat = event.ticketTypes.map((ticketType) => ({
     ...ticketType,
-    price: getPriceIncludingVat(Number(ticketType.price)),
+    price: getPriceIncludingVat(Number(ticketType.price), eventVatRate),
   }))
   const priceDisplay = formatEventPrice(ticketTypesWithVat)
   const hasPaidTickets = event.ticketTypes.some((ticketType) => Number(ticketType.price) > 0)
@@ -278,7 +279,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 className="mt-1 text-[13px] leading-5 text-[#4a5565]"
                 style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
               >
-                VAT included (25%).
+                VAT included ({Math.round(eventVatRate * 100)}%).
               </p>
             ) : null}
 

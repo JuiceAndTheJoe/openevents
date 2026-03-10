@@ -45,6 +45,8 @@ interface TicketDisplayProps {
         name: string
       }
     }>
+    vatRate?: { toString(): string } | string | number | null
+    vatAmount?: { toString(): string } | string | number | null
     groupDiscount?: {
       minQuantity: number
       discountType: string
@@ -231,6 +233,12 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
                   <dt>Amount:</dt>
                   <dd className="font-medium">{order.totalAmount.toString()} {order.currency}</dd>
                 </div>
+                {order.vatRate && parseFloat(order.vatRate.toString()) > 0 && (
+                  <div className="flex justify-between">
+                    <dt>VAT ({Math.round(parseFloat(order.vatRate.toString()) * 100)}%):</dt>
+                    <dd className="font-medium">{parseFloat((order.vatAmount ?? 0).toString()).toFixed(2)} {order.currency}</dd>
+                  </div>
+                )}
               </dl>
             </div>
             <p className="text-xs text-yellow-700">
