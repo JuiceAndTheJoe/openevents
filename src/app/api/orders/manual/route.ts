@@ -14,6 +14,7 @@ import {
   normalizeDiscountCode,
 } from '@/lib/tickets'
 import { generateOrderNumber } from '@/lib/utils'
+import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
 import { z } from 'zod'
 
 type DiscountCodeWithLinks = Prisma.DiscountCodeGetPayload<{
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
         id: true,
         title: true,
         status: true,
+        country: true,
         organizer: {
           select: {
             id: true,
@@ -188,9 +190,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const preparedOrder = prepareOrderItems(ticketTypes, input.items, {
-          includeVat: true,
-        })
+        const vatRate = getVatRateForCountryNameOrCode(event.country ?? '')
+        const preparedOrder = prepareOrderItems(ticketTypes, input.items, { vatRate })
 
         const subtotal = preparedOrder.subtotal
 
