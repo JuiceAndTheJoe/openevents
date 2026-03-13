@@ -30,10 +30,21 @@ const eventSchemaBase = z.object({
   autoCreateFreeTicket: z.boolean().optional().default(false),
 })
 
-export const createEventSchema = eventSchemaBase.refine((data) => new Date(data.endDate) > new Date(data.startDate), {
-  message: 'End date must be after start date',
-  path: ['endDate'],
-})
+export const createEventSchema = eventSchemaBase
+  .refine((data) => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const startDate = new Date(data.startDate)
+    startDate.setHours(0, 0, 0, 0)
+    return startDate >= today
+  }, {
+    message: 'Start date cannot be in the past',
+    path: ['startDate'],
+  })
+  .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+    message: 'End date must be after start date',
+    path: ['endDate'],
+  })
 
 export const updateEventSchema = eventSchemaBase.partial().refine((data) => {
   if (!data.startDate || !data.endDate) return true
