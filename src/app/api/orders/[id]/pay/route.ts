@@ -335,6 +335,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })),
         totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
         buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+        vatRate: parseFloat(paidOrder.vatRate.toString()),
+        vatAmount: paidOrder.vatAmount.toString(),
+        ticketCodes: paidOrder.tickets.map((t) => t.ticketCode),
       })
     } catch (emailError) {
       console.error('[Pay] Confirmation email failed after successful payment:', emailError)

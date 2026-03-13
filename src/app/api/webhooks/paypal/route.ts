@@ -297,6 +297,9 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
     })),
     totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
     buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+    vatRate: parseFloat(paidOrder.vatRate.toString()),
+    vatAmount: paidOrder.vatAmount.toString(),
+    ticketCodes: (paidOrder as typeof paidOrder & { tickets: Array<{ ticketCode: string }> }).tickets.map((t) => t.ticketCode),
   })
 
   console.log('[Webhook] Order completed via webhook:', paidOrder.orderNumber)

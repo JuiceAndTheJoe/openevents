@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer'
+import PDFDocument from 'pdfkit'
+import QRCode from 'qrcode'
 
 // =============================================================================
 // Email Configuration
@@ -76,11 +78,18 @@ function createTransporter() {
 
 const transporter = createTransporter()
 
+interface Attachment {
+  filename: string
+  content: Buffer
+  contentType: string
+}
+
 interface EmailOptions {
   to: string
   subject: string
   html: string
   text?: string
+  attachments?: Attachment[]
 }
 
 export async function sendEmail(options: EmailOptions): Promise<void> {
@@ -91,6 +100,7 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
       subject: options.subject,
       html: options.html,
       text: options.text,
+      attachments: options.attachments,
     })
 
     if (EMAIL_MODE !== 'development') {
@@ -210,6 +220,125 @@ export async function sendPasswordResetEmail(
   })
 }
 
+async function generateOrderPdf(orderDetails: {
+  orderNumber: string
+  eventTitle: string
+  eventDate: string
+  eventLocation: string
+  tickets: Array<{ name: string; quantity: number; price: string }>
+  totalAmount: string
+  buyerName: string
+  vatRate?: number | null
+  vatAmount?: string | null
+  ticketCodes?: string[]
+}): Promise<Buffer> {
+  // Pre-generate QR buffers before starting the PDF (async)
+  const qrBuffers: Buffer[] = []
+  if (orderDetails.ticketCodes && orderDetails.ticketCodes.length > 0) {
+    for (const code of orderDetails.ticketCodes) {
+      const buf = await QRCode.toBuffer(code, { type: 'png', width: 150, margin: 1 })
+      qrBuffers.push(buf)
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' })
+    const chunks: Buffer[] = []
+
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    // Header
+    doc.fontSize(22).font('Helvetica-Bold').text('Order Confirmation', { align: 'center' })
+    doc.moveDown(0.5)
+    doc.fontSize(12).font('Helvetica').text(`Order #${orderDetails.orderNumber}`, { align: 'center' })
+    doc.moveDown(1.5)
+
+    // Event details
+    doc.fontSize(14).font('Helvetica-Bold').text('Event Details')
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.4)
+    doc.fontSize(11).font('Helvetica')
+    doc.text(`Event:     ${orderDetails.eventTitle}`)
+    doc.text(`Date:      ${orderDetails.eventDate}`)
+    doc.text(`Location:  ${orderDetails.eventLocation}`)
+    doc.moveDown(1.2)
+
+    // Buyer details
+    doc.fontSize(14).font('Helvetica-Bold').text('Buyer')
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.4)
+    doc.fontSize(11).font('Helvetica').text(orderDetails.buyerName)
+    doc.moveDown(1.2)
+
+    // Tickets table header
+    doc.fontSize(14).font('Helvetica-Bold').text('Tickets')
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.4)
+
+    const colTicket = 50
+    const colQty = 360
+    const colPrice = 440
+
+    doc.fontSize(11).font('Helvetica-Bold')
+    doc.text('Ticket', colTicket, doc.y, { continued: false })
+    const headerY = doc.y - doc.currentLineHeight()
+    doc.text('Qty', colQty, headerY, { continued: false })
+    doc.text('Price', colPrice, headerY, { continued: false })
+    doc.moveDown(0.3)
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.3)
+
+    doc.font('Helvetica').fontSize(11)
+    for (const ticket of orderDetails.tickets) {
+      const rowY = doc.y
+      doc.text(ticket.name, colTicket, rowY, { width: 290 })
+      const lineHeight = doc.y - rowY
+      doc.text(String(ticket.quantity), colQty, rowY)
+      doc.text(ticket.price, colPrice, rowY)
+      doc.y = rowY + lineHeight
+      doc.moveDown(0.2)
+    }
+
+    doc.moveDown(0.5)
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.4)
+
+    // VAT row
+    if (orderDetails.vatRate && orderDetails.vatRate > 0) {
+      const vatPercent = Math.round(orderDetails.vatRate * 100)
+      doc.fontSize(11).font('Helvetica')
+      doc.text(`VAT (${vatPercent}%): ${orderDetails.vatAmount ?? '0.00'}`, { align: 'right' })
+      doc.moveDown(0.3)
+    }
+
+    // Total
+    doc.fontSize(12).font('Helvetica-Bold')
+    doc.text(`Total: ${orderDetails.totalAmount}`, { align: 'right' })
+
+    // QR codes section
+    if (qrBuffers.length > 0 && orderDetails.ticketCodes) {
+      doc.moveDown(1.5)
+      doc.fontSize(14).font('Helvetica-Bold').text('Your Tickets')
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+      doc.moveDown(0.6)
+
+      for (let i = 0; i < qrBuffers.length; i++) {
+        const code = orderDetails.ticketCodes[i]
+        const ticketY = doc.y
+        doc.image(qrBuffers[i], 50, ticketY, { width: 80, height: 80 })
+        doc.fontSize(11).font('Helvetica-Bold').text(`Ticket ${i + 1}`, 150, ticketY)
+        doc.fontSize(9).font('Helvetica').text(code, 150, ticketY + 16, { width: 370 })
+        doc.y = ticketY + 90
+        doc.moveDown(0.3)
+      }
+    }
+
+    doc.end()
+  })
+}
+
 export async function sendOrderConfirmationEmail(
   email: string,
   orderDetails: {
@@ -220,6 +349,9 @@ export async function sendOrderConfirmationEmail(
     tickets: Array<{ name: string; quantity: number; price: string }>
     totalAmount: string
     buyerName: string
+    vatRate?: number | null
+    vatAmount?: string | null
+    ticketCodes?: string[]
   }
 ): Promise<void> {
   const ticketRows = orderDetails.tickets
@@ -233,6 +365,8 @@ export async function sendOrderConfirmationEmail(
       `
     )
     .join('')
+
+  const pdfBuffer = await generateOrderPdf(orderDetails)
 
   await sendEmail({
     to: email,
@@ -276,11 +410,7 @@ export async function sendOrderConfirmationEmail(
               </tfoot>
             </table>
 
-            <p style="text-align: center; margin: 30px 0;">
-              <a href="${APP_URL}/dashboard/orders" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                View Your Tickets
-              </a>
-            </p>
+            <p>Your order confirmation is attached as a PDF.</p>
 
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #666; font-size: 12px;">
@@ -290,7 +420,14 @@ export async function sendOrderConfirmationEmail(
         </body>
       </html>
     `,
-    text: `Order Confirmed! Order #${orderDetails.orderNumber} for ${orderDetails.eventTitle}. Total: ${orderDetails.totalAmount}`,
+    text: `Order Confirmed! Order #${orderDetails.orderNumber} for ${orderDetails.eventTitle}. Total: ${orderDetails.totalAmount}. Your order confirmation is attached as a PDF.`,
+    attachments: [
+      {
+        filename: `order-${orderDetails.orderNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
   })
 }
 

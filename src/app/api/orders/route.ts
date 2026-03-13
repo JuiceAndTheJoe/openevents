@@ -554,6 +554,9 @@ export async function POST(request: NextRequest) {
         })),
         totalAmount: `${order.totalAmount.toString()} ${order.currency}`,
         buyerName: `${order.buyerFirstName} ${order.buyerLastName}`,
+        vatRate: parseFloat(order.vatRate.toString()),
+        vatAmount: order.vatAmount.toString(),
+        ticketCodes: order.tickets.map((t) => t.ticketCode),
       })
     }
 

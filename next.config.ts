@@ -49,6 +49,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['pdfkit', 'qrcode'],
   turbopack: {
     root: configDir,
   },

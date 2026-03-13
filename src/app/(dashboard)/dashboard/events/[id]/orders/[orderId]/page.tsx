@@ -112,6 +112,14 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
         event: orderEventWhere,
       },
       include: {
+        items: {
+          include: {
+            ticketType: {
+              select: { name: true },
+            },
+          },
+        },
+        tickets: true,
         event: {
           select: {
             title: true,
@@ -138,9 +146,16 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
         [targetOrder.event.venue, targetOrder.event.city, targetOrder.event.country].filter(Boolean).join(', ') ||
         targetOrder.event.onlineUrl ||
         'TBD',
-      tickets: [],
+      tickets: targetOrder.items.map((item) => ({
+        name: item.ticketType.name,
+        quantity: item.quantity,
+        price: `${item.totalPrice.toString()} ${targetOrder.currency}`,
+      })),
       totalAmount: `${targetOrder.currency} ${targetOrder.totalAmount.toString()}`,
       buyerName: `${targetOrder.buyerFirstName} ${targetOrder.buyerLastName}`.trim(),
+      vatRate: parseFloat(targetOrder.vatRate.toString()),
+      vatAmount: targetOrder.vatAmount.toString(),
+      ticketCodes: (targetOrder as typeof targetOrder & { tickets: Array<{ ticketCode: string }> }).tickets.map((t) => t.ticketCode),
     })
 
     revalidatePath(`/dashboard/events/${id}/orders/${submittedOrderId}`)
@@ -323,6 +338,9 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       })),
       totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
       buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+      vatRate: parseFloat(paidOrder.vatRate.toString()),
+      vatAmount: paidOrder.vatAmount.toString(),
+      ticketCodes: (paidOrder as typeof paidOrder & { tickets: Array<{ ticketCode: string }> }).tickets.map((t) => t.ticketCode),
     })
 
     revalidateTag('event-analytics', 'max')

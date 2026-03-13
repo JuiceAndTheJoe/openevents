@@ -295,6 +295,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
         })),
         totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
         buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+        vatRate: parseFloat(paidOrder.vatRate.toString()),
+        vatAmount: paidOrder.vatAmount.toString(),
+        ticketCodes: (paidOrder as typeof paidOrder & { tickets: Array<{ ticketCode: string }> }).tickets.map((t) => t.ticketCode),
       })
     } catch (emailError) {
       console.error('[Capture] Confirmation email failed after successful payment:', emailError)
