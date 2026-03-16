@@ -1324,6 +1324,22 @@ export function EventForm({
     );
   };
 
+  const isCalendarDayPast = (year: number, month: number, day: number) => {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const cellDate = new Date(year, month, day);
+    return cellDate < todayMidnight;
+  };
+
+  const isHourPast = (hour: string) => {
+    const datePart = getDatePart(form.startDate);
+    if (!datePart) return false;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    if (datePart !== today) return false;
+    return parseInt(hour, 10) < now.getHours();
+  };
+
   const formatCalendarHeader = (year: number, month: number) =>
     `${new Intl.DateTimeFormat("en", { month: "long" }).format(new Date(year, month))} ${year}`;
 
@@ -3907,6 +3923,7 @@ export function EventForm({
                         {day ? (
                           <button
                             type="button"
+                            disabled={isCalendarDayPast(calendarNav.year, calendarNav.month, day)}
                             onClick={() => {
                               updateDatePart(
                                 "startDate",
@@ -3915,7 +3932,9 @@ export function EventForm({
                               setOpenDateTimePanel(null);
                             }}
                             className={`flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-medium transition-colors ${
-                              isDatePickerDaySelected(
+                              isCalendarDayPast(calendarNav.year, calendarNav.month, day)
+                                ? "cursor-not-allowed text-gray-300"
+                                : isDatePickerDaySelected(
                                 "startDate",
                                 calendarNav.year,
                                 calendarNav.month,
@@ -4081,11 +4100,14 @@ export function EventForm({
                       <button
                         key={h}
                         type="button"
+                        disabled={isHourPast(h)}
                         onClick={() => updateHourPart("startDate", h)}
-                        className={`w-full px-3 py-2 text-center text-[14px] transition-colors hover:bg-gray-50 ${
-                          getTimePart(form.startDate).split(":")[0] === h
-                            ? "font-semibold text-blue-600"
-                            : "text-gray-700"
+                        className={`w-full px-3 py-2 text-center text-[14px] transition-colors ${
+                          isHourPast(h)
+                            ? "cursor-not-allowed text-gray-300"
+                            : getTimePart(form.startDate).split(":")[0] === h
+                              ? "font-semibold text-blue-600"
+                              : "text-gray-700 hover:bg-gray-50"
                         }`}
                       >
                         {h}
