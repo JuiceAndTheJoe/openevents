@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "prisma generate && prisma migrate deploy && next build",
-    "start": "next start -p ${PORT:-8080}",
+    "build": "prisma generate && next build",
+    "start": "prisma migrate deploy && next start -p ${PORT:-8080}",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
