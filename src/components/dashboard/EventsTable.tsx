@@ -19,9 +19,9 @@ type EventsTableProps = {
     endDate: Date
     status: EventStatus
     visibility: 'PUBLIC' | 'PRIVATE'
+    ticketsSold: number
     _count: {
       orders: number
-      ticketTypes: number
     }
   }>
 }
@@ -158,7 +158,7 @@ export function EventsTable({ events }: EventsTableProps) {
               <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Orders</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Tickets</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-600">Tickets Sold</th>
               <th className="px-4 py-3 text-right font-medium text-gray-600">Actions</th>
             </tr>
           </thead>
@@ -172,7 +172,7 @@ export function EventsTable({ events }: EventsTableProps) {
                 <td className="px-4 py-3 text-gray-700">{formatDateTime(event.startDate)}</td>
                 <td className="px-4 py-3"><EventStatusBadge status={event.status === 'PUBLISHED' && new Date(event.endDate) < new Date() ? 'PASSED' : event.status} /></td>
                 <td className="px-4 py-3 text-gray-700">{event._count.orders}</td>
-                <td className="px-4 py-3 text-gray-700">{event._count.ticketTypes}</td>
+                <td className="px-4 py-3 text-gray-700">{event.ticketsSold}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">
                     <Link href={`/dashboard/events/${event.id}/edit`}>

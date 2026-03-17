@@ -28,6 +28,7 @@ import { FloatingToast } from "@/components/ui/floating-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CountryCombobox } from "@/components/ui/country-combobox";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   DEFAULT_CURRENCY,
   isSupportedCurrency,
@@ -252,7 +253,7 @@ function buildEventPayload(
     startDate: startUtc,
     endDate: endUtc,
     description: form.description || "",
-    descriptionHtml: undefined,
+    descriptionHtml: form.descriptionHtml || null,
     onlineUrl: form.onlineUrl?.trim() ? form.onlineUrl.trim() : null,
     website: form.website?.trim() ? form.website.trim() : null,
     coverImage: form.coverImage || null,
@@ -876,8 +877,10 @@ export function EventForm({
       timezone: normalizedInitialTimezone,
       description:
         mergedInitialData.description ||
-        mergedInitialData.descriptionHtml ||
         "",
+      descriptionHtml:
+        mergedInitialData.descriptionHtml ||
+        (mergedInitialData.description ? `<p>${mergedInitialData.description.replace(/\n/g, '</p><p>')}</p>` : ""),
       startDate: formatUtcInTimeZoneForInput(
         mergedInitialData.startDate,
         normalizedInitialTimezone,
@@ -3785,21 +3788,18 @@ export function EventForm({
           >
             Description
           </Label>
-          <textarea
-            id="description"
-            aria-invalid={fieldErrors.description ? true : undefined}
-            aria-describedby={
-              fieldErrors.description ? "description-error" : undefined
-            }
-            className={`min-h-[169.6px] w-full resize-y rounded-[10px] border-[0.8px] bg-[#f9fafb] px-4 py-3 text-base placeholder:text-[#99a1af] focus:outline-none focus:ring-2 focus:border-transparent ${
-              fieldErrors.description
-                ? "border-red-500 focus:ring-red-500"
-                : "border-[#d1d5dc] focus:ring-[#5c8bd9]"
-            }`}
+          <RichTextEditor
+            value={form.descriptionHtml || ""}
+            onChange={(html, plainText) => {
+              setForm((prev) => ({
+                ...prev,
+                description: plainText,
+                descriptionHtml: html,
+              }));
+              validateFieldIfActive("description", { ...form, description: plainText });
+            }}
             placeholder="Describe your event..."
-            value={form.description || ""}
-            onChange={(e) => updateField("description", e.target.value)}
-            onBlur={() => handleFieldBlur("description")}
+            error={!!fieldErrors.description}
           />
           {fieldErrors.description ? (
             <p id="description-error" className="mt-1 text-sm text-red-600">

@@ -1223,22 +1223,24 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
 
         {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
-        <Button
-          type="submit"
-          className="w-full"
-          isLoading={isSubmitting || isRedirecting}
-          disabled={isSubmitting || isRedirecting || reservationExpiredInSession || reservationSecondsRemaining === 0}
-        >
-          {isRedirecting
-            ? 'Redirecting to Stripe...'
-            : reservationExpiredInSession || reservationSecondsRemaining === 0
-              ? 'Refresh Page to Continue'
-            : totalAmount === 0
-              ? 'Complete Free Order'
-              : paymentMethod === 'PAYPAL'
-                ? 'Pay with Stripe'
-                : 'Place Order'}
-        </Button>
+        {(selectedItems.length > 0 || totalAmount > 0) && (
+          <Button
+            type="submit"
+            className="w-full"
+            isLoading={isSubmitting || isRedirecting}
+            disabled={isSubmitting || isRedirecting || reservationExpiredInSession || reservationSecondsRemaining === 0}
+          >
+            {isRedirecting
+              ? 'Redirecting to Stripe...'
+              : reservationExpiredInSession || reservationSecondsRemaining === 0
+                ? 'Refresh Page to Continue'
+              : totalAmount === 0
+                ? 'Complete Free Order'
+                : paymentMethod === 'PAYPAL'
+                  ? 'Pay with Stripe'
+                  : 'Place Order'}
+          </Button>
+        )}
       </div>
     </form>
   )

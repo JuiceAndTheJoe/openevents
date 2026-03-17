@@ -54,6 +54,27 @@ export function HeroSearchBar({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Track if user has interacted with search (to avoid triggering on initial mount)
+  const hasInteracted = useRef(false)
+
+  // Debounced live search - triggers navigation 400ms after user stops typing
+  useEffect(() => {
+    // Don't trigger on initial mount
+    if (!hasInteracted.current) return
+
+    const timeoutId = setTimeout(() => {
+      const params = new URLSearchParams()
+      if (search.trim()) params.set('search', search.trim())
+      if (dateFrom) params.set('startDate', dateFrom.toISOString().split('T')[0])
+      if (dateTo) params.set('endDate', dateTo.toISOString().split('T')[0])
+      if (location.trim()) params.set('location', location.trim())
+      if (selectedCategory) params.set('category', selectedCategory.slug)
+      router.push(`/events${params.toString() ? '?' + params.toString() : ''}`)
+    }, 400)
+
+    return () => clearTimeout(timeoutId)
+  }, [search, dateFrom, dateTo, location, selectedCategory, router])
+
   const togglePanel = (panel: 'date' | 'location' | 'category') => {
     setOpenPanel(prev => (prev === panel ? null : panel))
   }
@@ -153,7 +174,7 @@ export function HeroSearchBar({
             <input
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { hasInteracted.current = true; setSearch(e.target.value) }}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="Search for events"
               className="h-10 w-full min-w-0 bg-transparent px-3 text-[16px] text-black placeholder-[#828283] outline-none sm:h-auto sm:px-4 font-['Outfit',sans-serif]"

@@ -38,7 +38,8 @@ export function OrganizerSidebarNav() {
   const navItems: NavItem[] = [
     { id: 'scan', href: '/dashboard/scan', label: 'Scan Tickets' },
     { id: 'overview', href: '/dashboard', label: 'Dashboard' },
-    { id: 'events', href: '/dashboard/events', label: 'Manage Events' },
+    // Hide "Manage Events" for Super Admins - they use Admin Overview instead
+    ...(isSuperAdmin ? [] : [{ id: 'events' as const, href: '/dashboard/events', label: 'Manage Events' }]),
   ]
   const adminNavItems: NavItem[] = [
     { id: 'adminOverview', href: '/dashboard/admin', label: 'Admin Overview' },

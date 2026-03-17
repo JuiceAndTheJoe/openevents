@@ -46,10 +46,14 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
       endDate: true,
       status: true,
       visibility: true,
+      ticketTypes: {
+        select: {
+          soldCount: true,
+        },
+      },
       _count: {
         select: {
           orders: true,
-          ticketTypes: true,
         },
       },
     },
@@ -57,6 +61,11 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
       startDate: 'desc',
     },
   })
+
+  const eventsWithTicketsSold = events.map((event) => ({
+    ...event,
+    ticketsSold: event.ticketTypes.reduce((sum, tt) => sum + tt.soldCount, 0),
+  }))
 
   return (
     <div className="space-y-6">
@@ -92,7 +101,7 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
         </div>
       </form>
 
-      <EventsTable events={events} />
+      <EventsTable events={eventsWithTicketsSold} />
     </div>
   )
 }

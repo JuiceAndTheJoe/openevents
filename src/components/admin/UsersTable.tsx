@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Role } from '@prisma/client'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useToast } from '@/components/ui/toaster'
 
 type User = {
   id: string
@@ -27,9 +29,12 @@ function resolveAccountType(roles: Role[]): AccountType {
 }
 
 export function UsersTable({ users, currentAdminId }: UsersTableProps) {
+  const showToast = useToast()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [busyAction, setBusyAction] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedTypes, setSelectedTypes] = useState<Record<string, AccountType>>({})
+  const [pendingDeactivate, setPendingDeactivate] = useState<{ id: string; email: string } | null>(null)
 
   async function handleAccountTypeUpdate(userId: string, role: AccountType) {
     if (!confirm(`Are you sure you want to set account type to ${role}?`)) {
@@ -37,6 +42,7 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
     }
 
     setBusyId(userId)
+    setBusyAction('role')
     setError(null)
 
     try {
@@ -56,6 +62,57 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
       setError(actionError instanceof Error ? actionError.message : 'Action failed')
     } finally {
       setBusyId(null)
+      setBusyAction(null)
+    }
+  }
+
+  async function handleResetPassword(userId: string) {
+    setBusyId(userId)
+    setBusyAction('reset')
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+      })
+
+      const json = await response.json()
+      if (!response.ok) {
+        throw new Error(json?.message || json?.error || 'Failed to send reset email')
+      }
+
+      showToast('Password reset email sent', 'success')
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Action failed')
+    } finally {
+      setBusyId(null)
+      setBusyAction(null)
+    }
+  }
+
+  async function handleDeactivate(userId: string) {
+    setBusyId(userId)
+    setBusyAction('deactivate')
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/deactivate`, {
+        method: 'POST',
+      })
+
+      const json = await response.json()
+      if (!response.ok) {
+        throw new Error(json?.message || json?.error || 'Failed to deactivate user')
+      }
+
+      showToast('User account deactivated', 'success')
+      window.location.reload()
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : 'Action failed')
+    } finally {
+      setBusyId(null)
+      setBusyAction(null)
+      setPendingDeactivate(null)
     }
   }
 
@@ -120,35 +177,61 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      value={selectedType}
-                      disabled={isSelf || busyId === user.id}
-                      onChange={(event) => {
-                        setSelectedTypes((prev) => ({
-                          ...prev,
-                          [user.id]: event.target.value as AccountType,
-                        }))
-                      }}
-                      className="h-9 min-w-[150px] rounded-md border border-gray-300 bg-white px-3 text-sm"
-                    >
-                      <option value="ATTENDEE">ATTENDEE</option>
-                      <option value="ORGANIZER">ORGANIZER</option>
-                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                    </select>
+                    {isSelf ? (
+                      <span className="inline-block h-9 min-w-[150px] rounded-md border border-gray-200 bg-gray-50 px-3 text-sm leading-9 text-gray-600">
+                        {currentType}
+                      </span>
+                    ) : (
+                      <select
+                        value={selectedType}
+                        disabled={busyId === user.id}
+                        onChange={(event) => {
+                          setSelectedTypes((prev) => ({
+                            ...prev,
+                            [user.id]: event.target.value as AccountType,
+                          }))
+                        }}
+                        className="h-9 min-w-[150px] rounded-md border border-gray-300 bg-white px-3 text-sm"
+                      >
+                        <option value="ATTENDEE">ATTENDEE</option>
+                        <option value="ORGANIZER">ORGANIZER</option>
+                        <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                      </select>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       {isSelf ? (
                         <span className="text-xs text-gray-400">You</span>
                       ) : (
-                        <Button
-                          size="sm"
-                          isLoading={busyId === user.id}
-                          disabled={!hasChanges}
-                          onClick={() => handleAccountTypeUpdate(user.id, selectedType)}
-                        >
-                          Update
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            isLoading={busyId === user.id && busyAction === 'role'}
+                            disabled={!hasChanges || (busyId === user.id && busyAction !== 'role')}
+                            onClick={() => handleAccountTypeUpdate(user.id, selectedType)}
+                          >
+                            Update
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            isLoading={busyId === user.id && busyAction === 'reset'}
+                            disabled={busyId === user.id && busyAction !== 'reset'}
+                            onClick={() => handleResetPassword(user.id)}
+                          >
+                            Reset Password
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            isLoading={busyId === user.id && busyAction === 'deactivate'}
+                            disabled={busyId === user.id && busyAction !== 'deactivate'}
+                            onClick={() => setPendingDeactivate({ id: user.id, email: user.email })}
+                          >
+                            Deactivate
+                          </Button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -158,6 +241,17 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
           </tbody>
         </table>
       </div>
+      <ConfirmDialog
+        open={pendingDeactivate !== null}
+        title="Deactivate User Account"
+        description={`This will permanently deactivate ${pendingDeactivate?.email}. All their events will be cancelled, orders refunded, and their account anonymized. This action cannot be undone.`}
+        confirmLabel="Deactivate"
+        isLoading={busyId === pendingDeactivate?.id && busyAction === 'deactivate'}
+        onConfirm={() => {
+          if (pendingDeactivate) handleDeactivate(pendingDeactivate.id)
+        }}
+        onClose={() => setPendingDeactivate(null)}
+      />
     </div>
   )
 }
