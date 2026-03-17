@@ -54,6 +54,24 @@ export function HeroSearchBar({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Debounced live search - triggers navigation 400ms after user stops typing
+  useEffect(() => {
+    // Don't trigger on initial mount or empty search
+    if (!search.trim()) return
+
+    const timeoutId = setTimeout(() => {
+      const params = new URLSearchParams()
+      params.set('search', search.trim())
+      if (dateFrom) params.set('startDate', dateFrom.toISOString().split('T')[0])
+      if (dateTo) params.set('endDate', dateTo.toISOString().split('T')[0])
+      if (location.trim()) params.set('location', location.trim())
+      if (selectedCategory) params.set('category', selectedCategory.slug)
+      router.push(`/events?${params.toString()}`)
+    }, 400)
+
+    return () => clearTimeout(timeoutId)
+  }, [search, dateFrom, dateTo, location, selectedCategory, router])
+
   const togglePanel = (panel: 'date' | 'location' | 'category') => {
     setOpenPanel(prev => (prev === panel ? null : panel))
   }
