@@ -44,6 +44,12 @@ export function Header() {
   // On public pages and auth pages, keep header minimal for logged-out users.
   const isPublicPage = !isOrganizerRoute && !isAuthPage
 
+  // TEMPORARY: Featured event button URL changes based on current page (remove after launch)
+  const isOnFeaturedEvent = pathname.startsWith('/events/streaming-tech-2026-5fa0c1d6')
+  const featuredEventHref = isOnFeaturedEvent
+    ? 'https://www.streamingtech.se/stswe26.html'
+    : '/events/streaming-tech-2026-5fa0c1d6'
+
   useEffect(() => {
     function onPointerDown(event: MouseEvent | TouchEvent) {
       if (!accountMenuRef.current) return
@@ -87,19 +93,26 @@ export function Header() {
     <header className="bg-white border-b border-gray-200 print:hidden">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-3">
-          {/* Logo */}
+          {/* Logo - TEMPORARY: Links to /about during launch period (revert to "/" later) */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center">
+            <Link href="/about" className="flex items-center">
               <span className="text-xl font-bold text-[#5C8BD9] sm:text-2xl">OpenEvents</span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex md:items-center md:space-x-6">
+            {/* TEMPORARY: Featured event button for launch period (remove after launch) */}
+            <a
+              href={featuredEventHref}
+              className="inline-flex items-center justify-center rounded-lg bg-[#5C8BD9] px-4 py-2 text-sm font-semibold tracking-wide text-white shadow-sm transition hover:bg-[#4a7ac8]"
+            >
+              Streaming Tech 2026
+            </a>
             {canManageEvents && (
               <Link
                 href="/create-event"
-                className="inline-flex min-w-[132px] items-center justify-center rounded-lg bg-[#5C8BD9] px-4 py-2 text-sm font-semibold tracking-wide text-white shadow-sm transition hover:bg-[#4a7ac8]"
+                className="inline-flex min-w-[132px] items-center justify-center rounded-lg border border-[#5C8BD9] bg-white px-4 py-2 text-sm font-semibold tracking-wide text-[#5C8BD9] shadow-sm transition hover:bg-gray-50"
               >
                 Create Event
               </Link>
@@ -158,7 +171,8 @@ export function Header() {
                         className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                         onClick={() => {
                           setAccountMenuOpen(false)
-                          signOut({ callbackUrl: '/' })
+                          // TEMPORARY: Using /about during launch period (revert to "/" later)
+                          signOut({ callbackUrl: '/about' })
                         }}
                       >
                         Sign out
@@ -217,10 +231,18 @@ export function Header() {
         {/* Mobile menu */}
         {mobileMenuOpen && (
           <div className="space-y-2 border-t border-gray-100 py-4 md:hidden">
+            {/* TEMPORARY: Featured event button for launch period (remove after launch) */}
+            <a
+              href={featuredEventHref}
+              className="block rounded-lg bg-[#5C8BD9] px-3 py-2.5 text-center text-sm font-semibold tracking-wide text-white hover:bg-[#4a7ac8]"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Streaming Tech 2026
+            </a>
             {canManageEvents && (
               <Link
                 href="/create-event"
-                className="block rounded-lg bg-[#5C8BD9] px-3 py-2.5 text-center text-sm font-semibold tracking-wide text-white hover:bg-[#4a7ac8]"
+                className="block rounded-lg border border-[#5C8BD9] bg-white px-3 py-2.5 text-center text-sm font-semibold tracking-wide text-[#5C8BD9] hover:bg-gray-50"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Create Event
@@ -249,7 +271,8 @@ export function Header() {
                   className="block w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md"
                   onClick={() => {
                     setMobileMenuOpen(false)
-                    signOut({ callbackUrl: '/' })
+                    // TEMPORARY: Using /about during launch period (revert to "/" later)
+                    signOut({ callbackUrl: '/about' })
                   }}
                 >
                   Sign out

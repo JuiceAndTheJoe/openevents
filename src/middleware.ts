@@ -46,6 +46,18 @@ function isValidOrigin(request: NextRequest): boolean {
 
 export async function middleware(request: NextRequest) {
   // =========================================================================
+  // TEMPORARY LAUNCH REDIRECT (remove after launch period)
+  // Redirects homepage and events listing to /about page.
+  // Allows specific event URLs like /events/[slug] to pass through.
+  // =========================================================================
+  const pathname = request.nextUrl.pathname
+  if (pathname === '/' || pathname === '/events') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/about'
+    return NextResponse.redirect(url, 307) // 307 = Temporary Redirect
+  }
+
+  // =========================================================================
   // CSRF Protection for Server Actions
   // =========================================================================
   // Server Actions are identified by the 'next-action' header

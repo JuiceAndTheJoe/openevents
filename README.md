@@ -283,6 +283,42 @@ Ticket buyers do not create accounts on the platform. This was a deliberate deci
 - Implement an order lookup feature using email + order number
 - Add optional account creation during checkout
 
+## Temporary Launch Redirects
+
+> **Note:** This section describes a temporary configuration for the platform launch. Remove this section and revert the changes when no longer needed.
+
+During the initial launch period, the homepage (`/`) and events listing page (`/events`) are temporarily redirected to `/about`. This allows sharing the specific event URL (`/events/streaming-tech-2026-5fa0c1d6`) while keeping the general discovery pages hidden.
+
+### What's Affected
+
+- **Middleware** (`src/middleware.ts`): Redirects `/` and `/events` to `/about` with a 307 (Temporary Redirect)
+- **Header** (`src/components/layout/Header.tsx`):
+  - Logo links to `/about` instead of `/`
+  - Sign-out redirects to `/about`
+  - "Streaming Tech 2026" button added (links to `/events/streaming-tech-2026-5fa0c1d6`, or to `https://www.streamingtech.se/stswe26.html` when already on the event page)
+  - "Create Event" button restyled as secondary (outline)
+- **About page** (`src/app/(public)/about/page.tsx`):
+  - Added "Streaming Tech Sweden 2026" section with link to the event page
+
+### How to Revert
+
+Search for `TEMPORARY` in the codebase to find all affected locations:
+
+1. **Remove the redirect block in middleware** (`src/middleware.ts`):
+   Delete the "TEMPORARY LAUNCH REDIRECT" section (approximately lines 48-58)
+
+2. **Revert the Header component** (`src/components/layout/Header.tsx`):
+   - Change logo `href="/about"` back to `href="/"`
+   - Change both `signOut({ callbackUrl: '/about' })` calls back to `signOut({ callbackUrl: '/' })`
+   - Remove the `isOnFeaturedEvent` and `featuredEventHref` variables
+   - Remove the "Streaming Tech 2026" button (desktop and mobile, using `<a>` tags)
+   - Restore "Create Event" button to primary style (solid blue background)
+
+3. **Revert the About page** (`src/app/(public)/about/page.tsx`):
+   - Remove the "Streaming Tech Sweden 2026" section
+
+4. **Delete this README section**
+
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.

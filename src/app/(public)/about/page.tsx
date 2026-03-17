@@ -23,6 +23,31 @@ export default function AboutPage() {
           </p>
         </section>
 
+        {/* Streaming Tech Section */}
+        <section className="mb-12 p-8 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Streaming Tech Sweden 2026
+          </h2>
+          <p className="text-gray-700 mb-6">
+            OpenEvents was originally created to manage ticketing for{' '}
+            <a
+              href="https://www.streamingtech.se/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-600 hover:text-indigo-800 font-medium underline"
+            >
+              Streaming Tech Sweden
+            </a>
+            , the premier Nordic conference for video streaming and media technology professionals.
+          </p>
+          <a
+            href="/events/streaming-tech-2026-5fa0c1d6"
+            className="inline-block px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Get Tickets for Streaming Tech 2026 →
+          </a>
+        </section>
+
         {/* About Eyevinn */}
         <section className="mb-12 p-8 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
