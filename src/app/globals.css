@@ -20,6 +20,25 @@ body {
   font-family: var(--font-outfit), sans-serif;
 }
 
+/* Continue numbering across consecutive ordered lists in prose content */
+/* This fixes tiptap creating separate <ol> elements when users add blank lines between items */
+.prose ol {
+  list-style: none;
+  counter-reset: prose-ol;
+}
+
+.prose ol + ol {
+  counter-reset: none;
+}
+
+.prose ol > li {
+  counter-increment: prose-ol;
+}
+
+.prose ol > li::before {
+  content: counter(prose-ol) ". ";
+}
+
 /* Print styles for ticket PDFs */
 @media print {
   body {
