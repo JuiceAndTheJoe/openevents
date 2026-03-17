@@ -9,6 +9,7 @@ import { isValidTimeZone } from '@/lib/timezone'
 import { getPriceIncludingVat } from '@/lib/pricing/vat'
 import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
 import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 export const dynamic = 'force-dynamic'
 
@@ -323,19 +324,19 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
           }`}
         >
           <div>
-            {event.description?.trim() ? (
+            {event.descriptionHtml ? (
+              <div
+                className="prose max-w-none text-[18px] leading-[29.25px] text-[#364153]"
+                style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.descriptionHtml) }}
+              />
+            ) : event.description?.trim() ? (
               <p
                 className="whitespace-pre-line text-[18px] leading-[29.25px] text-[#364153]"
                 style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
               >
                 {event.description}
               </p>
-            ) : event.descriptionHtml ? (
-              <div
-                className="prose max-w-none text-[18px] leading-[29.25px] text-[#364153]"
-                style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
-                dangerouslySetInnerHTML={{ __html: event.descriptionHtml }}
-              />
             ) : (
               <p
                 className="text-[18px] leading-[29.25px] text-[#364153]"

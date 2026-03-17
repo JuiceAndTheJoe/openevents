@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { EventStatus } from '@prisma/client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EventStatusBadge } from '@/components/dashboard/EventStatusBadge'
 import { useToast } from '@/components/ui/toaster'
@@ -20,6 +21,7 @@ type AdminEventsTableProps = {
     status: EventStatus
     visibility: 'PUBLIC' | 'PRIVATE'
     organizer: {
+      id: string
       orgName: string
       user: {
         email: string
@@ -38,6 +40,66 @@ export function AdminEventsTable({ events }: AdminEventsTableProps) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null)
   const [pendingCancel, setPendingCancel] = useState<{ id: string; title: string } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isBulkUnpublishing, setIsBulkUnpublishing] = useState(false)
+  const [pendingBulkUnpublish, setPendingBulkUnpublish] = useState(false)
+
+  const publishedEventIds = useMemo(
+    () => events.filter((e) => e.status === 'PUBLISHED').map((e) => e.id),
+    [events]
+  )
+
+  const selectedPublishedIds = useMemo(
+    () => [...selectedIds].filter((id) => publishedEventIds.includes(id)),
+    [selectedIds, publishedEventIds]
+  )
+
+  const allSelected = events.length > 0 && selectedIds.size === events.length
+  const someSelected = selectedIds.size > 0 && selectedIds.size < events.length
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(events.map((e) => e.id)))
+    }
+  }
+
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds)
+    if (next.has(id)) {
+      next.delete(id)
+    } else {
+      next.add(id)
+    }
+    setSelectedIds(next)
+  }
+
+  async function handleBulkUnpublish() {
+    if (selectedPublishedIds.length === 0) return
+
+    setIsBulkUnpublishing(true)
+    try {
+      const response = await fetch('/api/admin/events/bulk-unpublish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventIds: selectedPublishedIds }),
+      })
+      const json = await response.json().catch(() => null)
+      if (!response.ok) {
+        showToast(json?.message || json?.error || 'Could not unpublish events.', 'error')
+        return
+      }
+      router.refresh()
+      setSelectedIds(new Set())
+      showToast(`${json.data.unpublishedCount} event(s) unpublished`)
+    } catch {
+      showToast('Could not unpublish events due to a system error.', 'error')
+    } finally {
+      setIsBulkUnpublishing(false)
+      setPendingBulkUnpublish(false)
+    }
+  }
 
   async function runAction(eventId: string, action: 'publish' | 'cancel') {
     setBusyId(eventId)
@@ -95,10 +157,42 @@ export function AdminEventsTable({ events }: AdminEventsTableProps) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-4 border-b border-gray-200 bg-blue-50 px-4 py-3">
+          <span className="text-sm font-medium text-gray-700">
+            {selectedIds.size} selected
+          </span>
+          {selectedPublishedIds.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              isLoading={isBulkUnpublishing}
+              onClick={() => setPendingBulkUnpublish(true)}
+            >
+              Unpublish ({selectedPublishedIds.length})
+            </Button>
+          )}
+          <button
+            type="button"
+            className="text-sm text-gray-500 hover:text-gray-700"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
+              <th className="w-10 px-4 py-3">
+                <Checkbox
+                  checked={allSelected}
+                  indeterminate={someSelected}
+                  onChange={toggleSelectAll}
+                  aria-label="Select all events"
+                />
+              </th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Event</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Organizer</th>
               <th className="px-4 py-3 text-left font-medium text-gray-600">Date</th>
@@ -110,7 +204,14 @@ export function AdminEventsTable({ events }: AdminEventsTableProps) {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {events.map((event) => (
-              <tr key={event.id}>
+              <tr key={event.id} className={selectedIds.has(event.id) ? 'bg-blue-50' : ''}>
+                <td className="px-4 py-3">
+                  <Checkbox
+                    checked={selectedIds.has(event.id)}
+                    onChange={() => toggleSelect(event.id)}
+                    aria-label={`Select ${event.title}`}
+                  />
+                </td>
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">{event.title}</p>
                   <p className="text-xs text-gray-500">{event.visibility}</p>
@@ -178,6 +279,16 @@ export function AdminEventsTable({ events }: AdminEventsTableProps) {
         isLoading={busyId === pendingDelete?.id}
         onConfirm={() => pendingDelete && deleteEvent(pendingDelete.id)}
         onClose={() => setPendingDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingBulkUnpublish}
+        title="Unpublish Selected Events"
+        description={`This will unpublish ${selectedPublishedIds.length} event(s), changing their status from Published to Draft. They will no longer be visible to the public.`}
+        confirmLabel="Unpublish"
+        isLoading={isBulkUnpublishing}
+        onConfirm={handleBulkUnpublish}
+        onClose={() => setPendingBulkUnpublish(false)}
       />
     </div>
   )

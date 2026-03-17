@@ -18,6 +18,7 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
 
   const status = param(params.status) as EventStatus | undefined
   const query = param(params.q)
+  const organizerId = param(params.organizerId)
   const page = parseInt(param(params.page) || '1', 10)
   const pageSize = 20
 
@@ -29,6 +30,10 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
     where.status = status
   }
 
+  if (organizerId) {
+    where.organizerId = organizerId
+  }
+
   if (query) {
     where.OR = [
       { title: { contains: query, mode: 'insensitive' } },
@@ -36,7 +41,7 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
     ]
   }
 
-  const [totalUsers, organizerCount, totalEvents, events, filteredCount] = await Promise.all([
+  const [totalUsers, organizerCount, totalEvents, events, filteredCount, organizers] = await Promise.all([
     prisma.user.count({ where: { deletedAt: null } }),
     prisma.userRole.count({ where: { role: 'ORGANIZER' } }),
     prisma.event.count({ where: { deletedAt: null } }),
@@ -52,6 +57,7 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
         visibility: true,
         organizer: {
           select: {
+            id: true,
             orgName: true,
             user: {
               select: {
@@ -76,6 +82,20 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
       take: pageSize,
     }),
     prisma.event.count({ where }),
+    prisma.organizerProfile.findMany({
+      where: {
+        events: {
+          some: {
+            deletedAt: null,
+          },
+        },
+      },
+      select: {
+        id: true,
+        orgName: true,
+      },
+      orderBy: { orgName: 'asc' },
+    }),
   ])
 
   const eventsWithTicketsSold = events.map((event) => ({
@@ -89,17 +109,27 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
     const merged = {
       status: status || '',
       q: query || '',
+      organizerId: organizerId || '',
       page: String(page),
       ...newParams,
     }
     const urlParams = new URLSearchParams()
     for (const [key, value] of Object.entries(merged)) {
-      if (value && value !== '1' && !(key === 'q' && value === '') && !(key === 'status' && value === '')) {
+      if (value && value !== '1' && !(key === 'q' && value === '') && !(key === 'status' && value === '') && !(key === 'organizerId' && value === '')) {
         urlParams.set(key, value)
       }
     }
     const qs = urlParams.toString()
     return `/dashboard/admin${qs ? `?${qs}` : ''}`
+  }
+
+  function buildExportUrl() {
+    const urlParams = new URLSearchParams()
+    if (status) urlParams.set('status', status)
+    if (organizerId) urlParams.set('organizerId', organizerId)
+    if (query) urlParams.set('q', query)
+    const qs = urlParams.toString()
+    return `/api/admin/events/export${qs ? `?${qs}` : ''}`
   }
 
   return (
@@ -131,7 +161,7 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
           <h2 className="text-lg font-semibold text-gray-900">All Events</h2>
         </div>
 
-        <form className="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-4 md:grid-cols-4">
+        <form className="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-white p-4 md:grid-cols-5">
           <div className="md:col-span-2">
             <label htmlFor="q" className="text-xs font-medium text-gray-600">
               Search by title or organizer
@@ -160,13 +190,37 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
               <option value="COMPLETED">COMPLETED</option>
             </select>
           </div>
-          <div className="flex items-end">
+          <div>
+            <label htmlFor="organizerId" className="text-xs font-medium text-gray-600">
+              Organizer
+            </label>
+            <select
+              id="organizerId"
+              name="organizerId"
+              defaultValue={organizerId || ''}
+              className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm"
+            >
+              <option value="">All Organizers</option>
+              {organizers.map((org) => (
+                <option key={org.id} value={org.id}>
+                  {org.orgName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end gap-2">
             <button
               type="submit"
               className="h-10 rounded-md bg-[#5C8BD9] px-4 text-sm font-medium text-white hover:bg-[#4a7ac8]"
             >
               Apply
             </button>
+            <a
+              href={buildExportUrl()}
+              className="inline-flex h-10 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Export CSV
+            </a>
           </div>
         </form>
 
