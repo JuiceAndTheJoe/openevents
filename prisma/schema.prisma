@@ -185,6 +185,7 @@ model Event {
   id              String       @id @default(cuid())
   organizerId     String
   title           String
+  organization    String?      // Display name for "By:" on public page
   slug            String       @unique
   description     String?      @db.Text
   descriptionHtml String?      @db.Text

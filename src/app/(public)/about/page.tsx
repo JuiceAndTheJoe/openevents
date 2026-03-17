@@ -41,7 +41,7 @@ export default function AboutPage() {
             , the premier Nordic conference for video streaming and media technology professionals.
           </p>
           <a
-            href="/events/streaming-tech-2026-5fa0c1d6"
+            href="/events/streaming-tech-2026-f1d74a33"
             className="inline-block px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
           >
             Get Tickets for Streaming Tech 2026 →

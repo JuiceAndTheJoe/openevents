@@ -45,10 +45,10 @@ export function Header() {
   const isPublicPage = !isOrganizerRoute && !isAuthPage
 
   // TEMPORARY: Featured event button URL changes based on current page (remove after launch)
-  const isOnFeaturedEvent = pathname.startsWith('/events/streaming-tech-2026-5fa0c1d6')
+  const isOnFeaturedEvent = pathname.startsWith('/events/streaming-tech-2026-f1d74a33')
   const featuredEventHref = isOnFeaturedEvent
     ? 'https://www.streamingtech.se/stswe26.html'
-    : '/events/streaming-tech-2026-5fa0c1d6'
+    : '/events/streaming-tech-2026-f1d74a33'
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent | TouchEvent) {

@@ -128,6 +128,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         where: { id },
         data: {
           title: input.title,
+          organization: input.organization,
           slug: newSlug,
           description: input.description,
           descriptionHtml: input.descriptionHtml,

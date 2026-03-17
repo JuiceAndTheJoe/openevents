@@ -147,6 +147,7 @@ export default async function EditEventPage({ params }: PageProps) {
             capacity: ticketType.maxCapacity ? String(ticketType.maxCapacity) : '',
           })),
           title: event.title,
+          organization: event.organization,
           description: event.description || event.descriptionHtml || '',
           descriptionHtml: event.descriptionHtml,
           startDate: event.startDate.toISOString(),

@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
         organizerId: organizerProfile.id,
         slug,
         title: input.title,
+        organization: input.organization,
         description: input.description,
         descriptionHtml: input.descriptionHtml,
         startDate: new Date(input.startDate),

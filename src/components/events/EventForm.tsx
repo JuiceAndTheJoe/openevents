@@ -84,6 +84,7 @@ type EventFormData = {
   ticketCurrency?: string;
   ticketCapacity?: string;
   title: string;
+  organization?: string | null;
   description?: string | null;
   descriptionHtml?: string | null;
   startDate: string;
@@ -316,6 +317,7 @@ const fallbackInitialData: EventFormData = {
   ticketCurrency: DEFAULT_CURRENCY,
   ticketCapacity: "",
   title: "",
+  organization: "",
   description: "",
   descriptionHtml: "",
   startDate: "",
@@ -3680,16 +3682,17 @@ export function EventForm({
           </div>
           <div className="flex flex-col gap-2">
             <Label
-              htmlFor="sponsorNames"
+              htmlFor="organization"
+              required
               className="text-base font-semibold text-black"
             >
               Organization
             </Label>
             <Input
-              id="sponsorNames"
+              id="organization"
               placeholder="Organization name"
-              value={form.sponsorNames || ""}
-              onChange={(e) => updateField("sponsorNames", e.target.value)}
+              value={form.organization || ""}
+              onChange={(e) => updateField("organization", e.target.value)}
               className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
             />
           </div>

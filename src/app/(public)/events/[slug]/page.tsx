@@ -182,7 +182,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 className="text-[20px] text-black"
                 style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
               >
-                By <span className="font-semibold">{event.organizer.orgName}</span>
+                By <span className="font-semibold">{event.organization || event.organizer.orgName}</span>
               </p>
               {organizerWebsite && (
                 <a
