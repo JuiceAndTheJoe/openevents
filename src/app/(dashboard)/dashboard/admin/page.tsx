@@ -60,10 +60,14 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
             },
           },
         },
+        ticketTypes: {
+          select: {
+            soldCount: true,
+          },
+        },
         _count: {
           select: {
             orders: true,
-            ticketTypes: true,
           },
         },
       },
@@ -73,6 +77,11 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
     }),
     prisma.event.count({ where }),
   ])
+
+  const eventsWithTicketsSold = events.map((event) => ({
+    ...event,
+    ticketsSold: event.ticketTypes.reduce((sum, tt) => sum + tt.soldCount, 0),
+  }))
 
   const totalPages = Math.ceil(filteredCount / pageSize)
 
@@ -162,10 +171,10 @@ export default async function DashboardAdminOverviewPage({ searchParams }: PageP
         </form>
 
         <p className="text-sm text-gray-600">
-          Showing {events.length} of {filteredCount} events
+          Showing {eventsWithTicketsSold.length} of {filteredCount} events
         </p>
 
-        <AdminEventsTable events={events} />
+        <AdminEventsTable events={eventsWithTicketsSold} />
 
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-2">

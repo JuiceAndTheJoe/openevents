@@ -120,21 +120,27 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      value={selectedType}
-                      disabled={isSelf || busyId === user.id}
-                      onChange={(event) => {
-                        setSelectedTypes((prev) => ({
-                          ...prev,
-                          [user.id]: event.target.value as AccountType,
-                        }))
-                      }}
-                      className="h-9 min-w-[150px] rounded-md border border-gray-300 bg-white px-3 text-sm"
-                    >
-                      <option value="ATTENDEE">ATTENDEE</option>
-                      <option value="ORGANIZER">ORGANIZER</option>
-                      <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-                    </select>
+                    {isSelf ? (
+                      <span className="inline-block h-9 min-w-[150px] rounded-md border border-gray-200 bg-gray-50 px-3 text-sm leading-9 text-gray-600">
+                        {currentType}
+                      </span>
+                    ) : (
+                      <select
+                        value={selectedType}
+                        disabled={busyId === user.id}
+                        onChange={(event) => {
+                          setSelectedTypes((prev) => ({
+                            ...prev,
+                            [user.id]: event.target.value as AccountType,
+                          }))
+                        }}
+                        className="h-9 min-w-[150px] rounded-md border border-gray-300 bg-white px-3 text-sm"
+                      >
+                        <option value="ATTENDEE">ATTENDEE</option>
+                        <option value="ORGANIZER">ORGANIZER</option>
+                        <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                      </select>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">

@@ -124,7 +124,7 @@ export function SalesTrendChart({ title, noDataText, data, currency = 'SEK', sho
           </div>
           <p className="text-gray-900 font-medium">{noDataText}</p>
           <p className="mt-1 text-sm text-gray-500 text-center max-w-xs">
-            Data will appear here once you publish an event and receive orders.
+            Data will appear here once you receive orders.
           </p>
           {showCreateEventCta && (
             <Link href="/create-event" className="mt-4 inline-flex rounded-md bg-[#5C8BD9] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a7bc9]">

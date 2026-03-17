@@ -18,8 +18,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     return <WorkspaceAccessDenied message="Organizer role is required to access the dashboard." />
   }
 
+  const isSuperAdmin = hasRole(user.roles, ['SUPER_ADMIN'])
+  const sidebarTitle = isSuperAdmin ? 'Admin' : 'Organizer'
+
   return (
-    <WorkspaceLayoutContainer sidebarTitle="Organizer" sidebarNav={<OrganizerSidebarNav />}>
+    <WorkspaceLayoutContainer sidebarTitle={sidebarTitle} sidebarNav={<OrganizerSidebarNav />}>
       {children}
     </WorkspaceLayoutContainer>
   )
