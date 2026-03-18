@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 
 type NavItem = {
-  id: 'scan' | 'overview' | 'events' | 'adminOverview' | 'adminUsers'
+  id: 'scan' | 'overview' | 'events' | 'adminOverview' | 'adminUsers' | 'adminLegal'
   href: string
   label: string
 }
@@ -25,6 +25,8 @@ function isActive(pathname: string, item: NavItem): boolean {
       return pathname === '/dashboard/admin'
     case 'adminUsers':
       return pathname.startsWith('/dashboard/admin/users')
+    case 'adminLegal':
+      return pathname.startsWith('/dashboard/admin/legal')
     default:
       return false
   }
@@ -44,10 +46,11 @@ export function OrganizerSidebarNav() {
   const adminNavItems: NavItem[] = [
     { id: 'adminOverview', href: '/dashboard/admin', label: 'Admin Overview' },
     { id: 'adminUsers', href: '/dashboard/admin/users', label: 'User Management' },
+    { id: 'adminLegal', href: '/dashboard/admin/legal', label: 'Legal & Contact' },
   ]
 
   const profileSectionActive = pathname === '/dashboard/profile' || pathname.startsWith('/dashboard/settings')
-  const adminSectionActive = pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/users')
+  const adminSectionActive = pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/users') || pathname.startsWith('/dashboard/admin/legal')
   const [adminMenuExpanded, setAdminMenuExpanded] = useState(false)
   const [adminMenuOverride, setAdminMenuOverride] = useState<{ path: string; open: boolean } | null>(null)
   const autoAdminOpen = adminMenuExpanded || adminSectionActive
