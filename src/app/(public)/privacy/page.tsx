@@ -1,5 +1,7 @@
 import { getLegalContent } from '@/lib/legal-content'
 
+export const dynamic = 'force-dynamic'
+
 function DefaultPrivacyContent() {
   return (
     <>

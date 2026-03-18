@@ -1,5 +1,7 @@
 import { getContactContent } from '@/lib/legal-content'
 
+export const dynamic = 'force-dynamic'
+
 function DefaultContactContent() {
   return (
     <>
