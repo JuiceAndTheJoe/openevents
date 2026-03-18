@@ -5,53 +5,14 @@ function DefaultContactContent() {
     <>
       <h1 className="text-4xl font-bold mb-2 text-gray-900">Contact Us</h1>
       <p className="text-gray-600 mb-12">
-        Get in touch with Eyevinn Technology AB for support, inquiries, or
-        partnerships.
+        Get in touch with us for support, inquiries, or partnerships.
       </p>
 
-      {/* Email Section */}
-      <section className="mb-12 p-8 bg-blue-50 rounded-lg border-l-4 border-blue-500">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Email</h2>
-        <a
-          href="mailto:info@eyevinn.se"
-          className="text-blue-600 hover:text-blue-800 hover:underline text-lg"
-        >
-          info@eyevinn.se
-        </a>
-      </section>
-
-      {/* Phone Section */}
-      <section className="mb-12 p-8 bg-green-50 rounded-lg border-l-4 border-green-500">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Phone</h2>
-        <a
-          href="tel:+46311089000"
-          className="text-green-600 hover:text-green-800 hover:underline text-lg"
-        >
-          +46 31 10 89 00
-        </a>
-      </section>
-
-      {/* Address Section */}
-      <section className="mb-12 p-8 bg-purple-50 rounded-lg border-l-4 border-purple-500">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Address</h2>
-        <p className="text-gray-700 text-lg leading-relaxed">
-          Eyevinn Technology AB
+      <section className="p-8 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-gray-600 text-center">
+          Contact information has not been configured yet.
           <br />
-          Vasagatan 52
-          <br />
-          111 20 Stockholm
-          <br />
-          Sweden
-        </p>
-      </section>
-
-      {/* Additional Info */}
-      <section className="mt-12 p-8 bg-gray-50 rounded-lg">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Business Hours
-        </h2>
-        <p className="text-gray-700">
-          We aim to respond to inquiries within 24 business hours.
+          Please check back later or contact the event organizer directly.
         </p>
       </section>
     </>
