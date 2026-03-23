@@ -7,14 +7,11 @@ const revenueStatuses: OrderStatus[] = ['PAID', 'PENDING_INVOICE']
 
 export async function GET() {
   try {
-    const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+    await requireOrganizerProfile()
 
     const now = new Date()
 
-    // Build where clause based on role
-    const eventWhere: Prisma.EventWhereInput = isSuperAdmin
-      ? { deletedAt: null }
-      : { organizerId: organizerProfile!.id, deletedAt: null }
+    const eventWhere: Prisma.EventWhereInput = { deletedAt: null }
 
     const [eventCounts, ticketStats, revenueStats, recentRevenueByEvent] = await prisma.$transaction([
       prisma.event.findMany({

@@ -40,27 +40,15 @@ function errorResponse(
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id } = await context.params
 
     const existingEvent = await prisma.event.findUnique({
       where: { id },
-      include: {
-        organizer: {
-          select: {
-            userId: true,
-          },
-        },
-      },
     })
 
     if (!existingEvent || existingEvent.deletedAt) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
-    }
-
-    if (!isSuperAdmin && existingEvent.organizer.userId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     if (existingEvent.status === 'CANCELLED' || existingEvent.status === 'COMPLETED') {
@@ -304,26 +292,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id } = await context.params
 
     const existingEvent = await prisma.event.findUnique({
       where: { id },
-      include: {
-        organizer: {
-          select: {
-            userId: true,
-          },
-        },
-      },
     })
 
     if (!existingEvent || existingEvent.deletedAt) return errorResponse('Event not found.', 404)
-
-    if (!isSuperAdmin && existingEvent.organizer.userId !== user.id) {
-      return errorResponse('You do not have permission to delete this event.', 403)
-    }
 
     if (existingEvent.status === 'PUBLISHED') {
       const action: ActionHint = {

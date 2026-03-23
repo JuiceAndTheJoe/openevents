@@ -33,34 +33,23 @@ export async function requireOrganizerProfile(): Promise<RequireOrganizerResult>
     },
   })
 
-  // Super admins don't need an organizer profile
-  if (!organizerProfile && !isSuperAdmin) {
-    throw new Error('Forbidden: Organizer profile not found')
-  }
-
   return { user, organizerProfile, isSuperAdmin }
 }
 
 /**
- * Build a Prisma where clause for events that respects ownership.
- * Super admins can access all events, organizers only their own.
+ * Build a Prisma where clause for events.
+ * In single-tenant mode, all authenticated dashboard users see all events.
+ * Parameters are kept for signature compatibility but no longer affect filtering.
  */
 export function buildEventWhereClause(
   organizerProfile: OrganizerProfile | null,
   isSuperAdmin: boolean,
   additionalWhere: Prisma.EventWhereInput = {}
 ): Prisma.EventWhereInput {
-  const where: Prisma.EventWhereInput = {
+  return {
     deletedAt: null,
     ...additionalWhere,
   }
-
-  // Only filter by organizerId for non-super-admins
-  if (!isSuperAdmin && organizerProfile) {
-    where.organizerId = organizerProfile.id
-  }
-
-  return where
 }
 
 /**

@@ -8,10 +8,10 @@ type PageProps = {
 }
 
 export default async function ScanTicketsPage({ params }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const { id } = await params
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
+  const where = buildEventWhereClause(null, true, { id })
 
   const event = await prisma.event.findFirst({
     where,

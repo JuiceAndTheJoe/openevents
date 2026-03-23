@@ -5,9 +5,9 @@ import { EventStatusBadge } from '@/components/dashboard/EventStatusBadge'
 import { formatDateTime } from '@/lib/utils'
 
 export default async function DashboardScanPage() {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, {
+  const where = buildEventWhereClause(null, true, {
     status: { notIn: ['DRAFT', 'CANCELLED'] },
     endDate: { gte: new Date() },
   })
@@ -40,7 +40,7 @@ export default async function DashboardScanPage() {
 
       {events.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
-          {isSuperAdmin ? 'No events on the platform yet.' : 'You do not have any events yet.'}
+          No events on the platform yet.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

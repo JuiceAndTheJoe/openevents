@@ -31,21 +31,11 @@ type PageProps = {
 
 export default async function EditEventPage({ params }: PageProps) {
   const { id } = await params
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
-
-  if (!isSuperAdmin && !organizerProfile) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-700">
-          Organizer profile not found.
-        </div>
-      </div>
-    )
-  }
+  await requireOrganizerProfile()
 
   const [event, categories] = await Promise.all([
     prisma.event.findFirst({
-      where: buildEventWhereClause(organizerProfile, isSuperAdmin, { id }),
+      where: buildEventWhereClause(null, true, { id }),
       include: {
         categories: {
           select: {

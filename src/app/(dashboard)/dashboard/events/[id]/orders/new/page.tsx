@@ -10,10 +10,10 @@ type PageProps = {
 }
 
 export default async function NewManualOrderPage({ params }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const { id } = await params
 
-  const eventWhere = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
+  const eventWhere = buildEventWhereClause(null, true, { id })
 
   const event = await prisma.event.findFirst({
     where: eventWhere,

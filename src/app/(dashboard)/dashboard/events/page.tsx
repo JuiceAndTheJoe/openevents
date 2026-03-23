@@ -15,7 +15,7 @@ function param(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function OrganizerEventsPage({ searchParams }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const params = await searchParams
 
   const status = param(params.status) as EventStatus | undefined
@@ -34,7 +34,7 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
     }
   }
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, additionalWhere)
+  const where = buildEventWhereClause(null, true, additionalWhere)
 
   const events = await prisma.event.findMany({
     where,
@@ -71,8 +71,8 @@ export default async function OrganizerEventsPage({ searchParams }: PageProps) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{isSuperAdmin ? 'All Events' : 'Your Events'}</h1>
-          <p className="text-gray-600">{isSuperAdmin ? 'Search, filter, and manage all platform events.' : 'Search, filter, and manage all organizer events.'}</p>
+          <h1 className="text-3xl font-bold text-gray-900">Events</h1>
+          <p className="text-gray-600">Search, filter, and manage all events.</p>
         </div>
         <Link href="/create-event" className="inline-flex rounded-md bg-[#5C8BD9] px-4 py-2 text-sm font-medium text-white">
           Create New Event

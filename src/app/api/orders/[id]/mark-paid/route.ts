@@ -4,7 +4,6 @@ import { Prisma, PaymentMethod } from '@prisma/client'
 import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { sendOrderConfirmationEmail } from '@/lib/email'
-import { canAccessOrder } from '@/lib/orders/authorization'
 import { generateTicketCreateInput, lockTicketTypes } from '@/lib/orders'
 import { formatDateTime } from '@/lib/utils'
 
@@ -35,11 +34,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             city: true,
             country: true,
             onlineUrl: true,
-            organizer: {
-              select: {
-                userId: true,
-              },
-            },
           },
         },
         items: {
@@ -60,18 +54,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Only organizers or super admins can mark orders as paid
-    const canManageOrder = canAccessOrder({
-      orderUserId: order.userId,
-      organizerUserId: order.event.organizer.userId,
-      requesterUserId: user.id,
-      requesterRoles: user.roles,
-    })
-
-    // Additional check: must be the organizer or super admin, not just the order owner
-    const isOrganizer = order.event.organizer.userId === user.id
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
-
-    if (!canManageOrder || (!isOrganizer && !isSuperAdmin)) {
+    const hasOrganizerRole = user.roles.includes('ORGANIZER') || user.roles.includes('SUPER_ADMIN')
+    if (!hasOrganizerRole) {
       return NextResponse.json(
         { error: 'Only event organizers can mark orders as paid' },
         { status: 403 }

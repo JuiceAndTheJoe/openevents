@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
         organizer: {
           select: {
             id: true,
-            userId: true,
             user: {
               select: {
                 email: true,
@@ -135,10 +134,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
-    const isOrganizer = event.organizer.userId === user.id
-
-    if (!isOrganizer && !isSuperAdmin) {
+    const hasOrganizerRole = user.roles.includes('ORGANIZER') || user.roles.includes('SUPER_ADMIN')
+    if (!hasOrganizerRole) {
       return NextResponse.json(
         { error: 'Only event organizers can create manual orders' },
         { status: 403 }

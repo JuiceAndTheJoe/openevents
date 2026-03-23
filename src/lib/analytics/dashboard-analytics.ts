@@ -15,15 +15,12 @@ export type DashboardAnalytics = {
   dailySales: Array<{ date: string; revenue: number; ticketsSold: number }>
 }
 
-async function fetchDashboardAnalytics(organizerId: string | null): Promise<DashboardAnalytics> {
+async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
   const now = new Date()
   const thirtyDaysAgo = new Date(now)
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
 
-  // Build where clause - null organizerId means platform-wide (super admin)
-  const eventWhere: Prisma.EventWhereInput = organizerId
-    ? { organizerId, deletedAt: null }
-    : { deletedAt: null }
+  const eventWhere: Prisma.EventWhereInput = { deletedAt: null }
 
   const [topRevenue, trendOrders] = await prisma.$transaction([
     prisma.order.groupBy({
@@ -122,6 +119,6 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
 }
 
 // Keep sales trend live so organizers see newly paid orders immediately.
-export async function getDashboardAnalytics(organizerId: string | null): Promise<DashboardAnalytics> {
-  return fetchDashboardAnalytics(organizerId)
+export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
+  return fetchDashboardAnalytics()
 }

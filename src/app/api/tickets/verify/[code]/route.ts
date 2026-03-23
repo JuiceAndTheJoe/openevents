@@ -14,43 +14,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const hasOrganizerRole = session.user.roles?.includes('ORGANIZER') || session.user.roles?.includes('SUPER_ADMIN')
+  if (!hasOrganizerRole) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
   const { code } = await params
 
   const ticket = await prisma.ticket.findUnique({
     where: { ticketCode: code },
-    include: {
-      order: {
-        include: {
-          event: {
-            select: {
-              id: true,
-              title: true,
-              organizerId: true,
-            },
-          },
-        },
-      },
+    select: {
+      id: true,
+      status: true,
     },
   })
 
   if (!ticket) {
     return NextResponse.json({ valid: false, error: 'Ticket not found' }, { status: 404 })
-  }
-
-  // Verify the user is the organizer of this event or a SUPER_ADMIN
-  const isSuperAdmin = session.user.roles?.includes('SUPER_ADMIN')
-
-  if (!isSuperAdmin) {
-    const organizerProfile = await prisma.organizerProfile.findFirst({
-      where: {
-        userId: session.user.id,
-        id: ticket.order.event.organizerId,
-      },
-    })
-
-    if (!organizerProfile) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
   }
 
   // Return minimal fields only - no PII
@@ -68,6 +48,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const hasOrganizerRole = session.user.roles?.includes('ORGANIZER') || session.user.roles?.includes('SUPER_ADMIN')
+  if (!hasOrganizerRole) {
+    return NextResponse.json({ error: 'Not authorized to check in tickets' }, { status: 403 })
+  }
+
   const { code } = await params
 
   const ticket = await prisma.ticket.findUnique({
@@ -79,7 +64,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             select: {
               id: true,
               title: true,
-              organizerId: true,
             },
           },
         },
@@ -89,18 +73,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!ticket) {
     return NextResponse.json({ valid: false, error: 'Ticket not found' }, { status: 404 })
-  }
-
-  // Verify the user is the organizer of this event
-  const organizerProfile = await prisma.organizerProfile.findFirst({
-    where: {
-      userId: session.user.id,
-      id: ticket.order.event.organizerId,
-    },
-  })
-
-  if (!organizerProfile) {
-    return NextResponse.json({ error: 'Not authorized to check in tickets for this event' }, { status: 403 })
   }
 
   if (ticket.status === 'USED') {
