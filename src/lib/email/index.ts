@@ -23,10 +23,19 @@ import QRCode from 'qrcode'
 //
 // =============================================================================
 
-const EMAIL_MODE = process.env.EMAIL_MODE || (process.env.NODE_ENV === 'development' ? 'development' : 'smtp')
-const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@openevents.local'
-const APP_NAME = process.env.APP_NAME || 'OpenEvents'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+// OSC injects camelCase env vars (smtpHost, fromEmail, etc.)
+// Local .env uses UPPER_SNAKE_CASE (SMTP_HOST, EMAIL_FROM, etc.)
+// Support both with OSC names taking priority
+const SMTP_HOST = process.env.smtpHost || process.env.SMTP_HOST
+const SMTP_PORT = process.env.smtpPort || process.env.SMTP_PORT || '587'
+const SMTP_SECURE = process.env.smtpSecure || process.env.SMTP_SECURE
+const SMTP_USER = process.env.smtpUser || process.env.SMTP_USER
+const SMTP_PASS = process.env.smtpPassword || process.env.SMTP_PASSWORD
+
+const EMAIL_MODE = process.env.EMAIL_MODE || (SMTP_HOST ? 'smtp' : 'development')
+const FROM_EMAIL = process.env.fromEmail || process.env.EMAIL_FROM || 'noreply@openevents.local'
+const APP_NAME = process.env.siteName || process.env.APP_NAME || 'OpenEvents'
+const APP_URL = process.env.siteUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 // Create transporter based on mode
 function createTransporter() {
@@ -66,12 +75,12 @@ function createTransporter() {
 
   // Production mode: use real SMTP
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
+    host: SMTP_HOST,
+    port: parseInt(SMTP_PORT),
+    secure: SMTP_SECURE === 'true',
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
+      user: SMTP_USER,
+      pass: SMTP_PASS,
     },
   })
 }
@@ -126,7 +135,7 @@ export function isEmailConfigured(): boolean {
   if (EMAIL_MODE === 'development') {
     return true // Development mode always "works"
   }
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD)
+  return !!(SMTP_HOST && SMTP_USER && SMTP_PASS)
 }
 
 /**
