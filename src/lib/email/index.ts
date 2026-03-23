@@ -23,19 +23,18 @@ import QRCode from 'qrcode'
 //
 // =============================================================================
 
-// OSC injects camelCase env vars (smtpHost, fromEmail, etc.)
-// Local .env uses UPPER_SNAKE_CASE (SMTP_HOST, EMAIL_FROM, etc.)
-// Support both with OSC names taking priority.
+// OSC converts camelCase config fields to UPPER_SNAKE_CASE env vars
+// (e.g. fromEmail -> FROM_EMAIL, smtpHost -> SMTP_HOST).
 // All reads are inside functions so they resolve at runtime, not build time.
-function getSmtpHost() { return process.env.smtpHost || process.env.SMTP_HOST }
-function getSmtpPort() { return process.env.smtpPort || process.env.SMTP_PORT || '587' }
-function getSmtpSecure() { return process.env.smtpSecure || process.env.SMTP_SECURE }
-function getSmtpUser() { return process.env.smtpUser || process.env.SMTP_USER }
-function getSmtpPass() { return process.env.smtpPassword || process.env.SMTP_PASSWORD }
+function getSmtpHost() { return process.env.SMTP_HOST }
+function getSmtpPort() { return process.env.SMTP_PORT || '587' }
+function getSmtpSecure() { return process.env.SMTP_SECURE }
+function getSmtpUser() { return process.env.SMTP_USER }
+function getSmtpPass() { return process.env.SMTP_PASSWORD }
 function getEmailMode() { return process.env.EMAIL_MODE || (getSmtpHost() ? 'smtp' : 'development') }
-function getFromEmail() { return process.env.fromEmail || process.env.EMAIL_FROM || 'noreply@openevents.local' }
-function getAppName() { return process.env.siteName || process.env.APP_NAME || 'OpenEvents' }
-function getAppUrl() { return process.env.siteUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }
+function getFromEmail() { return process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@openevents.local' }
+function getAppName() { return process.env.SITE_NAME || process.env.APP_NAME || 'OpenEvents' }
+function getAppUrl() { return process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }
 
 // Create transporter based on mode — called per send to use runtime env vars
 function createTransporter() {
@@ -103,9 +102,11 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
   const transporter = createTransporter()
   const mode = getEmailMode()
 
+  const fromAddress = `${getAppName()} <${getFromEmail()}>`
+
   try {
     await transporter.sendMail({
-      from: `${getAppName()} <${getFromEmail()}>`,
+      from: fromAddress,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -114,7 +115,7 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
     })
 
     if (mode !== 'development') {
-      console.log(`Email sent to ${options.to}: ${options.subject}`)
+      console.log(`Email sent from ${fromAddress} to ${options.to}: ${options.subject}`)
     }
   } catch (error) {
     console.error('Failed to send email:', error)
