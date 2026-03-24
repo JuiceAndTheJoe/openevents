@@ -4,6 +4,26 @@
 :root {
   --background: #ffffff;
   --foreground: #000000;
+  --surface: #ffffff;
+  --surface-secondary: #f9fafb;
+  --border: #e5e7eb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-faint: #9ca3af;
+}
+
+[data-theme="dark"] {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --surface: #1e293b;
+  --surface-secondary: #0f172a;
+  --border: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -18,6 +38,118 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-outfit), sans-serif;
+}
+
+/* ============================================================================
+   DARK THEME OVERRIDES
+   Remap common Tailwind utility classes for dark mode without editing every
+   component. These selectors only apply inside [data-theme="dark"].
+   ============================================================================ */
+
+/* --- Backgrounds --- */
+[data-theme="dark"] .bg-white {
+  background-color: var(--surface) !important;
+}
+[data-theme="dark"] .bg-gray-50 {
+  background-color: var(--surface-secondary) !important;
+}
+[data-theme="dark"] .bg-gray-100 {
+  background-color: #1e293b !important;
+}
+[data-theme="dark"] .hover\:bg-gray-50:hover {
+  background-color: #334155 !important;
+}
+[data-theme="dark"] .hover\:bg-gray-100:hover {
+  background-color: #334155 !important;
+}
+
+/* --- Text --- */
+[data-theme="dark"] .text-black {
+  color: #f1f5f9 !important;
+}
+[data-theme="dark"] .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+[data-theme="dark"] .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+[data-theme="dark"] .text-gray-700 {
+  color: var(--text-secondary) !important;
+}
+[data-theme="dark"] .text-gray-600 {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+[data-theme="dark"] .text-gray-400 {
+  color: var(--text-faint) !important;
+}
+[data-theme="dark"] .text-gray-300 {
+  color: #64748b !important;
+}
+
+/* --- Borders --- */
+[data-theme="dark"] .border-gray-200 {
+  border-color: var(--border) !important;
+}
+[data-theme="dark"] .border-gray-100 {
+  border-color: #1e293b !important;
+}
+[data-theme="dark"] .border-gray-300 {
+  border-color: #475569 !important;
+}
+[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border) !important;
+}
+
+/* --- Form inputs --- */
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
+}
+
+/* --- Cards and panels --- */
+[data-theme="dark"] .rounded-xl,
+[data-theme="dark"] .rounded-2xl,
+[data-theme="dark"] .rounded-lg {
+  /* Only override when combined with bg-white (handled above) */
+}
+[data-theme="dark"] .shadow-sm {
+  --tw-shadow-color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .shadow-lg {
+  --tw-shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+/* --- Ring colors (focus states) --- */
+[data-theme="dark"] .ring-gray-200 {
+  --tw-ring-color: #475569 !important;
+}
+
+/* --- Specific component overrides --- */
+
+/* Pagination controls */
+[data-theme="dark"] .cursor-not-allowed.select-none {
+  color: #475569 !important;
+  border-color: #334155 !important;
+}
+
+/* Prose/rich text content */
+[data-theme="dark"] .prose {
+  --tw-prose-body: #cbd5e1;
+  --tw-prose-headings: #f1f5f9;
+  --tw-prose-links: #93b4e8;
+  --tw-prose-bold: #f1f5f9;
+  --tw-prose-bullets: #64748b;
+  --tw-prose-counters: #94a3b8;
 }
 
 /* Continue numbering across consecutive ordered lists in prose content */

@@ -4,6 +4,7 @@ import "./globals.css"
 import { Providers } from "@/components/Providers"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
+import { getPlatformSetting } from "@/lib/platform-settings"
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -51,13 +52,15 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const theme = await getPlatformSetting('platform_theme', 'light')
+
   return (
-    <html lang="en">
+    <html lang="en" data-theme={theme}>
       <body className={`${outfit.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>
           <div className="flex min-h-screen flex-col">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ImageIcon, Upload, X, Loader2 } from 'lucide-react'
+import { ImageIcon, Upload, X, Loader2, Sun, Moon } from 'lucide-react'
 
 const DEFAULT_HERO_TEXT = 'Events made for business'
 
@@ -12,6 +12,7 @@ export default function AdminHomepagePage() {
 
   const [heroText, setHeroText] = useState(DEFAULT_HERO_TEXT)
   const [heroImage, setHeroImage] = useState('')
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -26,6 +27,7 @@ export default function AdminHomepagePage() {
           const { data } = await res.json()
           setHeroText(data.heroText || DEFAULT_HERO_TEXT)
           setHeroImage(data.heroImage || '')
+          setTheme(data.theme === 'dark' ? 'dark' : 'light')
         }
       } catch {
         // Use defaults on error
@@ -114,6 +116,7 @@ export default function AdminHomepagePage() {
         body: JSON.stringify({
           heroText: heroText.trim(),
           heroImage,
+          theme,
         }),
       })
 
@@ -273,6 +276,46 @@ export default function AdminHomepagePage() {
         </div>
       </div>
 
+      {/* Theme */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Site Theme</label>
+        <p className="mt-1 text-xs text-gray-500">
+          Choose between a light or dark theme for the entire website.
+        </p>
+        <div className="mt-3 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`flex items-center gap-3 rounded-lg border-2 px-5 py-3 transition ${
+              theme === 'light'
+                ? 'border-[#5C8BD9] bg-blue-50 text-[#5C8BD9]'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Sun className="h-5 w-5" />
+            <div className="text-left">
+              <p className="text-sm font-semibold">Light</p>
+              <p className="text-xs opacity-70">Default theme</p>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`flex items-center gap-3 rounded-lg border-2 px-5 py-3 transition ${
+              theme === 'dark'
+                ? 'border-[#5C8BD9] bg-blue-50 text-[#5C8BD9]'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Moon className="h-5 w-5" />
+            <div className="text-left">
+              <p className="text-sm font-semibold">Dark</p>
+              <p className="text-xs opacity-70">Dark background</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* Save Button */}
       <div className="flex items-center gap-4 border-t border-gray-200 pt-6">
         <button
@@ -291,6 +334,7 @@ export default function AdminHomepagePage() {
             setHeroText(DEFAULT_HERO_TEXT)
             setHeroImage('')
             setPreviewImage(null)
+            setTheme('light')
           }}
           className="text-sm text-gray-500 hover:text-gray-700"
         >
