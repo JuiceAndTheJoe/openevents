@@ -21,6 +21,7 @@ async function main() {
       firstName: 'Super',
       lastName: 'Admin',
       emailVerified: new Date(),
+      mustChangePassword: true,
     },
   })
 

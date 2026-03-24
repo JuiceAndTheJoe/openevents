@@ -37,6 +37,7 @@ export function OrganizerSidebarNav() {
   const { data: session } = useSession()
   const pathname = usePathname()
   const isSuperAdmin = session?.user?.roles?.includes('SUPER_ADMIN')
+  const mustChangePassword = session?.user?.mustChangePassword ?? false
   const [legalNeedsAttention, setLegalNeedsAttention] = useState(false)
   const [customizationNeedsAttention, setCustomizationNeedsAttention] = useState(false)
 
@@ -193,12 +194,18 @@ export function OrganizerSidebarNav() {
           <Link
             href="/dashboard/profile"
             className={cn(
-              'flex-1 rounded-md px-3 py-2 font-medium transition',
+              'flex-1 rounded-md px-3 py-2 font-medium transition flex items-center justify-between',
               pathname === '/dashboard/profile' ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
             )}
             aria-current={pathname === '/dashboard/profile' ? 'page' : undefined}
           >
             Profile
+            {!profileOpen && mustChangePassword && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+              </span>
+            )}
           </Link>
           <button
             type="button"
@@ -230,12 +237,23 @@ export function OrganizerSidebarNav() {
             <Link
               href="/dashboard/settings/account"
               className={cn(
-                'block rounded-md px-3 py-2 font-medium transition',
+                'group relative flex items-center justify-between rounded-md px-3 py-2 font-medium transition',
                 pathname.startsWith('/dashboard/settings/account') ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
               )}
               aria-current={pathname.startsWith('/dashboard/settings/account') ? 'page' : undefined}
             >
               Account Settings
+              {mustChangePassword && (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
+                  </span>
+                  <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    Please change your default password
+                  </span>
+                </>
+              )}
             </Link>
           </div>
         ) : null}
