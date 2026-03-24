@@ -29,7 +29,7 @@ function isActive(pathname: string, item: NavItem): boolean {
     case 'adminLegal':
       return pathname.startsWith('/dashboard/admin/legal')
     case 'adminCustomization':
-      return pathname.startsWith('/dashboard/customization')
+      return pathname.startsWith('/dashboard/admin/customization')
     default:
       return false
   }
@@ -91,11 +91,11 @@ export function OrganizerSidebarNav() {
     { id: 'adminOverview', href: '/dashboard/admin', label: 'Event Management' },
     { id: 'adminUsers', href: '/dashboard/admin/users', label: 'User Management' },
     { id: 'adminLegal', href: '/dashboard/admin/legal', label: 'Legal & Contact', badge: legalNeedsAttention ? 'attention' : undefined },
-    { id: 'adminCustomization', href: '/dashboard/customization', label: 'Platform Customization', badge: customizationNeedsAttention ? 'attention' : undefined },
+    { id: 'adminCustomization', href: '/dashboard/admin/customization', label: 'Platform Customization', badge: customizationNeedsAttention ? 'attention' : undefined },
   ]
 
   const profileSectionActive = pathname === '/dashboard/profile' || pathname.startsWith('/dashboard/settings')
-  const adminSectionActive = pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/users') || pathname.startsWith('/dashboard/admin/legal') || pathname.startsWith('/dashboard/customization')
+  const adminSectionActive = pathname === '/dashboard/admin' || pathname.startsWith('/dashboard/admin/users') || pathname.startsWith('/dashboard/admin/legal') || pathname.startsWith('/dashboard/admin/customization')
   const [adminMenuExpanded, setAdminMenuExpanded] = useState(false)
   const [adminMenuOverride, setAdminMenuOverride] = useState<{ path: string; open: boolean } | null>(null)
   const autoAdminOpen = adminMenuExpanded || adminSectionActive
@@ -131,12 +131,15 @@ export function OrganizerSidebarNav() {
             <Link
               href="/dashboard/admin"
               className={cn(
-                'flex-1 rounded-md px-3 py-2 font-medium transition',
+                'flex-1 rounded-md px-3 py-2 font-medium transition flex items-center justify-between',
                 pathname === '/dashboard/admin' ? 'bg-[#5C8BD9] text-white' : 'text-gray-700 hover:bg-gray-50'
               )}
               aria-current={pathname === '/dashboard/admin' ? 'page' : undefined}
             >
               Admin
+              {!adminOpen && (legalNeedsAttention || customizationNeedsAttention) && (
+                <span className="h-2 w-2 rounded-full bg-amber-500" aria-label="Items need attention" />
+              )}
             </Link>
             <button
               type="button"
@@ -172,10 +175,7 @@ export function OrganizerSidebarNav() {
                     {item.badge === 'attention' && (
                       <>
                         <span
-                          className={cn(
-                            'h-2 w-2 rounded-full',
-                            active ? 'bg-white' : 'bg-amber-500'
-                          )}
+                          className="h-2 w-2 rounded-full bg-amber-500"
                           aria-label="Needs attention"
                         />
                         <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
