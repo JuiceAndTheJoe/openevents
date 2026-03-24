@@ -12,6 +12,7 @@ export default async function HomePage() {
     getPlatformSettings({
       homepage_hero_text: 'Events made for business',
       homepage_hero_image: '',
+      homepage_event_layout: 'showcase',
     }),
     prisma.event.findMany({
       where: {
@@ -46,6 +47,7 @@ export default async function HomePage() {
 
   const heroText = settings.homepage_hero_text
   const heroImage = settings.homepage_hero_image || '/hero-image.jpg'
+  const eventLayout = (settings.homepage_event_layout || 'showcase') as 'showcase' | 'grid' | 'carousel'
 
   return (
     <div className="flex flex-col">
@@ -87,7 +89,7 @@ export default async function HomePage() {
               View all events
             </Link>
           </div>
-          <EventList events={featuredEvents} layout="showcase" />
+          <EventList events={featuredEvents} layout={eventLayout} />
         </div>
       </section>
 

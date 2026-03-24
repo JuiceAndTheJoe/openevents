@@ -1,5 +1,6 @@
 import { EventCard } from '@/components/events/EventCard'
 import { ShowcaseEventCard } from '@/components/events/ShowcaseEventCard'
+import { EventCarousel } from '@/components/events/EventCarousel'
 import { EventStatus, EventVisibility, LocationType, Prisma } from '@prisma/client'
 
 type EventListProps = {
@@ -21,7 +22,7 @@ type EventListProps = {
     organizer: { orgName: string }
     ticketTypes: Array<{ price: Prisma.Decimal; currency: string }>
   }>
-  layout?: 'grid' | 'showcase'
+  layout?: 'grid' | 'showcase' | 'carousel'
   emptyStateMessage?: string
 }
 
@@ -50,6 +51,10 @@ export function EventList({ events, layout = 'grid', emptyStateMessage }: EventL
       currency: t.currency,
     })),
   }))
+
+  if (layout === 'carousel') {
+    return <EventCarousel events={normalizedEvents} />
+  }
 
   if (layout === 'showcase') {
     if (normalizedEvents.length === 1) {

@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 
 type NavItem = {
-  id: 'scan' | 'overview' | 'events' | 'adminOverview' | 'adminUsers' | 'adminLegal' | 'adminCustomization'
+  id: 'scan' | 'overview' | 'events' | 'adminUsers' | 'adminLegal' | 'adminCustomization'
   href: string
   label: string
   badge?: 'attention'
@@ -22,8 +22,6 @@ function isActive(pathname: string, item: NavItem): boolean {
       return pathname === '/dashboard'
     case 'events':
       return pathname.startsWith('/dashboard/events') && !pathname.endsWith('/scan')
-    case 'adminOverview':
-      return pathname === '/dashboard/admin'
     case 'adminUsers':
       return pathname.startsWith('/dashboard/admin/users')
     case 'adminLegal':
@@ -88,7 +86,6 @@ export function OrganizerSidebarNav() {
     { id: 'events', href: '/dashboard/events', label: 'Manage Events' },
   ]
   const adminNavItems: NavItem[] = [
-    { id: 'adminOverview', href: '/dashboard/admin', label: 'Event Management' },
     { id: 'adminUsers', href: '/dashboard/admin/users', label: 'User Management' },
     { id: 'adminLegal', href: '/dashboard/admin/legal', label: 'Legal & Contact', badge: legalNeedsAttention ? 'attention' : undefined },
     { id: 'adminCustomization', href: '/dashboard/admin/customization', label: 'Platform Customization', badge: customizationNeedsAttention ? 'attention' : undefined },

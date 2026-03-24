@@ -6,6 +6,7 @@ import { getPlatformSettings, setPlatformSetting } from '@/lib/platform-settings
 const SETTINGS_DEFAULTS = {
   homepage_hero_text: 'Events made for business',
   homepage_hero_image: '',
+  homepage_event_layout: 'showcase',
   platform_theme: 'light',
   platform_name: 'OpenEvents',
   platform_logo: '',
@@ -18,6 +19,7 @@ const SETTINGS_DEFAULTS = {
 const updateSettingsSchema = z.object({
   heroText: z.string().min(1).max(200),
   heroImage: z.string().max(2000).optional(),
+  eventLayout: z.enum(['showcase', 'grid', 'carousel']).optional(),
   theme: z.enum(['light', 'dark']).optional(),
   platformName: z.string().min(1).max(100).optional(),
   platformLogo: z.string().max(2000).optional(),
@@ -41,6 +43,7 @@ export async function GET() {
       data: {
         heroText: settings.homepage_hero_text,
         heroImage: settings.homepage_hero_image,
+        eventLayout: settings.homepage_event_layout,
         theme: settings.platform_theme,
         platformName: settings.platform_name,
         platformLogo: settings.platform_logo,
@@ -76,10 +79,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { heroText, heroImage, theme, platformName, platformLogo, platformFavicon, brandColor } = parsed.data
+    const { heroText, heroImage, eventLayout, theme, platformName, platformLogo, platformFavicon, brandColor } = parsed.data
 
     await setPlatformSetting('homepage_hero_text', heroText)
     if (heroImage !== undefined) await setPlatformSetting('homepage_hero_image', heroImage)
+    if (eventLayout !== undefined) await setPlatformSetting('homepage_event_layout', eventLayout)
     if (theme !== undefined) await setPlatformSetting('platform_theme', theme)
     if (platformName !== undefined) await setPlatformSetting('platform_name', platformName)
     if (platformLogo !== undefined) await setPlatformSetting('platform_logo', platformLogo)

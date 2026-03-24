@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ImageIcon, Upload, X, Loader2, Sun, Moon } from 'lucide-react'
+import { ImageIcon, Upload, X, Loader2, Sun, Moon, LayoutGrid, Layers, GalleryHorizontal } from 'lucide-react'
 
 type FooterLink = { label: string; href: string; external?: boolean }
 
@@ -32,6 +32,7 @@ export default function AdminCustomizationPage() {
 
   const [heroText, setHeroText] = useState(DEFAULTS.heroText)
   const [heroImage, setHeroImage] = useState('')
+  const [eventLayout, setEventLayout] = useState<'showcase' | 'grid' | 'carousel'>('showcase')
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [platformName, setPlatformName] = useState(DEFAULTS.platformName)
   const [platformLogo, setPlatformLogo] = useState('')
@@ -53,6 +54,9 @@ export default function AdminCustomizationPage() {
           const { data } = await res.json()
           setHeroText(data.heroText || DEFAULTS.heroText)
           setHeroImage(data.heroImage || '')
+          if (data.eventLayout === 'grid' || data.eventLayout === 'carousel') {
+            setEventLayout(data.eventLayout)
+          }
           setTheme(data.theme === 'dark' ? 'dark' : 'light')
           setPlatformName(data.platformName || DEFAULTS.platformName)
           setPlatformLogo(data.platformLogo || '')
@@ -157,6 +161,7 @@ export default function AdminCustomizationPage() {
         body: JSON.stringify({
           heroText: heroText.trim(),
           heroImage,
+          eventLayout,
           theme,
           platformName: platformName.trim(),
           platformLogo,
@@ -453,6 +458,38 @@ export default function AdminCustomizationPage() {
             <input ref={heroFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFileSelect(e, 'homepage', (url) => { setHeroImage(url); setPreviewImage(null) })} className="hidden" />
           </div>
         </div>
+
+        {/* Event Layout */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Event Display Layout</label>
+          <p className="mt-1 text-xs text-gray-500">
+            Choose how events are displayed on the homepage.
+          </p>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {([
+              { value: 'showcase' as const, icon: Layers, label: 'Showcase', desc: 'Featured hero card with grid below' },
+              { value: 'grid' as const, icon: LayoutGrid, label: 'Grid', desc: 'Equal-sized cards in a uniform grid' },
+              { value: 'carousel' as const, icon: GalleryHorizontal, label: 'Carousel', desc: 'Swipeable full-width slideshow' },
+            ]).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setEventLayout(option.value)}
+                className={`flex flex-col items-center gap-2 rounded-lg border-2 px-4 py-4 transition text-center ${
+                  eventLayout === option.value
+                    ? 'border-[#5C8BD9] bg-blue-50 text-[#5C8BD9]'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <option.icon className="h-6 w-6" />
+                <div>
+                  <p className="text-sm font-semibold">{option.label}</p>
+                  <p className="text-xs opacity-70 mt-0.5">{option.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* ================================================================
@@ -639,6 +676,7 @@ export default function AdminCustomizationPage() {
             setHeroText(DEFAULTS.heroText)
             setHeroImage('')
             setPreviewImage(null)
+            setEventLayout('showcase')
             setTheme('light')
             setPlatformName(DEFAULTS.platformName)
             setPlatformLogo('')
