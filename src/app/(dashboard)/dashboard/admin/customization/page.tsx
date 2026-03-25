@@ -40,7 +40,7 @@ export default function AdminCustomizationPage() {
   const [brandColor, setBrandColor] = useState(DEFAULTS.brandColor)
   const [footerTagline, setFooterTagline] = useState(DEFAULTS.footerTagline)
   const [footerLinks, setFooterLinks] = useState<FooterLink[]>(DEFAULT_FOOTER_LINKS)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [previews, setPreviews] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -141,11 +141,9 @@ export default function AdminCustomizationPage() {
       return
     }
 
-    if (entityId === 'homepage') {
-      const reader = new FileReader()
-      reader.onload = () => setPreviewImage(reader.result as string)
-      reader.readAsDataURL(file)
-    }
+    const reader = new FileReader()
+    reader.onload = () => setPreviews((prev) => ({ ...prev, [entityId]: reader.result as string }))
+    reader.readAsDataURL(file)
 
     uploadFile(file, entityId, onSuccess)
   }
@@ -198,7 +196,7 @@ export default function AdminCustomizationPage() {
     )
   }
 
-  const displayImage = previewImage || heroImage || '/hero-image.jpg'
+  const displayImage = previews['homepage'] || (heroImage ? '/api/platform/image/hero' : '/hero-image.jpg')
 
   return (
     <div className="space-y-10">
@@ -305,9 +303,9 @@ export default function AdminCustomizationPage() {
           </p>
           <div className="mt-3 flex items-center gap-4">
             <div className="flex h-12 w-40 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 px-2">
-              {platformLogo ? (
+              {(previews['logo'] || platformLogo) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={platformLogo} alt="Logo" className="h-full w-auto object-contain" />
+                <img src={previews['logo'] || '/api/platform/image/logo'} alt="Logo" className="h-full w-auto object-contain" />
               ) : (
                 <span className="text-xs text-gray-400">No logo</span>
               )}
@@ -340,9 +338,9 @@ export default function AdminCustomizationPage() {
           </p>
           <div className="mt-3 flex items-center gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-              {platformFavicon ? (
+              {(previews['favicon'] || platformFavicon) ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={platformFavicon} alt="Favicon" className="h-6 w-6 object-contain" />
+                <img src={previews['favicon'] || '/api/platform/image/favicon'} alt="Favicon" className="h-6 w-6 object-contain" />
               ) : (
                 <ImageIcon className="h-4 w-4 text-gray-300" />
               )}
@@ -450,12 +448,12 @@ export default function AdminCustomizationPage() {
                 {uploading === 'homepage' ? 'Uploading...' : 'Upload Image'}
               </button>
               {heroImage && (
-                <button type="button" onClick={() => { setHeroImage(''); setPreviewImage(null) }} className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700">
+                <button type="button" onClick={() => { setHeroImage(''); setPreviews((prev) => { const next = { ...prev }; delete next['homepage']; return next }) }} className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700">
                   <X className="h-3 w-3" /> Remove (use default)
                 </button>
               )}
             </div>
-            <input ref={heroFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFileSelect(e, 'homepage', (url) => { setHeroImage(url); setPreviewImage(null) })} className="hidden" />
+            <input ref={heroFileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleFileSelect(e, 'homepage', setHeroImage)} className="hidden" />
           </div>
         </div>
 
@@ -675,7 +673,7 @@ export default function AdminCustomizationPage() {
           onClick={() => {
             setHeroText(DEFAULTS.heroText)
             setHeroImage('')
-            setPreviewImage(null)
+            setPreviews({})
             setEventLayout('showcase')
             setTheme('light')
             setPlatformName(DEFAULTS.platformName)

@@ -14,7 +14,7 @@ export async function GET() {
     return NextResponse.json({
       data: {
         platformName: settings.platform_name,
-        platformLogo: settings.platform_logo,
+        platformLogo: settings.platform_logo ? '/api/platform/image/logo' : '',
         brandColor: settings.platform_brand_color,
       },
     })

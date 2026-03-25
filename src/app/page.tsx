@@ -46,7 +46,7 @@ export default async function HomePage() {
   ])
 
   const heroText = settings.homepage_hero_text
-  const heroImage = settings.homepage_hero_image || '/hero-image.jpg'
+  const heroImage = settings.homepage_hero_image ? '/api/platform/image/hero' : '/hero-image.jpg'
   const eventLayout = (settings.homepage_event_layout || 'showcase') as 'showcase' | 'grid' | 'carousel'
 
   return (

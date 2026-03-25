@@ -76,7 +76,7 @@ export default async function RootLayout({
 
   const theme = settings.platform_theme
   const brandColor = settings.platform_brand_color
-  const favicon = settings.platform_favicon
+  const favicon = settings.platform_favicon ? '/api/platform/image/favicon' : ''
 
   return (
     <html lang="en" data-theme={theme}>
@@ -98,7 +98,7 @@ export default async function RootLayout({
           <div className="flex min-h-screen flex-col">
             <Header
               platformName={settings.platform_name}
-              platformLogo={settings.platform_logo}
+              platformLogo={settings.platform_logo ? '/api/platform/image/logo' : ''}
               brandColor={brandColor}
             />
             <main className="flex-1">{children}</main>

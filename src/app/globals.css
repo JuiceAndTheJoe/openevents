@@ -100,6 +100,9 @@ body {
 }
 
 /* --- Text --- */
+[data-theme="dark"] .text-gray-950 {
+  color: var(--text-primary) !important;
+}
 [data-theme="dark"] .text-black {
   color: #f1f5f9 !important;
 }
