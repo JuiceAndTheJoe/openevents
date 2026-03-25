@@ -17,7 +17,7 @@ const SETTINGS_DEFAULTS = {
 }
 
 const updateSettingsSchema = z.object({
-  heroText: z.string().min(1).max(200),
+  heroText: z.string().max(200),
   heroImage: z.string().max(2000).optional(),
   eventLayout: z.enum(['showcase', 'grid', 'carousel']).optional(),
   theme: z.enum(['light', 'dark']).optional(),

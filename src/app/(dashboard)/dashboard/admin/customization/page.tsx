@@ -52,7 +52,7 @@ export default function AdminCustomizationPage() {
         const res = await fetch('/api/admin/homepage')
         if (res.ok) {
           const { data } = await res.json()
-          setHeroText(data.heroText || DEFAULTS.heroText)
+          setHeroText(data.heroText ?? DEFAULTS.heroText)
           setHeroImage(data.heroImage || '')
           if (data.eventLayout === 'grid' || data.eventLayout === 'carousel') {
             setEventLayout(data.eventLayout)
@@ -382,14 +382,16 @@ export default function AdminCustomizationPage() {
               alt="Hero preview"
               className="h-[160px] w-full object-cover sm:h-[220px] md:h-[280px]"
             />
-            <div className="absolute left-4 right-4 top-[10%] rounded-[20px] border border-[rgba(255,255,255,0.31)] bg-[rgba(217,217,217,0.10)] px-4 py-3 backdrop-blur-[17.5px] sm:left-8 sm:right-auto sm:px-6 sm:py-4 md:left-10">
-              <p
-                className="text-lg font-bold leading-tight text-white sm:text-2xl md:text-3xl"
-                style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
-              >
-                {heroText || DEFAULTS.heroText}
-              </p>
-            </div>
+            {heroText.trim() && (
+              <div className="absolute left-4 right-4 top-[10%] rounded-[20px] border border-[rgba(255,255,255,0.31)] bg-[rgba(217,217,217,0.10)] px-4 py-3 backdrop-blur-[17.5px] sm:left-8 sm:right-auto sm:px-6 sm:py-4 md:left-10">
+                <p
+                  className="text-lg font-bold leading-tight text-white sm:text-2xl md:text-3xl"
+                  style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
+                >
+                  {heroText}
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -661,7 +663,7 @@ export default function AdminCustomizationPage() {
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving || !!uploading || !heroText.trim() || !platformName.trim()}
+          disabled={saving || !!uploading || !platformName.trim()}
           className="inline-flex items-center gap-2 rounded-lg bg-[#5C8BD9] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#4a7ac8] disabled:opacity-50"
         >
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
