@@ -17,7 +17,8 @@ function getRequestBaseUrl(request: NextRequest): string {
   const host = forwardedHost || request.headers.get('host') || ''
 
   if (!host) {
-    return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const url = new URL(request.url)
+    return `${url.protocol}//${url.host}`
   }
 
   const proto =
