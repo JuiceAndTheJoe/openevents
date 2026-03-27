@@ -226,7 +226,14 @@ export async function POST(request: NextRequest) {
                 .filter((item) => appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId))
 
               let discountableSubtotal: number
-              if (foundDiscountCode.applyToWholeOrder) {
+              if (foundDiscountCode.maxTicketsPerOrder !== null) {
+                const ticketPrices = applicableItems
+                  .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+                  .sort((a, b) => b - a)
+                const cappedPrices = ticketPrices.slice(0, foundDiscountCode.maxTicketsPerOrder)
+                discountableSubtotal = Number(cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2))
+                discountUsageUnits = cappedPrices.length
+              } else if (foundDiscountCode.applyToWholeOrder) {
                 discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
               } else {
                 const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
@@ -235,9 +242,11 @@ export async function POST(request: NextRequest) {
 
               // Check usage limits
               const remainingTicketUses = getDiscountCodeRemainingTicketUses(foundDiscountCode)
-              discountUsageUnits = foundDiscountCode.applyToWholeOrder
-                ? getDiscountUsageUnitsFromItems(applicableItems)
-                : 1
+              if (foundDiscountCode.maxTicketsPerOrder === null) {
+                discountUsageUnits = foundDiscountCode.applyToWholeOrder
+                  ? getDiscountUsageUnitsFromItems(applicableItems)
+                  : 1
+              }
 
               if (remainingTicketUses === null || remainingTicketUses >= discountUsageUnits) {
                 discountCodeRecord = foundDiscountCode

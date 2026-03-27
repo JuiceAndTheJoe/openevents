@@ -39,6 +39,8 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
           discountType: true,
           discountValue: true,
           maxUses: true,
+          minCartAmount: true,
+          maxTicketsPerOrder: true,
           usedCount: true,
           isActive: true,
           applyToWholeOrder: true,
@@ -65,6 +67,10 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const discountValue = new Prisma.Decimal(String(formData.get('discountValue') || '0'))
     const maxUsesRaw = String(formData.get('maxUses') || '').trim()
     const maxUses = maxUsesRaw ? Number(maxUsesRaw) : null
+    const minCartAmountRaw = String(formData.get('minCartAmount') || '').trim()
+    const minCartAmount = minCartAmountRaw ? new Prisma.Decimal(minCartAmountRaw) : null
+    const maxTicketsPerOrderRaw = String(formData.get('maxTicketsPerOrder') || '').trim()
+    const maxTicketsPerOrder = maxTicketsPerOrderRaw ? Number(maxTicketsPerOrderRaw) : null
     const isActive = String(formData.get('isActive') || 'true') === 'true'
     const applyToWholeOrder = formData.get('applyToWholeOrder') === 'on'
 
@@ -75,6 +81,8 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
         discountType,
         discountValue,
         maxUses,
+        minCartAmount,
+        maxTicketsPerOrder,
         isActive,
         applyToWholeOrder,
       },
@@ -108,6 +116,10 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const discountValue = new Prisma.Decimal(String(formData.get('discountValue') || '0'))
     const maxUsesRaw = String(formData.get('maxUses') || '').trim()
     const maxUses = maxUsesRaw ? Number(maxUsesRaw) : null
+    const minCartAmountRaw = String(formData.get('minCartAmount') || '').trim()
+    const minCartAmount = minCartAmountRaw ? new Prisma.Decimal(minCartAmountRaw) : null
+    const maxTicketsPerOrderRaw = String(formData.get('maxTicketsPerOrder') || '').trim()
+    const maxTicketsPerOrder = maxTicketsPerOrderRaw ? Number(maxTicketsPerOrderRaw) : null
     const isActive = String(formData.get('isActive') || 'true') === 'true'
     const applyToWholeOrder = formData.get('applyToWholeOrder') === 'on'
 
@@ -118,6 +130,8 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
         discountType,
         discountValue,
         maxUses,
+        minCartAmount,
+        maxTicketsPerOrder,
         isActive,
         applyToWholeOrder,
       },
@@ -171,6 +185,8 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
                   discountType: editableDiscountCode.discountType,
                   discountValue: Number(editableDiscountCode.discountValue.toString()),
                   maxUses: editableDiscountCode.maxUses,
+                  minCartAmount: editableDiscountCode.minCartAmount ? Number(editableDiscountCode.minCartAmount.toString()) : null,
+                  maxTicketsPerOrder: editableDiscountCode.maxTicketsPerOrder,
                   isActive: editableDiscountCode.isActive,
                   applyToWholeOrder: editableDiscountCode.applyToWholeOrder,
                 }

@@ -157,11 +157,19 @@ function calculateDiscountAmount(
   if (!discount) return 0
 
   const appliesToAll = discount.applicableTicketTypeIds.length === 0
-  const applicableItems = selectedItems
-    .filter((item) => appliesToAll || discount.applicableTicketTypeIds.includes(item.ticketTypeId))
+  const applicableItems = selectedItems.filter(
+    (item) => appliesToAll || discount.applicableTicketTypeIds.includes(item.ticketTypeId)
+  )
 
   let discountableSubtotal: number
-  if (discount.applyToWholeOrder) {
+  if (discount.maxTicketsPerOrder !== null) {
+    // Cap discounted tickets: expand to individual prices, take N most expensive
+    const ticketPrices = applicableItems
+      .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+      .sort((a, b) => b - a)
+    const cappedPrices = ticketPrices.slice(0, discount.maxTicketsPerOrder)
+    discountableSubtotal = Number(cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2))
+  } else if (discount.applyToWholeOrder) {
     discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
   } else {
     // Apply to 1 ticket only — pick the most expensive applicable unit price

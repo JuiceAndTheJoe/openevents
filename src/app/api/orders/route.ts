@@ -257,13 +257,25 @@ export async function POST(request: NextRequest) {
               }
 
               if (!promoCodeError) {
-                discountUsageUnits = foundDiscountCode.applyToWholeOrder
-                  ? getDiscountUsageUnitsFromItems(
-                      preparedOrder.items.filter((item) =>
-                        appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                if (foundDiscountCode.maxTicketsPerOrder !== null) {
+                  // discountUsageUnits will be set accurately in the discountableSubtotal block below
+                  // For the maxUses check, use the capped count as an upper bound
+                  const applicableItemsForCap = preparedOrder.items.filter((item) =>
+                    appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                  )
+                  const ticketPricesForCap = applicableItemsForCap
+                    .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+                    .sort((a, b) => b - a)
+                  discountUsageUnits = ticketPricesForCap.slice(0, foundDiscountCode.maxTicketsPerOrder).length
+                } else {
+                  discountUsageUnits = foundDiscountCode.applyToWholeOrder
+                    ? getDiscountUsageUnitsFromItems(
+                        preparedOrder.items.filter((item) =>
+                          appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                        )
                       )
-                    )
-                  : 1 // Single-ticket discount uses 1 unit
+                    : 1 // Single-ticket discount uses 1 unit
+                }
 
                 if (foundDiscountCode.maxUses !== null) {
                   const remainingUses = getDiscountCodeRemainingTicketUses(foundDiscountCode) ?? 0
@@ -275,12 +287,22 @@ export async function POST(request: NextRequest) {
 
               if (!promoCodeError) {
                 // Calculate promo code discount amount
-                const applicableItems = preparedOrder.items.filter((item) =>
-                  appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                // If maxTicketsPerOrder is set, only discount that many tickets (most expensive first)
+                let discountableSubtotal: number
+                const applicableItems = preparedOrder.items.filter(
+                  (item) => appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)
                 )
 
-                let discountableSubtotal: number
-                if (foundDiscountCode.applyToWholeOrder) {
+                if (foundDiscountCode.maxTicketsPerOrder !== null) {
+                  const ticketPrices = applicableItems
+                    .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+                    .sort((a, b) => b - a) // most expensive first
+                  const cappedPrices = ticketPrices.slice(0, foundDiscountCode.maxTicketsPerOrder)
+                  discountableSubtotal = Number(
+                    cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2)
+                  )
+                  discountUsageUnits = cappedPrices.length
+                } else if (foundDiscountCode.applyToWholeOrder) {
                   discountableSubtotal = applicableItems.reduce((sum, item) =>
                     Number((sum + item.totalPrice).toFixed(2)), 0)
                 } else {

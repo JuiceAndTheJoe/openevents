@@ -16,6 +16,8 @@ type DiscountCodeFormProps = {
     discountType: DiscountType
     discountValue: number
     maxUses: number | null
+    minCartAmount: number | null
+    maxTicketsPerOrder: number | null
     isActive: boolean
     applyToWholeOrder: boolean
   }
@@ -69,10 +71,20 @@ export function DiscountCodeForm({ title, submitLabel, action, initial }: Discou
           </div>
         )}
         {showMaxUsesField && (
-          <div>
-            <Label htmlFor={`${title}-maxUses`}>Max discounted tickets (not orders)</Label>
-            <Input id={`${title}-maxUses`} name="maxUses" type="number" min="1" defaultValue={initial?.maxUses ?? ''} />
-          </div>
+          <>
+            <div>
+              <Label htmlFor={`${title}-maxTicketsPerOrder`}>Max tickets to discount (per order)</Label>
+              <Input id={`${title}-maxTicketsPerOrder`} name="maxTicketsPerOrder" type="number" min="1" defaultValue={initial?.maxTicketsPerOrder ?? ''} />
+            </div>
+            <div>
+              <Label htmlFor={`${title}-minCartAmount`}>Minimum tickets in cart</Label>
+              <Input id={`${title}-minCartAmount`} name="minCartAmount" type="number" min="1" defaultValue={initial?.minCartAmount ?? ''} />
+            </div>
+            <div>
+              <Label htmlFor={`${title}-maxUses`}>Total usage limit (all orders combined)</Label>
+              <Input id={`${title}-maxUses`} name="maxUses" type="number" min="1" defaultValue={initial?.maxUses ?? ''} />
+            </div>
+          </>
         )}
         <div>
           <Label htmlFor={`${title}-isActive`}>Status</Label>

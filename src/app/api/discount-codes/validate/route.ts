@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
         discountValue: decimalToNumber(discountCode.discountValue),
         applicableTicketTypeIds: applicableTicketTypeIds,
         applyToWholeOrder: discountCode.applyToWholeOrder,
+        maxTicketsPerOrder: discountCode.maxTicketsPerOrder,
       },
     })
   } catch (error) {

@@ -113,6 +113,7 @@ describe('Discount Code Functions', () => {
       maxUses: null,
       minCartAmount: null,
       applyToWholeOrder: false,
+      maxTicketsPerOrder: null,
       usedCount: 0,
       redeemedTicketCount: 0,
     }

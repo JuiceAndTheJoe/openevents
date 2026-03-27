@@ -354,8 +354,9 @@ model DiscountCode {
   redeemedTicketCount Int    @default(0)
 
   // Conditions
-  minCartAmount Decimal?     @db.Decimal(10, 2) // Minimum cart amount to activate code
-  applyToWholeOrder Boolean  @default(false)    // false = discount applies to 1 ticket only
+  minCartAmount      Decimal?  @db.Decimal(10, 2) // Minimum number of applicable tickets in cart to activate code
+  applyToWholeOrder  Boolean   @default(false)    // false = discount applies to 1 ticket only
+  maxTicketsPerOrder Int?      // Max tickets to discount per order (null = all applicable tickets)
 
   // Validity
   validFrom     DateTime?
