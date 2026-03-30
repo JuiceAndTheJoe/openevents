@@ -67,8 +67,17 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       ? event.onlineUrl || 'Online event'
       : [event.venue, event.city, event.country].filter(Boolean).join(', ')
 
+  const resolvedAppUrl = process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      {/* DEBUG: remove after verifying PR 305 */}
+      <div className="mb-4 rounded bg-yellow-100 border border-yellow-400 px-4 py-2 text-sm text-yellow-800">
+        <strong>DEBUG</strong> — Resolved APP_URL: <code>{resolvedAppUrl}</code>
+        <span className="ml-2 text-xs text-yellow-600">
+          (PUBLIC_URL={process.env.PUBLIC_URL ?? 'unset'}, SITE_URL={process.env.SITE_URL ?? 'unset'}, NEXT_PUBLIC_APP_URL={process.env.NEXT_PUBLIC_APP_URL ?? 'unset'})
+        </span>
+      </div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Checkout</h1>
 
       <Card className="mb-6">
