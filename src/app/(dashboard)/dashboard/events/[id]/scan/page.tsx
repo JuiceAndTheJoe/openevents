@@ -3,15 +3,17 @@ import { prisma } from '@/lib/db'
 import { requireOrganizerProfile, buildEventWhereClause } from '@/lib/dashboard/organizer'
 import { TicketScanner } from '@/components/tickets/TicketScanner'
 
+export const dynamic = 'force-dynamic'
+
 type PageProps = {
   params: Promise<{ id: string }>
 }
 
 export default async function ScanTicketsPage({ params }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const { id } = await params
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
+  const where = buildEventWhereClause(null, true, { id })
 
   const event = await prisma.event.findFirst({
     where,

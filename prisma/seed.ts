@@ -10,27 +10,6 @@ const hoursFromNow = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 
 async function main() {
   console.log('Seeding database...')
 
-  // Create categories
-  const categories = [
-    { name: 'Conference', slug: 'conference', description: 'Professional conferences and summits' },
-    { name: 'Workshop', slug: 'workshop', description: 'Hands-on learning sessions' },
-    { name: 'Meetup', slug: 'meetup', description: 'Casual community gatherings' },
-    { name: 'Concert', slug: 'concert', description: 'Live music performances' },
-    { name: 'Networking', slug: 'networking', description: 'Professional networking events' },
-    { name: 'Sports', slug: 'sports', description: 'Sports events and competitions' },
-    { name: 'Charity', slug: 'charity', description: 'Fundraising and charity events' },
-    { name: 'Festival', slug: 'festival', description: 'Multi-day festivals and celebrations' },
-  ]
-
-  for (const category of categories) {
-    await prisma.category.upsert({
-      where: { slug: category.slug },
-      update: {},
-      create: category,
-    })
-  }
-  console.log('Categories created')
-
   // Create a super admin user
   const adminPassword = await bcrypt.hash('Admin123!', 12)
   const admin = await prisma.user.upsert({
@@ -42,6 +21,7 @@ async function main() {
       firstName: 'Super',
       lastName: 'Admin',
       emailVerified: new Date(),
+      mustChangePassword: true,
     },
   })
 
@@ -49,11 +29,6 @@ async function main() {
     where: { userId_role: { userId: admin.id, role: 'SUPER_ADMIN' } },
     update: {},
     create: { userId: admin.id, role: 'SUPER_ADMIN' },
-  })
-  await prisma.userRole.upsert({
-    where: { userId_role: { userId: admin.id, role: 'ATTENDEE' } },
-    update: {},
-    create: { userId: admin.id, role: 'ATTENDEE' },
   })
   console.log('Super admin created: admin@openevents.local / Admin123!')
 
@@ -134,12 +109,6 @@ async function main() {
       update: {},
       create: { userId: user.id, role: 'ORGANIZER' },
     })
-    await prisma.userRole.upsert({
-      where: { userId_role: { userId: user.id, role: 'ATTENDEE' } },
-      update: {},
-      create: { userId: user.id, role: 'ATTENDEE' },
-    })
-
     const profile = await prisma.organizerProfile.upsert({
       where: { userId: user.id },
       update: {},
@@ -163,7 +132,6 @@ async function main() {
     // ===== CONFERENCES =====
     {
       organizer: 'Nordic Tech Events',
-      category: 'conference',
       title: 'Nordic AI Summit 2025',
       slug: 'nordic-ai-summit-2025',
       description: 'The premier artificial intelligence conference in Scandinavia, bringing together researchers, practitioners, and business leaders.',
@@ -192,7 +160,6 @@ async function main() {
     },
     {
       organizer: 'Nordic Tech Events',
-      category: 'conference',
       title: 'DevOps Days Stockholm',
       slug: 'devops-days-stockholm-2025',
       description: 'Two days of talks, workshops, and open spaces focused on software development, IT infrastructure operations, and the intersection between them.',
@@ -219,7 +186,6 @@ async function main() {
     },
     {
       organizer: 'Nordic Tech Events',
-      category: 'conference',
       title: 'Sustainable Tech Forum',
       slug: 'sustainable-tech-forum-2025',
       description: 'Exploring how technology can drive environmental sustainability and help businesses achieve their climate goals.',
@@ -248,7 +214,6 @@ async function main() {
     // ===== WORKSHOPS =====
     {
       organizer: 'Nordic Tech Events',
-      category: 'workshop',
       title: 'Kubernetes Fundamentals Workshop',
       slug: 'kubernetes-fundamentals-workshop',
       description: 'A hands-on full-day workshop covering Kubernetes basics, from pods and deployments to services and ingress.',
@@ -279,7 +244,6 @@ async function main() {
     },
     {
       organizer: 'Nordic Tech Events',
-      category: 'workshop',
       title: 'React & TypeScript Masterclass',
       slug: 'react-typescript-masterclass',
       description: 'Deep dive into modern React development with TypeScript, covering advanced patterns, testing, and performance optimization.',
@@ -312,7 +276,6 @@ async function main() {
     },
     {
       organizer: 'Malmö Business Network',
-      category: 'workshop',
       title: 'Startup Pitch Workshop',
       slug: 'startup-pitch-workshop-malmo',
       description: 'Perfect your investor pitch with hands-on coaching from experienced VCs and successful founders.',
@@ -338,7 +301,6 @@ async function main() {
     },
     {
       organizer: 'Nordic Tech Events',
-      category: 'workshop',
       title: 'Data Engineering with Python',
       slug: 'data-engineering-python-workshop',
       description: 'Build production-ready data pipelines using Python, Apache Airflow, and modern data stack tools.',
@@ -366,7 +328,6 @@ async function main() {
     // ===== MEETUPS =====
     {
       organizer: 'Nordic Tech Events',
-      category: 'meetup',
       title: 'Stockholm JavaScript Meetup',
       slug: 'stockholm-javascript-meetup-march',
       description: 'Monthly JavaScript community meetup featuring talks on the latest frameworks, tools, and best practices.',
@@ -391,7 +352,6 @@ async function main() {
     },
     {
       organizer: 'Nordic Tech Events',
-      category: 'meetup',
       title: 'Women in Tech Stockholm',
       slug: 'women-in-tech-stockholm-april',
       description: 'A supportive community event for women in technology, featuring inspirational talks and mentorship opportunities.',
@@ -415,7 +375,6 @@ async function main() {
     },
     {
       organizer: 'Malmö Business Network',
-      category: 'meetup',
       title: 'Malmö Startup Drinks',
       slug: 'malmo-startup-drinks-march',
       description: 'Casual networking event for the Malmö startup community. No agenda, just great conversations.',
@@ -435,7 +394,6 @@ async function main() {
     },
     {
       organizer: 'Göteborg Sports Events',
-      category: 'meetup',
       title: 'Gothenburg Running Club',
       slug: 'gothenburg-running-club-weekly',
       description: 'Weekly group runs through beautiful Gothenburg. All paces welcome.',
@@ -462,7 +420,6 @@ async function main() {
     // ===== CONCERTS =====
     {
       organizer: 'Stockholm Music Collective',
-      category: 'concert',
       title: 'Nordic Jazz Night',
       slug: 'nordic-jazz-night-fasching',
       description: 'An evening of world-class Scandinavian jazz featuring the Jan Lundgren Trio and special guests.',
@@ -488,7 +445,6 @@ async function main() {
     },
     {
       organizer: 'Stockholm Music Collective',
-      category: 'concert',
       title: 'Swedish Indie Showcase',
       slug: 'swedish-indie-showcase-2025',
       description: 'Discover the next wave of Swedish indie music. Four rising bands, one unforgettable night.',
@@ -515,7 +471,6 @@ async function main() {
     },
     {
       organizer: 'Stockholm Music Collective',
-      category: 'concert',
       title: 'Classical Evening: Brahms Symphony',
       slug: 'classical-brahms-symphony-concert',
       description: 'The Royal Stockholm Philharmonic performs Brahms Symphony No. 4 and Piano Concerto No. 2.',
@@ -541,7 +496,6 @@ async function main() {
     },
     {
       organizer: 'Stockholm Music Collective',
-      category: 'concert',
       title: 'Electronic Nights: Röyksopp DJ Set',
       slug: 'electronic-nights-royksopp',
       description: 'Norwegian electronic duo Röyksopp brings their legendary DJ set to Stockholm.',
@@ -569,7 +523,6 @@ async function main() {
     // ===== NETWORKING =====
     {
       organizer: 'Malmö Business Network',
-      category: 'networking',
       title: 'Øresund Business Connect',
       slug: 'oresund-business-connect-2025',
       description: 'Cross-border networking event connecting Swedish and Danish business professionals.',
@@ -595,7 +548,6 @@ async function main() {
     },
     {
       organizer: 'Malmö Business Network',
-      category: 'networking',
       title: 'Founders Breakfast Club',
       slug: 'founders-breakfast-club-april',
       description: 'Monthly breakfast meetup for startup founders. Share challenges, exchange ideas, find collaborators.',
@@ -622,7 +574,6 @@ async function main() {
     },
     {
       organizer: 'Nordic Tech Events',
-      category: 'networking',
       title: 'CTO Circle Stockholm',
       slug: 'cto-circle-stockholm-q2',
       description: 'Exclusive networking dinner for CTOs and VP Engineering. Off-the-record discussions on leadership challenges.',
@@ -650,7 +601,6 @@ async function main() {
     // ===== SPORTS =====
     {
       organizer: 'Göteborg Sports Events',
-      category: 'sports',
       title: 'Gothenburg Half Marathon 2025',
       slug: 'gothenburg-half-marathon-2025',
       description: 'Run through the beautiful streets of Gothenburg in Sweden\'s largest half marathon event.',
@@ -681,7 +631,6 @@ async function main() {
     },
     {
       organizer: 'Göteborg Sports Events',
-      category: 'sports',
       title: 'CrossFit West Coast Throwdown',
       slug: 'crossfit-west-coast-throwdown-2025',
       description: 'Two-day CrossFit competition for all levels. Individual and team categories.',
@@ -713,7 +662,6 @@ async function main() {
     },
     {
       organizer: 'Göteborg Sports Events',
-      category: 'sports',
       title: 'Swedish Padel Championship',
       slug: 'swedish-padel-championship-2025',
       description: 'The national padel championship featuring top players from across Sweden.',
@@ -741,7 +689,6 @@ async function main() {
     },
     {
       organizer: 'Göteborg Sports Events',
-      category: 'sports',
       title: 'Midnight Sun Trail Run',
       slug: 'midnight-sun-trail-run-2025',
       description: 'Experience the magic of running under the midnight sun in northern Sweden.',
@@ -778,7 +725,6 @@ async function main() {
     // ===== CHARITY =====
     {
       organizer: 'Uppsala Charity Foundation',
-      category: 'charity',
       title: 'Run for Education 2025',
       slug: 'run-for-education-2025',
       description: 'Family-friendly charity run supporting educational programs for underprivileged children in Sweden.',
@@ -806,7 +752,6 @@ async function main() {
     },
     {
       organizer: 'Uppsala Charity Foundation',
-      category: 'charity',
       title: 'Charity Gala Dinner',
       slug: 'charity-gala-dinner-2025',
       description: 'An elegant evening supporting mental health initiatives, featuring fine dining, live entertainment, and a charity auction.',
@@ -833,7 +778,6 @@ async function main() {
     },
     {
       organizer: 'Uppsala Charity Foundation',
-      category: 'charity',
       title: 'Beach Cleanup Day',
       slug: 'beach-cleanup-day-stockholm-2025',
       description: 'Join volunteers cleaning Stockholm\'s archipelago beaches. Make a difference for marine life and our environment.',
@@ -861,7 +805,6 @@ async function main() {
     // ===== FESTIVALS =====
     {
       organizer: 'Swedish Festival Productions',
-      category: 'festival',
       title: 'Stockholm Food Festival 2025',
       slug: 'stockholm-food-festival-2025',
       description: 'Three days of culinary excellence featuring top chefs, food trucks, wine tastings, and cooking demonstrations.',
@@ -891,7 +834,6 @@ async function main() {
     },
     {
       organizer: 'Swedish Festival Productions',
-      category: 'festival',
       title: 'Midsommar Festival Dalarna',
       slug: 'midsommar-festival-dalarna-2025',
       description: 'Celebrate the most Swedish of traditions at our authentic Midsummer festival in beautiful Dalarna.',
@@ -919,7 +861,6 @@ async function main() {
     },
     {
       organizer: 'Swedish Festival Productions',
-      category: 'festival',
       title: 'Winter Light Festival',
       slug: 'winter-light-festival-stockholm-2025',
       description: 'Illuminate the dark Swedish winter with stunning light installations, performances, and warm drinks.',
@@ -948,7 +889,6 @@ async function main() {
     },
     {
       organizer: 'Swedish Festival Productions',
-      category: 'festival',
       title: 'Gothenburg Beer Week',
       slug: 'gothenburg-beer-week-2025',
       description: 'A week-long celebration of craft beer featuring 200+ breweries, tastings, and food pairings.',
@@ -979,11 +919,10 @@ async function main() {
 
   // Create all events
   for (const eventData of events) {
-    const category = await prisma.category.findUnique({ where: { slug: eventData.category } })
     const organizerId = orgProfiles[eventData.organizer]
 
-    if (!category || !organizerId) {
-      console.error(`Missing category or organizer for event: ${eventData.title}`)
+    if (!organizerId) {
+      console.error(`Missing organizer for event: ${eventData.title}`)
       continue
     }
 
@@ -1009,21 +948,6 @@ async function main() {
         status: 'PUBLISHED',
         visibility: 'PUBLIC',
         publishedAt: new Date(),
-      },
-    })
-
-    // Link category
-    await prisma.eventCategory.upsert({
-      where: {
-        eventId_categoryId: {
-          eventId: event.id,
-          categoryId: category.id,
-        },
-      },
-      update: {},
-      create: {
-        eventId: event.id,
-        categoryId: category.id,
       },
     })
 

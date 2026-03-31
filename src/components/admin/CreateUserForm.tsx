@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-type AccountType = 'ATTENDEE' | 'ORGANIZER' | 'SUPER_ADMIN'
+type AccountType = 'ORGANIZER' | 'SUPER_ADMIN'
 
 type CreatedUserData = {
   email: string
@@ -134,7 +134,6 @@ export function CreateUserForm() {
             onChange={(event) => setAccountType(event.target.value as AccountType)}
             required
           >
-            <option value="ATTENDEE">ATTENDEE</option>
             <option value="ORGANIZER">ORGANIZER</option>
             <option value="SUPER_ADMIN">SUPER_ADMIN</option>
           </select>

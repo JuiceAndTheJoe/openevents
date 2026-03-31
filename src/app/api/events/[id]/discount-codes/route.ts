@@ -115,6 +115,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         discountValue: input.discountValue,
         maxUses: input.maxUses,
         minCartAmount: input.minCartAmount ?? null,
+        applyToWholeOrder: input.discountType === 'FREE_TICKET' ? true : (input.applyToWholeOrder ?? false),
+        maxTicketsPerOrder: input.maxTicketsPerOrder ?? null,
         validFrom: input.validFrom ? new Date(input.validFrom) : null,
         validUntil: input.validUntil ? new Date(input.validUntil) : null,
         isActive: input.isActive,

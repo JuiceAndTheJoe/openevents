@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { TicketStatus, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { requireOrganizerProfile, buildEventWhereClause } from '@/lib/dashboard/organizer'
+import { requireOrganizerProfile } from '@/lib/dashboard/organizer'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -14,17 +14,15 @@ function csvCell(value: string | number | null | undefined) {
 
 export async function GET(request: Request, context: RouteContext) {
   try {
-    const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+    await requireOrganizerProfile()
     const { id } = await context.params
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') as TicketStatus | null
 
-    const eventWhere = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
-
     // Verify the event exists and user has access
     const event = await prisma.event.findFirst({
-      where: eventWhere,
+      where: { id, deletedAt: null },
       select: {
         id: true,
         title: true,

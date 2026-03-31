@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/config'
 import { prisma } from '@/lib/db'
 import { validateDiscountCodeSchema } from '@/lib/validations'
 import {
@@ -14,11 +12,6 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const parsed = validateDiscountCodeSchema.safeParse({
       ...body,
@@ -104,6 +97,8 @@ export async function POST(request: NextRequest) {
         discountType: discountCode.discountType,
         discountValue: decimalToNumber(discountCode.discountValue),
         applicableTicketTypeIds: applicableTicketTypeIds,
+        applyToWholeOrder: discountCode.applyToWholeOrder,
+        maxTicketsPerOrder: discountCode.maxTicketsPerOrder,
       },
     })
   } catch (error) {

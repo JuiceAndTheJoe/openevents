@@ -2,8 +2,11 @@ import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import { CheckoutForm } from '@/components/tickets/CheckoutForm'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDateTime } from '@/lib/utils'
+import { formatEventDateTime } from '@/lib/utils'
+import { isValidTimeZone } from '@/lib/timezone'
 import { getCheckoutUnavailableNotice, getCheckoutUnavailableReason } from '@/lib/orders/checkoutAvailability'
+
+export const dynamic = 'force-dynamic'
 
 interface CheckoutPageProps {
   params: Promise<{ slug: string }>
@@ -20,12 +23,14 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       title: true,
       startDate: true,
       endDate: true,
+      timezone: true,
       locationType: true,
       venue: true,
       city: true,
       country: true,
       onlineUrl: true,
       coverImage: true,
+      collectAllergies: true,
       status: true,
       ticketTypes: {
         where: { isVisible: true },
@@ -62,6 +67,8 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
     redirect(`/events/${event.slug}?notice=${encodeURIComponent(notice)}`)
   }
 
+  const displayTimeZone = isValidTimeZone(event.timezone) ? event.timezone : 'UTC'
+
   const location =
     event.locationType === 'ONLINE'
       ? event.onlineUrl || 'Online event'
@@ -77,7 +84,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
             <p className="font-bold text-base text-black leading-tight">{event.title}</p>
             <p className="text-sm text-gray-700 leading-snug">{location}</p>
             <p className="text-sm text-gray-700">
-              {formatDateTime(event.startDate, { timeZoneName: 'short' })}
+              {formatEventDateTime(event.startDate, displayTimeZone)}
             </p>
           </div>
           <div className="w-44 aspect-video rounded-[10px] overflow-hidden flex-shrink-0 bg-gradient-to-r from-blue-500 to-indigo-600">
@@ -99,6 +106,7 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
           slug: event.slug,
           title: event.title,
           country: event.country,
+          collectAllergies: event.collectAllergies,
         }}
         groupDiscounts={event.groupDiscounts.map((gd) => ({
           id: gd.id,

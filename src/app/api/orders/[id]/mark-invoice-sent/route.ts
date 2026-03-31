@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { canAccessOrder } from '@/lib/orders/authorization'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -22,16 +21,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id: true,
         status: true,
         invoiceSentAt: true,
-        event: {
-          select: {
-            organizer: {
-              select: {
-                userId: true,
-              },
-            },
-          },
-        },
-        userId: true,
       },
     })
 
@@ -40,17 +29,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Only organizers or super admins can mark invoice as sent
-    const canManageOrder = canAccessOrder({
-      orderUserId: order.userId,
-      organizerUserId: order.event.organizer.userId,
-      requesterUserId: user.id,
-      requesterRoles: user.roles,
-    })
-
-    const isOrganizer = order.event.organizer.userId === user.id
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
-
-    if (!canManageOrder || (!isOrganizer && !isSuperAdmin)) {
+    const hasOrganizerRole = user.roles.includes('ORGANIZER') || user.roles.includes('SUPER_ADMIN')
+    if (!hasOrganizerRole) {
       return NextResponse.json(
         { error: 'Only event organizers can mark invoice as sent' },
         { status: 403 }

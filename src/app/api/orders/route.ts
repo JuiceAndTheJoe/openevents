@@ -257,11 +257,25 @@ export async function POST(request: NextRequest) {
               }
 
               if (!promoCodeError) {
-                discountUsageUnits = getDiscountUsageUnitsFromItems(
-                  preparedOrder.items.filter((item) =>
+                if (foundDiscountCode.maxTicketsPerOrder !== null) {
+                  // discountUsageUnits will be set accurately in the discountableSubtotal block below
+                  // For the maxUses check, use the capped count as an upper bound
+                  const applicableItemsForCap = preparedOrder.items.filter((item) =>
                     appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
                   )
-                )
+                  const ticketPricesForCap = applicableItemsForCap
+                    .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+                    .sort((a, b) => b - a)
+                  discountUsageUnits = ticketPricesForCap.slice(0, foundDiscountCode.maxTicketsPerOrder).length
+                } else {
+                  discountUsageUnits = foundDiscountCode.applyToWholeOrder
+                    ? getDiscountUsageUnitsFromItems(
+                        preparedOrder.items.filter((item) =>
+                          appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                        )
+                      )
+                    : 1 // Single-ticket discount uses 1 unit
+                }
 
                 if (foundDiscountCode.maxUses !== null) {
                   const remainingUses = getDiscountCodeRemainingTicketUses(foundDiscountCode) ?? 0
@@ -273,12 +287,29 @@ export async function POST(request: NextRequest) {
 
               if (!promoCodeError) {
                 // Calculate promo code discount amount
-                const discountableSubtotal = preparedOrder.items.reduce((sum, item) => {
-                  if (appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)) {
-                    return Number((sum + item.totalPrice).toFixed(2))
-                  }
-                  return sum
-                }, 0)
+                // If maxTicketsPerOrder is set, only discount that many tickets (most expensive first)
+                let discountableSubtotal: number
+                const applicableItems = preparedOrder.items.filter(
+                  (item) => appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)
+                )
+
+                if (foundDiscountCode.maxTicketsPerOrder !== null) {
+                  const ticketPrices = applicableItems
+                    .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+                    .sort((a, b) => b - a) // most expensive first
+                  const cappedPrices = ticketPrices.slice(0, foundDiscountCode.maxTicketsPerOrder)
+                  discountableSubtotal = Number(
+                    cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2)
+                  )
+                  discountUsageUnits = cappedPrices.length
+                } else if (foundDiscountCode.applyToWholeOrder) {
+                  discountableSubtotal = applicableItems.reduce((sum, item) =>
+                    Number((sum + item.totalPrice).toFixed(2)), 0)
+                } else {
+                  // Apply to 1 ticket only — use the most expensive applicable unit price
+                  const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
+                  discountableSubtotal = maxUnitPrice
+                }
 
                 if (foundDiscountCode.minCartAmount !== null) {
                   const minQuantity = decimalToNumber(foundDiscountCode.minCartAmount)
@@ -330,14 +361,30 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Apply the best discount: whichever saves the customer more
+        // Apply discounts based on discount code type
         const subtotal = preparedOrder.subtotal
         let discountAmount = 0
         let appliedGroupDiscountId: string | null = null
         let appliedDiscountCodeId: string | null = null
         let promoCodeIgnoredForGroupDiscount = false
 
-        if (groupDiscountAmount > promoCodeDiscountAmount) {
+        const isInvoiceCode = discountCodeRecord?.discountType === 'INVOICE'
+        const isFreeNonInvoiceCode = discountCodeRecord && !isInvoiceCode &&
+          (discountCodeRecord.discountType === 'FREE_TICKET' ||
+           (discountCodeRecord.discountType === 'PERCENTAGE' && decimalToNumber(discountCodeRecord.discountValue) >= 100))
+
+        if (isInvoiceCode) {
+          // Invoice codes stack with group discounts: apply group discount for price, invoice for payment method
+          discountAmount = groupDiscountAmount
+          appliedGroupDiscountId = groupDiscountRecord?.id ?? null
+          appliedDiscountCodeId = discountCodeRecord?.id ?? null
+          // Don't consume ticket-based usage for invoice codes (they only change payment method)
+          discountUsageUnits = 0
+        } else if (isFreeNonInvoiceCode) {
+          // Non-invoice 100% off codes: order is free, ignore group discount
+          discountAmount = promoCodeDiscountAmount
+          appliedDiscountCodeId = discountCodeRecord?.id ?? null
+        } else if (groupDiscountAmount > promoCodeDiscountAmount) {
           // Group discount wins
           discountAmount = groupDiscountAmount
           appliedGroupDiscountId = groupDiscountRecord?.id ?? null
@@ -368,7 +415,7 @@ export async function POST(request: NextRequest) {
         let paymentMethod: 'PAYPAL' | 'INVOICE' | 'FREE' = 'PAYPAL'
 
         if (discountCodeRecord?.discountType === 'INVOICE') {
-          status = 'PENDING_INVOICE'
+          status = 'PAID'
           paymentMethod = 'INVOICE'
         } else if (totalAmount === 0 || discountCodeRecord?.discountType === 'FREE_TICKET') {
           status = 'PAID'

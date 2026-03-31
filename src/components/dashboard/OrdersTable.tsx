@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { OrderStatus, PaymentMethod } from '@prisma/client'
+import { OrderStatus, PaymentMethod, DiscountType } from '@prisma/client'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
 
@@ -16,6 +16,10 @@ type OrdersTableProps = {
     totalAmount: number
     currency: string
     createdAt: Date
+    discountCode?: {
+      code: string
+      discountType: DiscountType
+    } | null
   }>
 }
 
@@ -55,7 +59,18 @@ export function OrdersTable({ eventId, orders }: OrdersTableProps) {
                   <p className="text-xs text-gray-500">{order.buyerEmail}</p>
                 </td>
                 <td className="px-4 py-3 text-gray-700">{order.status}</td>
-                <td className="px-4 py-3 text-gray-700">{formatPaymentMethodLabel(order.paymentMethod)}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  {order.paymentMethod === 'INVOICE' ? (
+                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Invoice</span>
+                  ) : (
+                    formatPaymentMethodLabel(order.paymentMethod)
+                  )}
+                  {order.discountCode && (
+                    <p className="text-xs text-gray-500">
+                      Code: {order.discountCode.code}
+                    </p>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-900">{formatCurrency(order.totalAmount, order.currency)}</td>
                 <td className="px-4 py-3 text-gray-600">{formatDateTime(order.createdAt)}</td>
               </tr>

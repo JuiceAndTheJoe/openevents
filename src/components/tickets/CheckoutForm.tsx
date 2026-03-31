@@ -30,6 +30,7 @@ interface CheckoutFormProps {
     slug: string
     title: string
     country: string | null
+    collectAllergies: boolean
   }
   groupDiscounts?: GroupDiscount[]
 }
@@ -66,10 +67,11 @@ interface AttendeeFormState {
   email: string
   title: string
   organization: string
+  allergies: string
 }
 
 function emptyAttendee(): AttendeeFormState {
-  return { firstName: '', lastName: '', email: '', title: '', organization: '' }
+  return { firstName: '', lastName: '', email: '', title: '', organization: '', allergies: '' }
 }
 
 function calculateBestGroupDiscount(
@@ -157,9 +159,25 @@ function calculateDiscountAmount(
   if (!discount) return 0
 
   const appliesToAll = discount.applicableTicketTypeIds.length === 0
-  const discountableSubtotal = selectedItems
-    .filter((item) => appliesToAll || discount.applicableTicketTypeIds.includes(item.ticketTypeId))
-    .reduce((sum, item) => sum + item.totalPrice, 0)
+  const applicableItems = selectedItems.filter(
+    (item) => appliesToAll || discount.applicableTicketTypeIds.includes(item.ticketTypeId)
+  )
+
+  let discountableSubtotal: number
+  if (discount.maxTicketsPerOrder !== null) {
+    // Cap discounted tickets: expand to individual prices, take N most expensive
+    const ticketPrices = applicableItems
+      .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+      .sort((a, b) => b - a)
+    const cappedPrices = ticketPrices.slice(0, discount.maxTicketsPerOrder)
+    discountableSubtotal = Number(cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2))
+  } else if (discount.applyToWholeOrder) {
+    discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
+  } else {
+    // Apply to 1 ticket only — pick the most expensive applicable unit price
+    const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
+    discountableSubtotal = maxUnitPrice
+  }
 
   if (discount.discountType === 'PERCENTAGE') {
     return Number(Math.min(discountableSubtotal, (discountableSubtotal * discount.discountValue) / 100).toFixed(2))
@@ -396,25 +414,43 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
     [subtotal, discount, selectedItems]
   )
 
-  // Apply the best discount: group discount vs promo code
-  const discountAmount = useMemo(
-    () => Math.max(groupDiscount.amount, promoCodeDiscountAmount),
-    [groupDiscount.amount, promoCodeDiscountAmount]
-  )
+  const isInvoiceCode = discount?.discountType === 'INVOICE'
+  const isFreeNonInvoiceCode = discount && !isInvoiceCode &&
+    (discount.discountType === 'FREE_TICKET' ||
+     (discount.discountType === 'PERCENTAGE' && discount.discountValue >= 100))
+
+  // Apply discounts based on discount code type
+  const discountAmount = useMemo(() => {
+    if (isInvoiceCode) {
+      // Invoice codes stack with group discounts: apply group discount for price
+      return groupDiscount.amount
+    }
+    if (isFreeNonInvoiceCode) {
+      // Non-invoice 100% off: order is free, ignore group discount
+      return promoCodeDiscountAmount
+    }
+    // Regular: best discount wins
+    return Math.max(groupDiscount.amount, promoCodeDiscountAmount)
+  }, [groupDiscount.amount, promoCodeDiscountAmount, isInvoiceCode, isFreeNonInvoiceCode])
 
   const appliedDiscountType = useMemo(() => {
+    if (isInvoiceCode) {
+      // Invoice codes: show group discount info if available, otherwise no discount line
+      return groupDiscount.amount > 0 ? 'group' : null
+    }
+    if (isFreeNonInvoiceCode) return 'free'
     if (discountAmount === 0) return null
     if (groupDiscount.amount > promoCodeDiscountAmount) return 'group'
     return 'promo'
-  }, [discountAmount, groupDiscount.amount, promoCodeDiscountAmount])
+  }, [discountAmount, groupDiscount.amount, promoCodeDiscountAmount, isInvoiceCode, isFreeNonInvoiceCode])
 
   const totalAmount = useMemo(
     () => Number(Math.max(0, subtotal - discountAmount).toFixed(2)),
     [subtotal, discountAmount]
   )
   const includedVat = useMemo(
-    () => getIncludedVatFromVatInclusiveTotal(subtotal, vatRate),
-    [subtotal, vatRate]
+    () => getIncludedVatFromVatInclusiveTotal(totalAmount, vatRate),
+    [totalAmount, vatRate]
   )
 
   const selectedTicketTypeIds = useMemo(
@@ -1069,6 +1105,21 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                                 }
                               />
                             </div>
+                            {event.collectAllergies && (
+                              <div className="space-y-1 sm:col-span-2">
+                                <Label htmlFor={`attendee-${item.ticketTypeId}-${i}-allergies`}>
+                                  Allergies / Dietary requirements
+                                </Label>
+                                <Input
+                                  id={`attendee-${item.ticketTypeId}-${i}-allergies`}
+                                  value={attendeeDisplay.allergies}
+                                  onChange={(e) =>
+                                    updateAttendeeField(item.ticketTypeId, i, 'allergies', e.target.value)
+                                  }
+                                  placeholder="e.g. Gluten-free, nut allergy"
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -1105,8 +1156,9 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
           includedVat={includedVat}
           vatRate={vatRate}
           currency={selectedItems[0]?.currency ?? 'SEK'}
-          discountCode={discount?.code}
+          discountCode={appliedDiscountType === 'promo' ? discount?.code : undefined}
           groupDiscountMessage={appliedDiscountType === 'group' ? groupDiscount.description : null}
+          freeOrderMessage={appliedDiscountType === 'free' ? 'Discount code applied, this order is free' : null}
         />
 
         <Card>

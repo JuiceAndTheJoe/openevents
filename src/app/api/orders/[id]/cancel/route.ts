@@ -21,7 +21,7 @@ const cancelOrderInputSchema = z.object({
 /**
  * Handle checkout cancellation redirect from payment provider.
  */
-export async function GET(_request: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { id: orderId } = await context.params
 

@@ -10,7 +10,6 @@ type DeletionNotice = 'requested' | 'scheduled' | 'cancelled' | 'invalid' | 'exp
 
 type AccountSettingsProps = {
   userEmail: string
-  connectedAccounts: string[]
   updateEmailAction: (formData: FormData) => Promise<void>
   changePasswordAction: (formData: FormData) => Promise<void>
   deleteAccountAction: (formData: FormData) => Promise<void>
@@ -22,7 +21,6 @@ type AccountSettingsProps = {
 
 export function AccountSettings({
   userEmail,
-  connectedAccounts,
   updateEmailAction,
   changePasswordAction,
   deleteAccountAction,
@@ -125,19 +123,6 @@ export function AccountSettings({
               {hasPendingConfirmation ? 'Resend Confirmation Email' : 'Delete Account'}
             </Button>
           </>
-        )}
-      </section>
-
-      <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-gray-900">Connected Accounts</h2>
-        {connectedAccounts.length === 0 ? (
-          <p className="text-sm text-gray-600">No OAuth accounts connected.</p>
-        ) : (
-          <ul className="list-disc pl-5 text-sm text-gray-700">
-            {connectedAccounts.map((provider) => (
-              <li key={provider}>{provider}</li>
-            ))}
-          </ul>
         )}
       </section>
 

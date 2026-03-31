@@ -40,27 +40,15 @@ function errorResponse(
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id } = await context.params
 
     const existingEvent = await prisma.event.findUnique({
       where: { id },
-      include: {
-        organizer: {
-          select: {
-            userId: true,
-          },
-        },
-      },
     })
 
     if (!existingEvent || existingEvent.deletedAt) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
-    }
-
-    if (!isSuperAdmin && existingEvent.organizer.userId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     if (existingEvent.status === 'CANCELLED' || existingEvent.status === 'COMPLETED') {
@@ -84,7 +72,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     const {
-      categoryIds,
       status,
       bottomImage,
       speakerNames,
@@ -103,19 +90,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         { error: 'End date must be after start date' },
         { status: 400 }
       )
-    }
-
-    if (categoryIds && categoryIds.length > 0) {
-      const existingCategories = await prisma.category.count({
-        where: { id: { in: categoryIds } },
-      })
-
-      if (existingCategories !== categoryIds.length) {
-        return NextResponse.json(
-          { error: 'One or more categoryIds are invalid' },
-          { status: 400 }
-        )
-      }
     }
 
     // Regenerate slug if title is being changed (#208)
@@ -147,6 +121,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           coverImage: input.coverImage,
           visibility: input.visibility,
           cancellationDeadlineHours: input.cancellationDeadlineHours,
+          collectAllergies: input.collectAllergies ?? undefined,
           status,
           publishedAt:
             status === 'PUBLISHED'
@@ -156,15 +131,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 : undefined,
         },
       })
-
-      if (categoryIds) {
-        await tx.eventCategory.deleteMany({ where: { eventId: id } })
-        if (categoryIds.length > 0) {
-          await tx.eventCategory.createMany({
-            data: categoryIds.map((categoryId) => ({ eventId: id, categoryId })),
-          })
-        }
-      }
 
       if (bottomImage !== undefined) {
         await tx.eventMedia.deleteMany({
@@ -273,13 +239,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const eventWithRelations = await prisma.event.findUnique({
       where: { id: updatedEvent.id },
-      include: {
-        categories: {
-          include: {
-            category: true,
-          },
-        },
-      },
     })
 
     return NextResponse.json({ data: eventWithRelations })
@@ -304,26 +263,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id } = await context.params
 
     const existingEvent = await prisma.event.findUnique({
       where: { id },
-      include: {
-        organizer: {
-          select: {
-            userId: true,
-          },
-        },
-      },
     })
 
     if (!existingEvent || existingEvent.deletedAt) return errorResponse('Event not found.', 404)
-
-    if (!isSuperAdmin && existingEvent.organizer.userId !== user.id) {
-      return errorResponse('You do not have permission to delete this event.', 403)
-    }
 
     if (existingEvent.status === 'PUBLISHED') {
       const action: ActionHint = {
@@ -418,11 +365,6 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         ticketTypes: {
           where: { isVisible: true },
           orderBy: { sortOrder: 'asc' },
-        },
-        categories: {
-          include: {
-            category: true,
-          },
         },
       },
     })

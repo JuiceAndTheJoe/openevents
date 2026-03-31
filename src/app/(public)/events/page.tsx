@@ -1,7 +1,5 @@
 import Link from 'next/link'
-import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { HeroSearchBar } from '@/components/events/HeroSearchBar'
 import { EventList } from '@/components/events/EventList'
 
 export const dynamic = 'force-dynamic'
@@ -24,69 +22,18 @@ function readParam(value: string | string[] | undefined): string | undefined {
 export default async function EventsPage({ searchParams }: PageProps) {
   const params = await searchParams
 
-  const category = readParam(params.category)
-  const search = readParam(params.search)
-  const location = readParam(params.location)
-  const startDateParam = readParam(params.startDate)
-  const endDateParam = readParam(params.endDate)
   const page = Math.max(Number(readParam(params.page) || '1'), 1)
   const pageSize = 9
   const now = new Date()
 
-  const where: Prisma.EventWhereInput = {
-    status: 'PUBLISHED',
-    visibility: 'PUBLIC',
+  const where = {
+    status: 'PUBLISHED' as const,
+    visibility: 'PUBLIC' as const,
     deletedAt: null,
-    endDate: { gte: now }, // Exclude past events
+    endDate: { gte: now },
   }
 
-  if (category) {
-    where.categories = {
-      some: {
-        OR: [
-          { category: { id: category } },
-          { category: { slug: category } },
-          { category: { name: { equals: category, mode: 'insensitive' } } },
-        ],
-      },
-    }
-  }
-
-  // Build AND conditions for search and location filters (#205)
-  const andConditions: Prisma.EventWhereInput[] = []
-
-  if (search) {
-    andConditions.push({
-      OR: [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ],
-    })
-  }
-
-  if (location) {
-    andConditions.push({
-      OR: [
-        { venue: { contains: location, mode: 'insensitive' } },
-        { city: { contains: location, mode: 'insensitive' } },
-        { state: { contains: location, mode: 'insensitive' } },
-        { country: { contains: location, mode: 'insensitive' } },
-      ],
-    })
-  }
-
-  if (andConditions.length > 0) {
-    where.AND = andConditions
-  }
-
-  if (startDateParam || endDateParam) {
-    where.startDate = {
-      gte: startDateParam ? new Date(startDateParam) : undefined,
-      lte: endDateParam ? new Date(endDateParam) : undefined,
-    }
-  }
-
-  const [events, total, categories] = await prisma.$transaction([
+  const [events, total] = await prisma.$transaction([
     prisma.event.findMany({
       where,
       include: {
@@ -110,27 +57,12 @@ export default async function EventsPage({ searchParams }: PageProps) {
       take: pageSize,
     }),
     prisma.event.count({ where }),
-    prisma.category.findMany({
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-      },
-      orderBy: {
-        name: 'asc',
-      },
-    }),
   ])
 
   const totalPages = Math.max(Math.ceil(total / pageSize), 1)
 
   const buildPageHref = (targetPage: number) => {
     const q = new URLSearchParams()
-    if (category) q.set('category', category)
-    if (search) q.set('search', search)
-    if (location) q.set('location', location)
-    if (startDateParam) q.set('startDate', startDateParam)
-    if (endDateParam) q.set('endDate', endDateParam)
     q.set('page', String(targetPage))
     return `/events?${q.toString()}`
   }
@@ -138,23 +70,11 @@ export default async function EventsPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">Discover Events</h1>
-        <p className="mt-2 text-gray-600">Find events by category, date, and location.</p>
+        <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">Upcoming Events</h1>
+        <p className="mt-2 text-gray-600">Browse all upcoming events.</p>
       </div>
 
-      <HeroSearchBar
-        categories={categories}
-        showCategoryDropdown={false}
-        initial={{
-          search,
-          category,
-          location,
-          dateFrom: startDateParam,
-          dateTo: endDateParam,
-        }}
-      />
-
-      <EventList events={events} />
+      <EventList events={events} layout="showcase" />
 
       <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-600">

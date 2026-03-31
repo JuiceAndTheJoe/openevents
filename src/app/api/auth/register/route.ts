@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Only extract safe fields - ignore any role from client to prevent privilege escalation
-    // Users must use /api/users/request-organizer for role upgrades
+    // Admins assign organizer roles directly via the admin panel
     const { email, password, firstName, lastName } = validationResult.data
 
     // Check if user already exists
@@ -57,15 +57,6 @@ export async function POST(request: NextRequest) {
           passwordHash,
           firstName,
           lastName,
-        },
-      })
-
-      // Always assign ATTENDEE role - never trust client-provided role
-      // Users must use /api/users/request-organizer for role upgrades
-      await tx.userRole.create({
-        data: {
-          userId: newUser.id,
-          role: 'ATTENDEE',
         },
       })
 

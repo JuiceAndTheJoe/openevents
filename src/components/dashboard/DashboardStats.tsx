@@ -19,7 +19,7 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     { label: 'Draft', value: String(stats.draftEvents) },
     { label: 'Upcoming', value: String(stats.upcomingEvents) },
     { label: 'Tickets Sold', value: String(stats.totalTicketsSold) },
-    { label: 'Revenue', value: formatCurrency(stats.totalRevenue) },
+    { label: 'Revenue', value: formatCurrency(stats.totalRevenue), subtitle: 'Excluding invoice and free orders' },
   ]
 
   return <WorkspaceStatsGrid items={cards} columns={3} />

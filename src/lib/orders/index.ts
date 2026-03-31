@@ -9,6 +9,7 @@ export interface AttendeeData {
   email: string
   title?: string
   organization?: string
+  allergies?: string
 }
 
 export interface RequestedOrderItem {
@@ -116,6 +117,7 @@ export function generateTicketCreateInput(orderId: string, items: PreparedOrderI
     attendeeEmail?: string
     attendeeTitle?: string
     attendeeOrganization?: string
+    attendeeAllergies?: string
   }> = []
 
   for (const item of items) {
@@ -130,6 +132,7 @@ export function generateTicketCreateInput(orderId: string, items: PreparedOrderI
         attendeeEmail: attendee?.email,
         attendeeTitle: attendee?.title,
         attendeeOrganization: attendee?.organization,
+        attendeeAllergies: attendee?.allergies,
       })
     }
   }

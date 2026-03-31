@@ -5,15 +5,17 @@ import { EventDashboard } from '@/components/dashboard/EventDashboard'
 import { RecentOrders } from '@/components/dashboard/RecentOrders'
 import { getEventAnalytics } from '@/lib/analytics/event-analytics'
 
+export const dynamic = 'force-dynamic'
+
 type PageProps = {
   params: Promise<{ id: string }>
 }
 
 export default async function EventDetailDashboardPage({ params }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const { id } = await params
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
+  const where = buildEventWhereClause(null, true, { id })
 
   const event = await prisma.event.findFirst({
     where,
@@ -39,6 +41,7 @@ export default async function EventDetailDashboardPage({ params }: PageProps) {
         id: true,
         orderNumber: true,
         status: true,
+        paymentMethod: true,
         totalAmount: true,
         currency: true,
         buyerEmail: true,

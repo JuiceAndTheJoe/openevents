@@ -99,26 +99,43 @@ aws s3 ls s3://openevents-media \
 mc ls openevents/openevents-media
 ```
 
-## Configuring CORS (if needed)
+## Configuring CORS
 
-If you're uploading files directly from the browser, you may need to configure CORS:
+Browser-based uploads require CORS to be configured on the MinIO server.
 
-```json
-{
-  "CORSRules": [
-    {
-      "AllowedHeaders": ["*"],
-      "AllowedMethods": ["GET", "PUT", "POST", "DELETE"],
-      "AllowedOrigins": ["http://localhost:3000", "https://your-production-url.com"],
-      "ExposeHeaders": ["ETag"]
-    }
-  ]
-}
+### OSC-hosted MinIO
+
+MinIO instances on OSC have CORS enabled at the server level with `cors_allow_origin=*`. No additional configuration is needed.
+
+### Self-hosted MinIO
+
+If you're running your own MinIO, configure CORS using the admin API:
+
+```bash
+mc admin config set myminio api cors_allow_origin="*"
+mc admin service restart myminio
 ```
 
-Apply with:
+Or set bucket-level CORS:
+
 ```bash
-mc cors set /path/to/cors.json openevents/openevents-media
+# Create cors.xml
+cat > cors.xml << 'EOF'
+<CORSConfiguration>
+  <CORSRule>
+    <AllowedOrigin>*</AllowedOrigin>
+    <AllowedMethod>GET</AllowedMethod>
+    <AllowedMethod>PUT</AllowedMethod>
+    <AllowedMethod>POST</AllowedMethod>
+    <AllowedMethod>DELETE</AllowedMethod>
+    <AllowedMethod>HEAD</AllowedMethod>
+    <AllowedHeader>*</AllowedHeader>
+    <ExposeHeader>ETag</ExposeHeader>
+  </CORSRule>
+</CORSConfiguration>
+EOF
+
+mc cors set myminio/openevents-media cors.xml
 ```
 
 ## Troubleshooting
@@ -145,13 +162,31 @@ The OSC MinIO instance uses HTTPS. If you encounter certificate errors:
 
 ## Environment Variables
 
-Make sure these are set in your `.env` file:
+### Local Development
+
+Set these in your `.env` file:
 
 ```env
 S3_ENDPOINT=https://your-minio-endpoint.example.com
-S3_PUBLIC_URL=https://your-minio-endpoint.example.com
 S3_ACCESS_KEY_ID=your-access-key
 S3_SECRET_ACCESS_KEY=your-secret-key
 S3_BUCKET_NAME=openevents-media
 S3_REGION=us-east-1
 ```
+
+Note: `S3_PUBLIC_URL` is optional. Only set it if the browser-accessible URL differs from `S3_ENDPOINT` (e.g., when using an internal endpoint for server-side operations).
+
+### OSC Catalog Service Deployment
+
+When deploying Open Events as an OSC catalog service, storage is configured through the service instance settings:
+
+1. **Create a MinIO instance** on your OSC tenant
+2. **Create the bucket** (e.g., `openevents-media`) via the MinIO Console
+3. **Configure the Open Events instance** with your MinIO credentials:
+   - `s3Endpoint`: Your MinIO instance URL
+   - `s3AccessKeyId`: MinIO access key
+   - `s3SecretAccessKey`: MinIO secret key
+   - `s3BucketName`: Your bucket name
+   - `s3Region`: `us-east-1`
+
+Environment variables are injected directly by OSC when creating the instance. No additional configuration service is required.

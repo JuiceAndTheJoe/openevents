@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db'
 import { requireOrganizerProfile } from '@/lib/dashboard/organizer'
 import { OrganizerProfileForm } from '@/components/dashboard/OrganizerProfileForm'
 
+export const dynamic = 'force-dynamic'
+
 export default async function OrganizerSettingsPage() {
   const { user, organizerProfile } = await requireOrganizerProfile()
 

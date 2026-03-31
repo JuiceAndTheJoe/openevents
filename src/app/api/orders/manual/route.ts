@@ -120,7 +120,6 @@ export async function POST(request: NextRequest) {
         organizer: {
           select: {
             id: true,
-            userId: true,
             user: {
               select: {
                 email: true,
@@ -135,10 +134,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
-    const isOrganizer = event.organizer.userId === user.id
-
-    if (!isOrganizer && !isSuperAdmin) {
+    const hasOrganizerRole = user.roles.includes('ORGANIZER') || user.roles.includes('SUPER_ADMIN')
+    if (!hasOrganizerRole) {
       return NextResponse.json(
         { error: 'Only event organizers can create manual orders' },
         { status: 403 }
@@ -225,17 +222,31 @@ export async function POST(request: NextRequest) {
 
               // Calculate discountable subtotal
               const appliesToAll = discountApplicableTicketTypeIds.length === 0
-              const discountableSubtotal = preparedOrder.items
+              const applicableItems = preparedOrder.items
                 .filter((item) => appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId))
-                .reduce((sum, item) => sum + item.totalPrice, 0)
+
+              let discountableSubtotal: number
+              if (foundDiscountCode.maxTicketsPerOrder !== null) {
+                const ticketPrices = applicableItems
+                  .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
+                  .sort((a, b) => b - a)
+                const cappedPrices = ticketPrices.slice(0, foundDiscountCode.maxTicketsPerOrder)
+                discountableSubtotal = Number(cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2))
+                discountUsageUnits = cappedPrices.length
+              } else if (foundDiscountCode.applyToWholeOrder) {
+                discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
+              } else {
+                const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
+                discountableSubtotal = maxUnitPrice
+              }
 
               // Check usage limits
               const remainingTicketUses = getDiscountCodeRemainingTicketUses(foundDiscountCode)
-              discountUsageUnits = getDiscountUsageUnitsFromItems(
-                preparedOrder.items.filter((item) =>
-                  appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
-                )
-              )
+              if (foundDiscountCode.maxTicketsPerOrder === null) {
+                discountUsageUnits = foundDiscountCode.applyToWholeOrder
+                  ? getDiscountUsageUnitsFromItems(applicableItems)
+                  : 1
+              }
 
               if (remainingTicketUses === null || remainingTicketUses >= discountUsageUnits) {
                 discountCodeRecord = foundDiscountCode
@@ -273,12 +284,27 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Apply the best discount
+        // Apply discounts based on discount code type
         let discountAmount = 0
         let appliedDiscountCodeId: string | null = null
         let appliedGroupDiscountId: string | null = null
 
-        if (groupDiscountAmount > promoCodeDiscountAmount) {
+        const isInvoiceCode = discountCodeRecord?.discountType === 'INVOICE'
+        const isFreeNonInvoiceCode = discountCodeRecord && !isInvoiceCode &&
+          (discountCodeRecord.discountType === 'FREE_TICKET' ||
+           (discountCodeRecord.discountType === 'PERCENTAGE' && decimalToNumber(discountCodeRecord.discountValue) >= 100))
+
+        if (isInvoiceCode) {
+          // Invoice codes stack with group discounts
+          discountAmount = groupDiscountAmount
+          appliedGroupDiscountId = groupDiscountRecord?.id ?? null
+          appliedDiscountCodeId = discountCodeRecord?.id ?? null
+          discountUsageUnits = 0
+        } else if (isFreeNonInvoiceCode) {
+          // Non-invoice 100% off codes: order is free
+          discountAmount = promoCodeDiscountAmount
+          appliedDiscountCodeId = discountCodeRecord?.id ?? null
+        } else if (groupDiscountAmount > promoCodeDiscountAmount) {
           discountAmount = groupDiscountAmount
           appliedGroupDiscountId = groupDiscountRecord?.id ?? null
         } else if (promoCodeDiscountAmount > 0) {

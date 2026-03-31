@@ -117,7 +117,6 @@ model PasswordResetToken {
 // ============================================================================
 
 enum Role {
-  ATTENDEE
   ORGANIZER
   SUPER_ADMIN
 }
@@ -135,26 +134,6 @@ model UserRole {
   @@map("user_roles")
 }
 
-model OrganizerRequest {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  orgName     String
-  description String?  @db.Text
-  status      OrganizerRequestStatus @default(PENDING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  reviewNotes String?  @db.Text
-
-  @@map("organizer_requests")
-}
-
-enum OrganizerRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
 
 // ============================================================================
 // ORGANIZER PROFILES
@@ -217,6 +196,7 @@ model Event {
 
   // Settings
   cancellationDeadlineHours Int @default(48) // Hours before event
+  collectAllergies          Boolean @default(false) // Show allergy field in checkout attendee form
 
   // Timestamps
   createdAt       DateTime     @default(now())
@@ -228,7 +208,6 @@ model Event {
   // Relations
   organizer       OrganizerProfile @relation(fields: [organizerId], references: [id], onDelete: Cascade)
   media           EventMedia[]
-  categories      EventCategory[]
   agendaItems     AgendaItem[]
   speakers        Speaker[]
   ticketTypes     TicketType[]
@@ -281,28 +260,6 @@ enum MediaType {
   VIDEO
 }
 
-model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  slug        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-
-  events EventCategory[]
-
-  @@map("categories")
-}
-
-model EventCategory {
-  eventId    String
-  categoryId String
-
-  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@id([eventId, categoryId])
-  @@map("event_categories")
-}
 
 model AgendaItem {
   id          String   @id @default(cuid())
@@ -398,7 +355,9 @@ model DiscountCode {
   redeemedTicketCount Int    @default(0)
 
   // Conditions
-  minCartAmount Decimal?     @db.Decimal(10, 2) // Minimum cart amount to activate code
+  minCartAmount      Decimal?  @db.Decimal(10, 2) // Minimum number of applicable tickets in cart to activate code
+  applyToWholeOrder  Boolean   @default(false)    // false = discount applies to 1 ticket only
+  maxTicketsPerOrder Int?      // Max tickets to discount per order (null = all applicable tickets)
 
   // Validity
   validFrom     DateTime?
@@ -572,6 +531,7 @@ model Ticket {
   attendeeEmail        String?
   attendeeTitle        String?
   attendeeOrganization String?
+  attendeeAllergies    String?
 
   status       TicketStatus @default(ACTIVE)
   checkedInAt  DateTime?

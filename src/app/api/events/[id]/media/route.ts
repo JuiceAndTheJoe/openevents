@@ -9,27 +9,15 @@ type RouteContext = {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id: eventId } = await context.params
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: {
-        organizer: {
-          select: {
-            userId: true,
-          },
-        },
-      },
     })
 
     if (!event) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
-    }
-
-    if (!isSuperAdmin && event.organizer.userId !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const body = await request.json()

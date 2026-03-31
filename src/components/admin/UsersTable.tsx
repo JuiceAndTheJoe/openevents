@@ -20,12 +20,11 @@ type UsersTableProps = {
   currentAdminId: string
 }
 
-type AccountType = 'ATTENDEE' | 'ORGANIZER' | 'SUPER_ADMIN'
+type AccountType = 'ORGANIZER' | 'SUPER_ADMIN'
 
 function resolveAccountType(roles: Role[]): AccountType {
   if (roles.includes('SUPER_ADMIN')) return 'SUPER_ADMIN'
-  if (roles.includes('ORGANIZER')) return 'ORGANIZER'
-  return 'ATTENDEE'
+  return 'ORGANIZER'
 }
 
 export function UsersTable({ users, currentAdminId }: UsersTableProps) {
@@ -193,7 +192,6 @@ export function UsersTable({ users, currentAdminId }: UsersTableProps) {
                         }}
                         className="h-9 min-w-[150px] rounded-md border border-gray-300 bg-white px-3 text-sm"
                       >
-                        <option value="ATTENDEE">ATTENDEE</option>
                         <option value="ORGANIZER">ORGANIZER</option>
                         <option value="SUPER_ADMIN">SUPER_ADMIN</option>
                       </select>

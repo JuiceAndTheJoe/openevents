@@ -138,11 +138,31 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
                     order.groupDiscount!.discountType === 'PERCENTAGE'
                       ? `${parseFloat(order.groupDiscount!.discountValue.toString())}%`
                       : `${parseFloat(order.groupDiscount!.discountValue.toString())} ${order.currency}`
+                  const subtotal = order.subtotal
+                    ? typeof order.subtotal === 'number'
+                      ? order.subtotal
+                      : parseFloat(order.subtotal.toString())
+                    : 0
                   return (
                     <>
                       <p className="mt-2 text-green-700">
                         Group discount ({order.groupDiscount!.minQuantity}+ tickets, {discountLabel} off): −{discountAmt} {order.currency}
                       </p>
+                      {subtotal > 0 && (
+                        <div className="space-y-0.5">
+                          {order.items.map((item) => {
+                            const unitPrice = typeof item.unitPrice === 'number'
+                              ? item.unitPrice
+                              : parseFloat(item.unitPrice.toString())
+                            const discountedUnit = unitPrice * (1 - discountAmt / subtotal)
+                            return (
+                              <p key={item.id} className="text-xs text-green-700">
+                                {item.ticketType.name}: {discountedUnit.toFixed(2)} {order.currency} per ticket after discount
+                              </p>
+                            )
+                          })}
+                        </div>
+                      )}
                       <p className="font-medium text-gray-900">
                         Summary: {totalTickets} tickets, {order.totalAmount.toString()} {order.currency}
                       </p>
@@ -255,7 +275,7 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Tickets</CardTitle>
+          <CardTitle className="text-lg">Your tickets - present the QR code(s) below at the door</CardTitle>
         </CardHeader>
         <CardContent>
           {order.tickets.length === 0 ? (

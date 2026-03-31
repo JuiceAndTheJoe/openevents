@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getCurrentUser, hasRole } from '@/lib/auth'
-import { prisma } from '@/lib/db'
 import { EventForm } from '@/components/events/EventForm'
 
 export const dynamic = 'force-dynamic'
@@ -38,14 +37,9 @@ export default async function CreateEventPage() {
     )
   }
 
-  const categories = await prisma.category.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  })
-
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <EventForm mode="create" categories={categories} />
+      <EventForm mode="create" />
     </div>
   )
 }

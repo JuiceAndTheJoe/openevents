@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db'
 import { getPaymentStatus, isPaymentProviderConfigured } from '@/lib/payments'
 
+export const dynamic = 'force-dynamic'
+
 interface CheckoutStatusPageProps {
   params: Promise<{ orderNumber: string }>
   searchParams: Promise<{ token?: string; session_id?: string; session_expired?: string }>

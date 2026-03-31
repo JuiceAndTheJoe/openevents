@@ -51,6 +51,7 @@ type TicketTypeFieldErrors = Partial<Record<TicketTypeFieldKey, string>>;
 type PromoCodeDraft = {
   id?: string;
   code: string;
+  discountType: "PERCENTAGE" | "FIXED_AMOUNT" | "FREE_TICKET" | "INVOICE";
   discountValue: string;
   ticketTypeId: string;
   maxUses: string;
@@ -107,10 +108,8 @@ type EventFormData = {
   sponsorNames?: string;
   visibility: "PUBLIC" | "PRIVATE";
   cancellationDeadlineHours: number;
-  categoryIds?: string[];
+  collectAllergies: boolean;
 };
-
-type Category = { id: string; name: string };
 
 type InitialSpeaker = {
   id?: string;
@@ -125,14 +124,12 @@ type EventFormProps = {
   mode: EventFormMode;
   initialData?: EventFormData;
   initialSpeakers?: InitialSpeaker[];
-  categories?: Category[];
   initialPromoCodes?: PromoCodeDraft[];
   initialGroupDiscounts?: GroupDiscountDraft[];
 };
 
 type FieldKey =
   | "title"
-  | "categoryIds"
   | "description"
   | "startDate"
   | "endDate"
@@ -199,6 +196,7 @@ function buildPromoCodeSnapshot(promoCode: PromoCodeDraft) {
   return {
     id: promoCode.id || "",
     code: promoCode.code.trim().toUpperCase(),
+    discountType: promoCode.discountType,
     discountValue: promoCode.discountValue.trim(),
     ticketTypeId: promoCode.ticketTypeId || "",
     maxUses: promoCode.maxUses.trim(),
@@ -263,7 +261,6 @@ function buildEventPayload(
     sponsorNames: validSpeakerDrafts.map((draft) => draft.organization),
     speakerPhotos: validSpeakerDrafts.map((draft) => draft.publicUrl),
     speakerLinks: validSpeakerDrafts.map((draft) => draft.link?.trim() || ""),
-    categoryIds: form.categoryIds,
     ticketTypes: undefined,
     ticketTypeId: undefined,
     ticketTypeName: undefined,
@@ -340,7 +337,7 @@ const fallbackInitialData: EventFormData = {
   sponsorNames: "",
   visibility: "PUBLIC",
   cancellationDeadlineHours: 48,
-  categoryIds: [],
+  collectAllergies: false,
 };
 
 const allowedImageMimeTypes = new Set([
@@ -351,7 +348,6 @@ const allowedImageMimeTypes = new Set([
 ]);
 const fieldOrder: FieldKey[] = [
   "title",
-  "categoryIds",
   "startDate",
   "endDate",
   "timezone",
@@ -602,11 +598,6 @@ function getFieldValidationMessage(
   switch (key) {
     case "title":
       return currentForm.title?.trim() ? undefined : "Enter an event title.";
-    case "categoryIds":
-      if (mode === "submit-save") return undefined;
-      return currentForm.categoryIds?.length
-        ? undefined
-        : "Select at least one category.";
     case "description":
       if (mode === "submit-save") return undefined;
       return currentForm.description?.trim()
@@ -798,7 +789,7 @@ function buildSnapshot(form: EventFormData) {
     sponsorNames: form.sponsorNames || "",
     visibility: form.visibility,
     cancellationDeadlineHours: form.cancellationDeadlineHours,
-    categoryIds: form.categoryIds || [],
+    collectAllergies: form.collectAllergies,
     coverImage: form.coverImage || "",
     bottomImage: form.bottomImage || "",
   });
@@ -808,7 +799,6 @@ export function EventForm({
   mode,
   initialData,
   initialSpeakers,
-  categories = [],
   initialPromoCodes = [],
   initialGroupDiscounts = [],
 }: EventFormProps) {
@@ -935,8 +925,6 @@ export function EventForm({
     message: string;
     tone: "success" | "error";
   } | null>(null);
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-  const categoryDropdownRef = useRef<HTMLDivElement | null>(null);
   const progressTrackerRef = useRef<HTMLElement | null>(null);
   const [isUnitOpen, setIsUnitOpen] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -1055,9 +1043,7 @@ export function EventForm({
 
   const eventDetailsComplete =
     !getFieldValidationMessage("title", form, "submit-publish") &&
-    !getFieldValidationMessage("description", form, "submit-publish") &&
-    (categories.length === 0 ||
-      !getFieldValidationMessage("categoryIds", form, "submit-publish"));
+    !getFieldValidationMessage("description", form, "submit-publish");
 
   const dateTimeComplete =
     !getFieldValidationMessage("startDate", form, "submit-publish") &&
@@ -1088,7 +1074,7 @@ export function EventForm({
     () => [
       {
         label: "Event Details",
-        description: "Title, category, and description",
+        description: "Title and description",
         complete: eventDetailsComplete,
         indicator: eventDetailsComplete ? "✓" : "1",
         statusText: eventDetailsComplete ? "Complete" : "In progress",
@@ -1209,11 +1195,6 @@ export function EventForm({
 
     if (key === "title") {
       validateFieldIfActive("title", nextForm);
-      return;
-    }
-
-    if (key === "categoryIds") {
-      validateFieldIfActive("categoryIds", nextForm);
       return;
     }
 
@@ -1528,6 +1509,7 @@ export function EventForm({
       ...current,
       {
         code: "",
+        discountType: "PERCENTAGE",
         discountValue: "",
         ticketTypeId: "",
         maxUses: "",
@@ -1706,20 +1688,6 @@ export function EventForm({
 
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (!isCategoryOpen) return;
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        categoryDropdownRef.current &&
-        !categoryDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsCategoryOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isCategoryOpen]);
 
   useEffect(() => {
     if (!isUnitOpen) return;
@@ -2300,27 +2268,21 @@ export function EventForm({
 
     for (let index = 0; index < promoCodesInput.length; index += 1) {
       const promoCode = promoCodesInput[index];
-      if (
-        !promoCode.code.trim() ||
-        !promoCode.discountValue.trim() ||
-        !promoCode.ticketTypeId
-      ) {
-        continue;
-      }
+      const needsValue = promoCode.discountType === "PERCENTAGE" || promoCode.discountType === "FIXED_AMOUNT";
+
+      if (!promoCode.code.trim()) continue;
+      if (needsValue && !promoCode.discountValue.trim()) continue;
 
       // Resolve temp ticket type ID to real ID if needed
-      const resolvedTicketTypeId =
-        tempToRealIdMap.get(promoCode.ticketTypeId) ?? promoCode.ticketTypeId;
+      const resolvedTicketTypeId = promoCode.ticketTypeId
+        ? (tempToRealIdMap.get(promoCode.ticketTypeId) ?? promoCode.ticketTypeId)
+        : "";
       // Skip if ticketTypeId still looks like a temp value (no real ID resolved)
-      if (!resolvedTicketTypeId || resolvedTicketTypeId.startsWith("ticket-"))
+      if (resolvedTicketTypeId && resolvedTicketTypeId.startsWith("ticket-"))
         continue;
 
-      const discountValue = Number(promoCode.discountValue);
-      if (
-        Number.isNaN(discountValue) ||
-        discountValue <= 0 ||
-        discountValue > 100
-      )
+      const discountValue = needsValue ? Number(promoCode.discountValue) : 0;
+      if (needsValue && (Number.isNaN(discountValue) || discountValue <= 0 || discountValue > 100))
         continue;
 
       const maxUsesRaw = promoCode.maxUses.trim();
@@ -2332,12 +2294,13 @@ export function EventForm({
 
       const payload = {
         code: promoCode.code.trim().toUpperCase(),
-        discountType: "PERCENTAGE",
+        discountType: promoCode.discountType,
         discountValue,
         maxUses,
         minCartAmount,
         isActive: true,
-        ticketTypeIds: [resolvedTicketTypeId],
+        applyToWholeOrder: promoCode.discountType === "FREE_TICKET" ? true : undefined,
+        ticketTypeIds: resolvedTicketTypeId ? [resolvedTicketTypeId] : [],
       };
 
       const isExisting = Boolean(promoCode.id);
@@ -2387,6 +2350,8 @@ export function EventForm({
         const matchesSavedDraft =
           buildPromoCodeSnapshot(promoCode).code ===
             buildPromoCodeSnapshot(originalPromoCode).code &&
+          buildPromoCodeSnapshot(promoCode).discountType ===
+            buildPromoCodeSnapshot(originalPromoCode).discountType &&
           buildPromoCodeSnapshot(promoCode).discountValue ===
             buildPromoCodeSnapshot(originalPromoCode).discountValue &&
           buildPromoCodeSnapshot(promoCode).ticketTypeId ===
@@ -2565,10 +2530,6 @@ export function EventForm({
     const endUtc = dateTimeLocalInTimeZoneToUtcIso(form.endDate, timezone);
 
     for (const key of fieldOrder) {
-      if (key === "categoryIds" && categories.length === 0) {
-        continue;
-      }
-
       const message = getFieldValidationMessage(key, form, fieldValidationMode);
       if (message) {
         nextFieldErrors[key] = message;
@@ -2650,9 +2611,7 @@ export function EventForm({
     ticketErrors: TicketTypeFieldErrors[],
   ) {
     const firstField = fieldOrder.find((key) => Boolean(fieldErrors[key]));
-    if (firstField === "categoryIds") {
-      setIsCategoryOpen(true);
-    } else if (firstField === "startDate") {
+    if (firstField === "startDate") {
       setOpenDateTimePanel("startDate");
     } else if (firstField === "endDate") {
       setOpenDateTimePanel("endDate");
@@ -3229,6 +3188,9 @@ export function EventForm({
       cleanupObjectUrl("coverImage");
       cleanupObjectUrl("bottomImage");
 
+      // Save succeeded — disable the unsaved-changes guard so navigation is immediate
+      historyGuardActiveRef.current = false;
+
       if (mode === "create" && action === "publish" && eventSlug) {
         // After publishing a new event, navigate to the public page
         navigateWithHistoryGuardCleanup(() => {
@@ -3700,85 +3662,6 @@ export function EventForm({
             />
           </div>
         </div>
-
-        {categories.length > 0 ? (
-          <div
-            className="flex flex-col gap-2"
-            ref={categoryDropdownRef}
-            onBlur={(event) => handleCompositeFieldBlur(event, "categoryIds")}
-          >
-            <Label required className="text-base font-semibold text-black">
-              Category
-            </Label>
-            <div className="relative">
-              <button
-                id="categoryIds"
-                type="button"
-                aria-haspopup="listbox"
-                aria-expanded={isCategoryOpen}
-                aria-describedby={
-                  fieldErrors.categoryIds ? "categoryIds-error" : undefined
-                }
-                onClick={() => setIsCategoryOpen((open) => !open)}
-                className={`flex h-10 w-full items-center justify-between rounded-[10px] border-[0.8px] bg-[#f9fafb] px-3 text-sm hover:border-[#5c8bd9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5c8bd9] ${
-                  fieldErrors.categoryIds
-                    ? "border-red-500"
-                    : "border-[#d1d5dc]"
-                }`}
-              >
-                <span
-                  className={
-                    form.categoryIds?.length
-                      ? "text-gray-900"
-                      : "text-[#99a1af]"
-                  }
-                >
-                  {form.categoryIds?.length
-                    ? categories
-                        .filter((c) => form.categoryIds!.includes(c.id))
-                        .map((c) => c.name)
-                        .join(", ")
-                    : "Select a category"}
-                </span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
-              </button>
-              {isCategoryOpen ? (
-                <div
-                  role="listbox"
-                  aria-labelledby="categoryIds"
-                  className="absolute top-[calc(100%+8px)] left-0 z-50 w-[220px] rounded-2xl bg-white py-2 shadow-2xl max-h-72 overflow-y-auto"
-                >
-                  {categories.map((cat) => {
-                    const selected = form.categoryIds?.includes(cat.id);
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          const current = form.categoryIds || [];
-                          updateField(
-                            "categoryIds",
-                            selected
-                              ? current.filter((id) => id !== cat.id)
-                              : [...current, cat.id],
-                          );
-                        }}
-                        className={`w-full text-left px-4 py-3 text-[14px] transition-colors hover:bg-gray-50 ${selected ? "font-semibold text-blue-600" : "text-gray-700"}`}
-                      >
-                        {cat.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-            {fieldErrors.categoryIds ? (
-              <p id="categoryIds-error" className="mt-1 text-sm text-red-600">
-                {fieldErrors.categoryIds}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
 
         <div className="flex flex-col gap-2">
           <Label
@@ -4480,6 +4363,18 @@ export function EventForm({
           </button>
         </div>
 
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.collectAllergies}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, collectAllergies: e.target.checked }))
+            }
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          Collect allergy information from attendees during checkout
+        </label>
+
         {(form.ticketTypes || []).length < 1 ? (
           <div className="w-full pt-8 pb-2">
             <p
@@ -4786,8 +4681,8 @@ export function EventForm({
                     </button>
                   </div>
 
-                  {/* Row 1: Promo Code Name | Discount % */}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {/* Row 1: Promo Code Name | Type | Discount Value */}
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-1">
                       <label
                         className="text-sm font-medium text-[#4a5565]"
@@ -4812,23 +4707,49 @@ export function EventForm({
                     <div className="flex flex-col gap-1">
                       <label
                         className="text-sm font-medium text-[#4a5565]"
-                        htmlFor={`promoDiscount-${index}`}
+                        htmlFor={`promoType-${index}`}
                       >
-                        Discount %
+                        Type
                       </label>
-                      <input
-                        id={`promoDiscount-${index}`}
-                        type="text"
-                        inputMode="numeric"
-                        value={promoCode.discountValue}
-                        placeholder="e.g., 20"
-                        className="h-[42px] w-full rounded-[10px] border border-[#d1d5dc] bg-white px-4 text-base outline-none focus:border-[#5c8bd9] focus:ring-1 focus:ring-[#5c8bd9]"
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9]/g, "");
-                          updatePromoCodeField(index, "discountValue", val);
-                        }}
-                      />
+                      <div className="relative">
+                        <select
+                          id={`promoType-${index}`}
+                          value={promoCode.discountType}
+                          className="h-[42px] w-full appearance-none rounded-[10px] border border-[#d1d5dc] bg-white px-4 pr-10 text-base outline-none focus:border-[#5c8bd9] focus:ring-1 focus:ring-[#5c8bd9]"
+                          onChange={(e) =>
+                            updatePromoCodeField(index, "discountType", e.target.value)
+                          }
+                        >
+                          <option value="PERCENTAGE">Percentage</option>
+                          <option value="FIXED_AMOUNT">Fixed Amount</option>
+                          <option value="FREE_TICKET">Free Ticket</option>
+                          <option value="INVOICE">Invoice</option>
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                      </div>
                     </div>
+                    {(promoCode.discountType === "PERCENTAGE" || promoCode.discountType === "FIXED_AMOUNT") && (
+                      <div className="flex flex-col gap-1">
+                        <label
+                          className="text-sm font-medium text-[#4a5565]"
+                          htmlFor={`promoDiscount-${index}`}
+                        >
+                          {promoCode.discountType === "PERCENTAGE" ? "Discount %" : "Discount Amount"}
+                        </label>
+                        <input
+                          id={`promoDiscount-${index}`}
+                          type="text"
+                          inputMode="numeric"
+                          value={promoCode.discountValue}
+                          placeholder={promoCode.discountType === "PERCENTAGE" ? "e.g., 20" : "e.g., 100"}
+                          className="h-[42px] w-full rounded-[10px] border border-[#d1d5dc] bg-white px-4 text-base outline-none focus:border-[#5c8bd9] focus:ring-1 focus:ring-[#5c8bd9]"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, "");
+                            updatePromoCodeField(index, "discountValue", val);
+                          }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* Row 2: Ticket Type | Usage Limit */}

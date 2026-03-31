@@ -70,8 +70,7 @@ async function sendCancellationEmails(
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id } = await context.params
 
     const body = await request.json().catch(() => ({}))
@@ -87,20 +86,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const event = await prisma.event.findUnique({
       where: { id },
-      include: {
-        organizer: {
-          select: {
-            userId: true,
-          },
-        },
-      },
     })
 
     if (!event) return errorResponse('Event not found.', 404)
-
-    if (!isSuperAdmin && event.organizer.userId !== user.id) {
-      return errorResponse('You do not have permission to cancel this event.', 403)
-    }
 
     if (event.status === 'CANCELLED') {
       return errorResponse('Event is already cancelled.', 400)

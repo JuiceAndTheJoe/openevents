@@ -24,24 +24,13 @@ type RouteContext = {
   params: Promise<{ id: string; itemId: string }>
 }
 
-async function assertOrganizerOwnsEvent(eventId: string, userId: string, isSuperAdmin: boolean) {
+async function assertEventExists(eventId: string) {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    include: {
-      organizer: {
-        select: {
-          userId: true,
-        },
-      },
-    },
   })
 
   if (!event) {
     return { ok: false as const, status: 404, error: 'Event not found' }
-  }
-
-  if (!isSuperAdmin && event.organizer.userId !== userId) {
-    return { ok: false as const, status: 403, error: 'Forbidden' }
   }
 
   return { ok: true as const }
@@ -49,11 +38,10 @@ async function assertOrganizerOwnsEvent(eventId: string, userId: string, isSuper
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id: eventId, itemId } = await context.params
 
-    const ownership = await assertOrganizerOwnsEvent(eventId, user.id, isSuperAdmin)
+    const ownership = await assertEventExists(eventId)
     if (!ownership.ok) {
       return NextResponse.json({ error: ownership.error }, { status: ownership.status })
     }
@@ -132,11 +120,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    const user = await requireRole('ORGANIZER')
-    const isSuperAdmin = user.roles.includes('SUPER_ADMIN')
+    await requireRole(['ORGANIZER', 'SUPER_ADMIN'])
     const { id: eventId, itemId } = await context.params
 
-    const ownership = await assertOrganizerOwnsEvent(eventId, user.id, isSuperAdmin)
+    const ownership = await assertEventExists(eventId)
     if (!ownership.ok) {
       return NextResponse.json({ error: ownership.error }, { status: ownership.status })
     }

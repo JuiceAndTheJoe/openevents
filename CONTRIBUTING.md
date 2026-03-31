@@ -152,17 +152,42 @@ The project is divided among 4 feature agents. Each agent owns a vertical slice:
 
 ## Database Changes
 
+### Dev vs Production Databases
+
+Local development uses a **separate dev database** to avoid accidentally running migrations against production. Your `.env` should point to the dev database — see `.env.example` for details.
+
+| Environment | OSC Instance | Host |
+|-------------|-------------|------|
+| Development | `sttveventsdev` | `172.232.137.101:10533` |
+| Production | `sttveventsdb2` | `172.232.131.169:10596` |
+
+> **Warning:** Never run `prisma migrate dev` with `DATABASE_URL` pointing to the production database. `migrate dev` can create and apply migrations, reset data, and drop tables — it is designed for development only.
+
 ### Creating Migrations
 
 When you modify `prisma/schema.prisma`:
 
 ```bash
-# Create a migration
+# Create and apply a migration to your local dev database
 npx prisma migrate dev --name describe_your_change
 
 # Example
 npx prisma migrate dev --name add_ticket_sales_dates
 ```
+
+### Applying Migrations to Production
+
+After your code changes are deployed (e.g., PR merged and app restarted on OSC), apply pending migrations to the production database:
+
+```bash
+DATABASE_URL="<production-connection-string>" npx prisma migrate deploy
+```
+
+`migrate deploy` only applies pending migrations — it will not generate new ones or modify the schema. Always deploy the app code **before** running production migrations to avoid schema/code mismatches.
+
+### Build-time Database Access
+
+Pages that make Prisma calls must include `export const dynamic = 'force-dynamic'` to prevent Next.js from attempting static generation at build time. On OSC, `DATABASE_URL` is only available at runtime, so any page that queries the database during static generation will fail the build.
 
 ### Viewing the Database
 

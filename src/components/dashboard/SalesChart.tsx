@@ -8,7 +8,6 @@ type TopEvent = {
   revenue: number
   ticketsSold: number
   startDate: Date
-  categories: string[]
 }
 
 type SalesChartProps = {
@@ -71,11 +70,6 @@ export function SalesChart({ title = 'Top Selling Events', data, currency = 'SEK
                       {formatStartDate(event.startDate)}
                     </span>
                   </div>
-                  {event.categories.length > 0 && (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#4a5565]">
-                      {event.categories[0]}
-                    </span>
-                  )}
                 </div>
               </div>
 

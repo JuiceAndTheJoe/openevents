@@ -10,20 +10,16 @@ export type DashboardAnalytics = {
     revenue: number
     ticketsSold: number
     startDate: Date
-    categories: string[]
   }>
   dailySales: Array<{ date: string; revenue: number; ticketsSold: number }>
 }
 
-async function fetchDashboardAnalytics(organizerId: string | null): Promise<DashboardAnalytics> {
+async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
   const now = new Date()
   const thirtyDaysAgo = new Date(now)
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29)
 
-  // Build where clause - null organizerId means platform-wide (super admin)
-  const eventWhere: Prisma.EventWhereInput = organizerId
-    ? { organizerId, deletedAt: null }
-    : { deletedAt: null }
+  const eventWhere: Prisma.EventWhereInput = { deletedAt: null }
 
   const [topRevenue, trendOrders] = await prisma.$transaction([
     prisma.order.groupBy({
@@ -31,6 +27,7 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
       where: {
         event: eventWhere,
         status: { in: revenueStatuses },
+        paymentMethod: 'PAYPAL',
       },
       _sum: { totalAmount: true },
       orderBy: { _sum: { totalAmount: 'desc' } },
@@ -47,6 +44,7 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
       },
       select: {
         totalAmount: true,
+        paymentMethod: true,
         createdAt: true,
         paidAt: true,
         items: { select: { quantity: true } },
@@ -64,7 +62,6 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
             id: true,
             title: true,
             startDate: true,
-            categories: { select: { category: { select: { name: true } } } },
           },
         }),
         prisma.orderItem.findMany({
@@ -91,7 +88,6 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
       revenue: Number(item._sum?.totalAmount?.toString() ?? '0'),
       ticketsSold: ticketsByEvent.get(item.eventId) ?? 0,
       startDate: event?.startDate ?? new Date(),
-      categories: event?.categories.map((c) => c.category.name) ?? [],
     }
   })
 
@@ -108,7 +104,9 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
     const dayStats = dailyMap.get(day)
     if (dayStats) {
       const orderTickets = o.items.reduce((sum, item) => sum + item.quantity, 0)
-      dayStats.revenue += Number(o.totalAmount.toString())
+      if (o.paymentMethod === 'PAYPAL') {
+        dayStats.revenue += Number(o.totalAmount.toString())
+      }
       dayStats.ticketsSold += orderTickets
     }
   }
@@ -122,6 +120,6 @@ async function fetchDashboardAnalytics(organizerId: string | null): Promise<Dash
 }
 
 // Keep sales trend live so organizers see newly paid orders immediately.
-export async function getDashboardAnalytics(organizerId: string | null): Promise<DashboardAnalytics> {
-  return fetchDashboardAnalytics(organizerId)
+export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
+  return fetchDashboardAnalytics()
 }

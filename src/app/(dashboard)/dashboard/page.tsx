@@ -10,30 +10,23 @@ import { SalesTrendChart } from '@/components/dashboard/SalesTrendChart'
 import { getDashboardAnalytics } from '@/lib/analytics/dashboard-analytics'
 import { WorkspacePageHeader } from '@/components/layout/WorkspaceShell'
 
+export const dynamic = 'force-dynamic'
+
 const revenueStatuses: OrderStatus[] = ['PAID']
 
 export default async function DashboardHomePage() {
-  const { organizerProfile, isSuperAdmin, user } = await requireOrganizerProfile()
+  const { organizerProfile, user } = await requireOrganizerProfile()
 
   const now = new Date()
 
-  // Build where clause based on role - super admins see all events
-  const eventWhere: Prisma.EventWhereInput = isSuperAdmin
-    ? { deletedAt: null }
-    : { organizerId: organizerProfile!.id, deletedAt: null }
-
-  const ticketWhere: Prisma.TicketTypeWhereInput = isSuperAdmin
-    ? { event: { deletedAt: null } }
-    : { event: { organizerId: organizerProfile!.id, deletedAt: null } }
-
-  const orderWhere: Prisma.OrderWhereInput = isSuperAdmin
-    ? { event: { deletedAt: null } }
-    : { event: { organizerId: organizerProfile!.id, deletedAt: null } }
+  const eventWhere: Prisma.EventWhereInput = { deletedAt: null }
+  const ticketWhere: Prisma.TicketTypeWhereInput = { event: { deletedAt: null } }
+  const orderWhere: Prisma.OrderWhereInput = { event: { deletedAt: null } }
 
   // Run cached analytics and live dashboard data in parallel
   const [analytics, [eventsByStatus, ticketAgg, revenueAgg, upcomingEvents, recentOrders]] =
     await Promise.all([
-      getDashboardAnalytics(isSuperAdmin ? null : organizerProfile!.id),
+      getDashboardAnalytics(),
       prisma.$transaction([
         prisma.event.findMany({
           where: eventWhere,
@@ -47,6 +40,7 @@ export default async function DashboardHomePage() {
           where: {
             ...orderWhere,
             status: { in: revenueStatuses },
+            paymentMethod: 'PAYPAL',
           },
           _sum: { totalAmount: true },
         }),
@@ -65,6 +59,7 @@ export default async function DashboardHomePage() {
             id: true,
             orderNumber: true,
             status: true,
+            paymentMethod: true,
             totalAmount: true,
             currency: true,
             buyerEmail: true,
@@ -106,11 +101,7 @@ export default async function DashboardHomePage() {
       </div>
       <WorkspacePageHeader
         title={`Welcome, ${welcomeName}`}
-        description={
-          isSuperAdmin
-            ? 'Platform-wide overview of events, orders, and revenue.'
-            : 'Overview of your events, orders, and revenue.'
-        }
+        description="Platform-wide overview of events, orders, and revenue."
       />
 
       {stats.totalEvents === 0 && (

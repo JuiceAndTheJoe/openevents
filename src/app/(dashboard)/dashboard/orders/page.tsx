@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db'
 import { OrderList, type DashboardOrderListItem } from '@/components/dashboard/OrderList'
 import { isCancellationDeadlinePassed } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardOrdersPage() {
   const user = await getCurrentUser()
 

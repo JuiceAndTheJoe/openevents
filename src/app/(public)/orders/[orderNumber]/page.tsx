@@ -3,6 +3,8 @@ import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { TicketDisplay } from '@/components/tickets/TicketDisplay'
 
+export const dynamic = 'force-dynamic'
+
 interface ConfirmationPageProps {
   params: Promise<{ orderNumber: string }>
 }

@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
@@ -17,6 +20,7 @@ type OrderDetailViewProps = {
     currency: string
     createdAt: Date
     invoiceSentAt?: Date | null
+    discountCode?: string | null
     items: Array<{
       id: string
       quantity: number
@@ -31,9 +35,10 @@ type OrderDetailViewProps = {
   emailAction: (formData: FormData) => Promise<void>
   markPaidAction?: (formData: FormData) => Promise<void>
   markInvoiceSentAction?: (formData: FormData) => Promise<void>
+  deleteOrderAction?: (formData: FormData) => Promise<void>
 }
 
-export function OrderDetailView({ order, refundAction, emailAction, markPaidAction, markInvoiceSentAction }: OrderDetailViewProps) {
+export function OrderDetailView({ order, refundAction, emailAction, markPaidAction, markInvoiceSentAction, deleteOrderAction }: OrderDetailViewProps) {
   const isPendingInvoice = order.status === 'PENDING_INVOICE'
   const showMarkInvoiceSent = isPendingInvoice && !order.invoiceSentAt && markInvoiceSentAction
   return (
@@ -43,6 +48,16 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
         <p className="mt-1 text-sm text-gray-600">
           {order.status} · {formatPaymentMethodLabel(order.paymentMethod, 'No payment method')} · {formatDateTime(order.createdAt)}
         </p>
+        {order.paymentMethod === 'INVOICE' && (
+          <p className="mt-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+            Invoice order, confirm payment externally
+          </p>
+        )}
+        {order.paymentMethod === 'FREE' && order.discountCode && (
+          <p className="mt-2 inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800">
+            Free order &mdash; discount code: {order.discountCode}
+          </p>
+        )}
         {isPendingInvoice && (
           <p className="mt-2 text-sm">
             {order.invoiceSentAt ? (
@@ -103,12 +118,65 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
             <input type="hidden" name="orderId" value={order.id} />
             <Button variant="outline" type="submit">Mark Refund Pending</Button>
           </form>
-          <form action={emailAction}>
-            <input type="hidden" name="orderId" value={order.id} />
-            <Button type="submit">Send Email to Buyer</Button>
-          </form>
+          <SendEmailButton orderId={order.id} action={emailAction} />
+          {deleteOrderAction && (
+            <DeleteOrderButton orderId={order.id} action={deleteOrderAction} />
+          )}
         </div>
       </section>
     </div>
+  )
+}
+
+function SendEmailButton({ orderId, action }: { orderId: string; action: (formData: FormData) => Promise<void> }) {
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setStatus('sending')
+    try {
+      const formData = new FormData(e.currentTarget)
+      await action(formData)
+      setStatus('sent')
+      setTimeout(() => setStatus('idle'), 4000)
+    } catch {
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <form onSubmit={handleSubmit}>
+        <input type="hidden" name="orderId" value={orderId} />
+        <Button type="submit" disabled={status === 'sending'}>
+          {status === 'sending' ? 'Sending...' : 'Send Email to Buyer'}
+        </Button>
+      </form>
+      {status === 'sent' && (
+        <span className="text-sm font-medium text-green-600">Email sent!</span>
+      )}
+      {status === 'error' && (
+        <span className="text-sm font-medium text-red-600">Failed to send email</span>
+      )}
+    </div>
+  )
+}
+
+function DeleteOrderButton({ orderId, action }: { orderId: string; action: (formData: FormData) => Promise<void> }) {
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!confirm('Are you sure you want to permanently delete this order? This cannot be undone.')) {
+          e.preventDefault()
+        }
+      }}
+    >
+      <input type="hidden" name="orderId" value={orderId} />
+      <Button type="submit" variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+        Delete Order
+      </Button>
+    </form>
   )
 }

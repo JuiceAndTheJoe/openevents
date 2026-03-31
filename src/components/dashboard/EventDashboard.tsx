@@ -72,11 +72,31 @@ export function EventDashboard({ event, stats }: EventDashboardProps) {
           <p className="mt-2 text-2xl font-semibold text-gray-900">
             {formatCurrency(stats.totalRevenue)}
           </p>
+          <p className="mt-1 text-xs text-gray-400">Excluding invoice and free orders</p>
         </div>
 
         <div className="h-full rounded-xl border border-gray-200 bg-white p-5">
           <p className="text-sm text-gray-500">Tickets Sold</p>
-          <p className="mt-2 text-2xl font-semibold text-gray-900">{stats.totalTicketsSold}</p>
+          <p className="mt-2 text-2xl font-semibold text-gray-900">
+            {stats.totalTicketsSold}
+            {(() => {
+              const totalCapacity = stats.ticketsByType.every(tt => tt.remaining !== null)
+                ? stats.ticketsByType.reduce((sum, tt) => sum + (tt.sold + (tt.remaining ?? 0)), 0)
+                : null
+              return totalCapacity !== null ? (
+                <span className="text-base font-normal text-gray-500"> / {totalCapacity}</span>
+              ) : null
+            })()}
+          </p>
+          {stats.ticketsByType.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {stats.ticketsByType.map((tt, i) => (
+                <p key={i} className="text-xs text-gray-500">
+                  {tt.name}: {tt.sold}{tt.remaining !== null ? ` / ${tt.sold + tt.remaining}` : ''}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="h-full rounded-xl border border-gray-200 bg-white p-5">

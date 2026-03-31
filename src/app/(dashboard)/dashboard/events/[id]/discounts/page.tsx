@@ -6,6 +6,8 @@ import { requireOrganizerProfile, buildEventWhereClause, canAccessEvent } from '
 import { DiscountCodeForm } from '@/components/dashboard/DiscountCodeForm'
 import { DiscountCodeList } from '@/components/dashboard/DiscountCodeList'
 
+export const dynamic = 'force-dynamic'
+
 type PageProps = {
   params: Promise<{ id: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -17,12 +19,12 @@ function readParam(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function DiscountCodesPage({ params, searchParams }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const { id } = await params
   const qs = await searchParams
   const editId = readParam(qs.edit)
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
+  const where = buildEventWhereClause(null, true, { id })
 
   const event = await prisma.event.findFirst({
     where,
@@ -37,8 +39,11 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
           discountType: true,
           discountValue: true,
           maxUses: true,
+          minCartAmount: true,
+          maxTicketsPerOrder: true,
           usedCount: true,
           isActive: true,
+          applyToWholeOrder: true,
         },
       },
     },
@@ -62,7 +67,12 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const discountValue = new Prisma.Decimal(String(formData.get('discountValue') || '0'))
     const maxUsesRaw = String(formData.get('maxUses') || '').trim()
     const maxUses = maxUsesRaw ? Number(maxUsesRaw) : null
+    const minCartAmountRaw = String(formData.get('minCartAmount') || '').trim()
+    const minCartAmount = minCartAmountRaw ? new Prisma.Decimal(minCartAmountRaw) : null
+    const maxTicketsPerOrderRaw = String(formData.get('maxTicketsPerOrder') || '').trim()
+    const maxTicketsPerOrder = maxTicketsPerOrderRaw ? Number(maxTicketsPerOrderRaw) : null
     const isActive = String(formData.get('isActive') || 'true') === 'true'
+    const applyToWholeOrder = discountType === 'FREE_TICKET' ? true : formData.get('applyToWholeOrder') === 'on'
 
     await prisma.discountCode.create({
       data: {
@@ -71,7 +81,10 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
         discountType,
         discountValue,
         maxUses,
+        minCartAmount,
+        maxTicketsPerOrder,
         isActive,
+        applyToWholeOrder,
       },
     })
 
@@ -81,7 +94,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
   async function updateDiscountCode(formData: FormData) {
     'use server'
 
-    const { event: eventCheck, isSuperAdmin, organizerProfile } = await canAccessEvent(id)
+    const { event: eventCheck } = await canAccessEvent(id)
     if (!eventCheck) {
       throw new Error('Event not found')
     }
@@ -89,15 +102,8 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const discountCodeId = String(formData.get('discountCodeId') || '')
     if (!discountCodeId) return
 
-    const discountCodeWhere: Prisma.DiscountCodeWhereInput = {
-      id: discountCodeId,
-      event: isSuperAdmin
-        ? { id, deletedAt: null }
-        : { id, organizerId: organizerProfile!.id, deletedAt: null },
-    }
-
     const existing = await prisma.discountCode.findFirst({
-      where: discountCodeWhere,
+      where: { id: discountCodeId, event: { id, deletedAt: null } },
       select: { id: true },
     })
 
@@ -110,7 +116,12 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const discountValue = new Prisma.Decimal(String(formData.get('discountValue') || '0'))
     const maxUsesRaw = String(formData.get('maxUses') || '').trim()
     const maxUses = maxUsesRaw ? Number(maxUsesRaw) : null
+    const minCartAmountRaw = String(formData.get('minCartAmount') || '').trim()
+    const minCartAmount = minCartAmountRaw ? new Prisma.Decimal(minCartAmountRaw) : null
+    const maxTicketsPerOrderRaw = String(formData.get('maxTicketsPerOrder') || '').trim()
+    const maxTicketsPerOrder = maxTicketsPerOrderRaw ? Number(maxTicketsPerOrderRaw) : null
     const isActive = String(formData.get('isActive') || 'true') === 'true'
+    const applyToWholeOrder = discountType === 'FREE_TICKET' ? true : formData.get('applyToWholeOrder') === 'on'
 
     await prisma.discountCode.update({
       where: { id: existing.id },
@@ -119,7 +130,10 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
         discountType,
         discountValue,
         maxUses,
+        minCartAmount,
+        maxTicketsPerOrder,
         isActive,
+        applyToWholeOrder,
       },
     })
 
@@ -129,20 +143,13 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
   async function deleteDiscountCode(formData: FormData) {
     'use server'
 
-    const { event: eventCheck, isSuperAdmin, organizerProfile } = await canAccessEvent(id)
+    const { event: eventCheck } = await canAccessEvent(id)
     if (!eventCheck) return
 
     const discountCodeId = String(formData.get('discountCodeId') || '')
 
-    const discountCodeWhere: Prisma.DiscountCodeWhereInput = {
-      id: discountCodeId,
-      event: isSuperAdmin
-        ? { id, deletedAt: null }
-        : { id, organizerId: organizerProfile!.id, deletedAt: null },
-    }
-
     const existing = await prisma.discountCode.findFirst({
-      where: discountCodeWhere,
+      where: { id: discountCodeId, event: { id, deletedAt: null } },
       select: { id: true },
     })
 
@@ -178,7 +185,10 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
                   discountType: editableDiscountCode.discountType,
                   discountValue: Number(editableDiscountCode.discountValue.toString()),
                   maxUses: editableDiscountCode.maxUses,
+                  minCartAmount: editableDiscountCode.minCartAmount ? Number(editableDiscountCode.minCartAmount.toString()) : null,
+                  maxTicketsPerOrder: editableDiscountCode.maxTicketsPerOrder,
                   isActive: editableDiscountCode.isActive,
+                  applyToWholeOrder: editableDiscountCode.applyToWholeOrder,
                 }
               : undefined
           }

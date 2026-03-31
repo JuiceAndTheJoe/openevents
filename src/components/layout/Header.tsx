@@ -7,7 +7,13 @@ import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 
-export function Header() {
+type HeaderProps = {
+  platformName?: string
+  platformLogo?: string
+  brandColor?: string
+}
+
+export function Header({ platformName = 'OpenEvents', platformLogo, brandColor }: HeaderProps) {
   const { data: session, status } = useSession()
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -89,7 +95,12 @@ export function Header() {
         <div className="flex h-16 items-center justify-between gap-3">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <span className="text-xl font-bold text-[#5C8BD9] sm:text-2xl">OpenEvents</span>
+              {platformLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={platformLogo} alt={platformName} className="h-8 w-auto sm:h-9" />
+              ) : (
+                <span className="text-xl font-bold sm:text-2xl" style={{ color: brandColor || 'var(--brand-color)' }}>{platformName}</span>
+              )}
             </Link>
           </div>
 

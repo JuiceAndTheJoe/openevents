@@ -145,9 +145,16 @@ function calculatePromoCodeDiscountAmount(
   if (!discount) return 0
 
   const appliesToAll = discount.applicableTicketTypeIds.length === 0
-  const discountableSubtotal = selectedItems
+  const applicableItems = selectedItems
     .filter((item) => appliesToAll || discount.applicableTicketTypeIds.includes(item.ticketTypeId))
-    .reduce((sum, item) => sum + item.totalPrice, 0)
+
+  let discountableSubtotal: number
+  if (discount.applyToWholeOrder) {
+    discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
+  } else {
+    const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
+    discountableSubtotal = maxUnitPrice
+  }
 
   if (discount.discountType === 'PERCENTAGE') {
     return Number(Math.min(discountableSubtotal, (discountableSubtotal * discount.discountValue) / 100).toFixed(2))

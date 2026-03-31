@@ -16,7 +16,7 @@ const presignedUploadSchema = z.object({
     'video/quicktime',
   ]),
   size: z.number().int().positive().max(50 * 1024 * 1024),
-  folder: z.enum(['events', 'speakers', 'users']),
+  folder: z.enum(['events', 'speakers', 'users', 'platform']),
 })
 
 export async function POST(request: NextRequest) {
@@ -39,6 +39,13 @@ export async function POST(request: NextRequest) {
     const { entityId, filename, contentType, folder } = parsed.data
 
     const isOrganizer = hasRole(user.roles, ['ORGANIZER', 'SUPER_ADMIN'])
+
+    if (folder === 'platform' && !hasRole(user.roles, ['SUPER_ADMIN'])) {
+      return NextResponse.json(
+        { error: 'Forbidden: Super admin access required' },
+        { status: 403 }
+      )
+    }
 
     if ((folder === 'events' || folder === 'speakers') && !isOrganizer) {
       return NextResponse.json(

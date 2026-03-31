@@ -5,19 +5,15 @@ import { requireRole } from '@/lib/auth'
 import { Role } from '@prisma/client'
 
 const roleUpdateSchema = z.object({
-  role: z.enum(['ATTENDEE', 'ORGANIZER', 'SUPER_ADMIN']),
+  role: z.enum(['ORGANIZER', 'SUPER_ADMIN']),
 })
 
 function resolveTargetRoles(role: Role): Role[] {
   if (role === 'SUPER_ADMIN') {
-    return ['ATTENDEE', 'ORGANIZER', 'SUPER_ADMIN']
+    return ['ORGANIZER', 'SUPER_ADMIN']
   }
 
-  if (role === 'ORGANIZER') {
-    return ['ATTENDEE', 'ORGANIZER']
-  }
-
-  return ['ATTENDEE']
+  return ['ORGANIZER']
 }
 
 // POST: Set account type for a user

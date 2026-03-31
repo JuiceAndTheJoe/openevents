@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
     }
 
     const {
-      categoryIds = [],
       autoCreateFreeTicket = false,
       speakerNames,
       organizerNames,
@@ -88,19 +87,6 @@ export async function POST(request: NextRequest) {
       speakerPhotos,
       speakerLinks
     )
-
-    if (categoryIds.length > 0) {
-      const existingCategories = await prisma.category.count({
-        where: { id: { in: categoryIds } },
-      })
-
-      if (existingCategories !== categoryIds.length) {
-        return NextResponse.json(
-          { error: 'One or more categoryIds are invalid' },
-          { status: 400 }
-        )
-      }
-    }
 
     const slug = await ensureUniqueSlug(input.title)
 
@@ -135,6 +121,7 @@ export async function POST(request: NextRequest) {
           : undefined,
         visibility: input.visibility,
         cancellationDeadlineHours: input.cancellationDeadlineHours,
+        collectAllergies: input.collectAllergies ?? false,
         status: 'DRAFT',
         ticketTypes: autoCreateFreeTicket
           ? {
@@ -149,20 +136,6 @@ export async function POST(request: NextRequest) {
               ],
             }
           : undefined,
-        categories: categoryIds.length
-          ? {
-              createMany: {
-                data: categoryIds.map((categoryId) => ({ categoryId })),
-              },
-            }
-          : undefined,
-      },
-      include: {
-        categories: {
-          include: {
-            category: true,
-          },
-        },
       },
     })
 
@@ -190,13 +163,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
 
-    const category = searchParams.get('category')
-    const search = searchParams.get('search') || searchParams.get('query')
-    const location = searchParams.get('location')
-
-    const startDateParam = searchParams.get('startDate')
-    const endDateParam = searchParams.get('endDate')
-
     const page = Math.max(Number(searchParams.get('page') || '1'), 1)
     // Support both 'limit' and 'pageSize' parameters; default 20, max 100
     const limitParam = searchParams.get('limit') || searchParams.get('pageSize') || '20'
@@ -206,55 +172,6 @@ export async function GET(request: NextRequest) {
       status: 'PUBLISHED',
       visibility: 'PUBLIC',
       deletedAt: null, // Exclude soft-deleted events
-    }
-
-    if (category) {
-      where.categories = {
-        some: {
-          OR: [
-            { category: { id: category } },
-            { category: { slug: category } },
-            { category: { name: { equals: category, mode: 'insensitive' } } },
-          ],
-        },
-      }
-    }
-
-    if (startDateParam || endDateParam) {
-      const startDate = startDateParam ? new Date(startDateParam) : undefined
-      const endDate = endDateParam ? new Date(endDateParam) : undefined
-
-      if ((startDate && Number.isNaN(startDate.getTime())) || (endDate && Number.isNaN(endDate.getTime()))) {
-        return NextResponse.json(
-          { error: 'Invalid date filter' },
-          { status: 400 }
-        )
-      }
-
-      where.startDate = {
-        gte: startDate,
-        lte: endDate,
-      }
-    }
-
-    if (location) {
-      where.OR = [
-        { venue: { contains: location, mode: 'insensitive' } },
-        { city: { contains: location, mode: 'insensitive' } },
-        { state: { contains: location, mode: 'insensitive' } },
-        { country: { contains: location, mode: 'insensitive' } },
-      ]
-    }
-
-    if (search) {
-      const searchFilter: Prisma.EventWhereInput = {
-        OR: [
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-        ],
-      }
-
-      where.AND = where.AND ? [...(Array.isArray(where.AND) ? where.AND : [where.AND]), searchFilter] : [searchFilter]
     }
 
     const [events, totalCount] = await prisma.$transaction([
@@ -267,17 +184,6 @@ export async function GET(request: NextRequest) {
           organizer: {
             select: {
               orgName: true,
-            },
-          },
-          categories: {
-            include: {
-              category: {
-                select: {
-                  id: true,
-                  name: true,
-                  slug: true,
-                },
-              },
             },
           },
           _count: {

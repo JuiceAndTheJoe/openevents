@@ -1,5 +1,6 @@
-import Link from 'next/link'
 import { EventCard } from '@/components/events/EventCard'
+import { ShowcaseEventCard } from '@/components/events/ShowcaseEventCard'
+import { EventCarousel } from '@/components/events/EventCarousel'
 import { EventStatus, EventVisibility, LocationType, Prisma } from '@prisma/client'
 
 type EventListProps = {
@@ -21,9 +22,11 @@ type EventListProps = {
     organizer: { orgName: string }
     ticketTypes: Array<{ price: Prisma.Decimal; currency: string }>
   }>
+  layout?: 'grid' | 'showcase' | 'carousel'
+  emptyStateMessage?: string
 }
 
-export function EventList({ events }: EventListProps) {
+export function EventList({ events, layout = 'grid', emptyStateMessage }: EventListProps) {
   if (events.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
@@ -33,27 +36,63 @@ export function EventList({ events }: EventListProps) {
           </svg>
         </div>
         <p className="text-gray-900 font-medium">No events found</p>
-        <p className="mt-1 text-sm text-gray-500">Try adjusting your filters or browse all events.</p>
-        <Link href="/events" className="mt-4 inline-flex rounded-md bg-[#5C8BD9] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a7bc9]">
-          Clear Filters
-        </Link>
+        <p className="mt-1 text-sm text-gray-500">
+          {emptyStateMessage ?? 'No events are currently scheduled. Check back soon.'}
+        </p>
+      </div>
+    )
+  }
+
+  // Normalize ticket prices to numbers for card components
+  const normalizedEvents = events.map((event) => ({
+    ...event,
+    ticketTypes: event.ticketTypes.map((t) => ({
+      price: t.price.toNumber(),
+      currency: t.currency,
+    })),
+  }))
+
+  if (layout === 'carousel') {
+    return <EventCarousel events={normalizedEvents} />
+  }
+
+  if (layout === 'showcase') {
+    if (normalizedEvents.length === 1) {
+      return (
+        <div className="max-w-3xl mx-auto">
+          <ShowcaseEventCard event={normalizedEvents[0]} size="full" />
+        </div>
+      )
+    }
+
+    if (normalizedEvents.length === 2) {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {normalizedEvents.map((event) => (
+            <ShowcaseEventCard key={event.id} event={event} size="half" />
+          ))}
+        </div>
+      )
+    }
+
+    // 3+ events: first is full-width hero, rest are regular EventCards
+    const [heroEvent, ...remainingEvents] = normalizedEvents
+    return (
+      <div className="flex flex-col gap-6">
+        <ShowcaseEventCard event={heroEvent} size="full" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {remainingEvents.map((event) => (
+            <EventCard key={event.id} event={event} />
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {events.map((event) => (
-        <EventCard
-          key={event.id}
-          event={{
-            ...event,
-            ticketTypes: event.ticketTypes.map((t) => ({
-              price: t.price.toNumber(),
-              currency: t.currency,
-            })),
-          }}
-        />
+      {normalizedEvents.map((event) => (
+        <EventCard key={event.id} event={event} />
       ))}
     </div>
   )

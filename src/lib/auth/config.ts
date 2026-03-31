@@ -250,15 +250,4 @@ export const authOptions: NextAuthOptions = {
       return session
     },
   },
-  events: {
-    async createUser({ user }) {
-      // Assign ATTENDEE role to new users
-      await prisma.userRole.create({
-        data: {
-          userId: user.id,
-          role: 'ATTENDEE',
-        },
-      })
-    },
-  },
 }

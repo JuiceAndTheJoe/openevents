@@ -7,6 +7,8 @@ import { TicketTypeList } from '@/components/dashboard/TicketTypeList'
 import { TicketTypeForm } from '@/components/dashboard/TicketTypeForm'
 import { DEFAULT_CURRENCY, isSupportedCurrency } from '@/lib/constants/currencies'
 
+export const dynamic = 'force-dynamic'
+
 type PageProps = {
   params: Promise<{ id: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -18,12 +20,12 @@ function readParam(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function TicketTypesPage({ params, searchParams }: PageProps) {
-  const { organizerProfile, isSuperAdmin } = await requireOrganizerProfile()
+  await requireOrganizerProfile()
   const { id } = await params
   const qs = await searchParams
   const editId = readParam(qs.edit)
 
-  const where = buildEventWhereClause(organizerProfile, isSuperAdmin, { id })
+  const where = buildEventWhereClause(null, true, { id })
 
   const event = await prisma.event.findFirst({
     where,
@@ -97,7 +99,7 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
   async function updateTicketType(formData: FormData) {
     'use server'
 
-    const { event: eventCheck, isSuperAdmin, organizerProfile } = await canAccessEvent(id)
+    const { event: eventCheck } = await canAccessEvent(id)
     if (!eventCheck) {
       throw new Error('Event not found')
     }
@@ -105,15 +107,8 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
     const ticketTypeId = String(formData.get('ticketTypeId') || '')
     if (!ticketTypeId) return
 
-    const ticketTypeWhere: Prisma.TicketTypeWhereInput = {
-      id: ticketTypeId,
-      event: isSuperAdmin
-        ? { id, deletedAt: null }
-        : { id, organizerId: organizerProfile!.id, deletedAt: null },
-    }
-
     const ticketType = await prisma.ticketType.findFirst({
-      where: ticketTypeWhere,
+      where: { id: ticketTypeId, event: { id, deletedAt: null } },
       select: { id: true },
     })
 
@@ -156,20 +151,13 @@ export default async function TicketTypesPage({ params, searchParams }: PageProp
   async function deleteTicketType(formData: FormData) {
     'use server'
 
-    const { event: eventCheck, isSuperAdmin, organizerProfile } = await canAccessEvent(id)
+    const { event: eventCheck } = await canAccessEvent(id)
     if (!eventCheck) return
 
     const ticketTypeId = String(formData.get('ticketTypeId') || '')
 
-    const ticketTypeWhere: Prisma.TicketTypeWhereInput = {
-      id: ticketTypeId,
-      event: isSuperAdmin
-        ? { id, deletedAt: null }
-        : { id, organizerId: organizerProfile!.id, deletedAt: null },
-    }
-
     const ticketType = await prisma.ticketType.findFirst({
-      where: ticketTypeWhere,
+      where: { id: ticketTypeId, event: { id, deletedAt: null } },
       select: {
         id: true,
         soldCount: true,

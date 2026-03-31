@@ -44,7 +44,7 @@ function getBucketName(): string {
   return process.env.S3_BUCKET_NAME || 'openevents'
 }
 
-export type UploadFolder = 'events' | 'speakers' | 'organizers' | 'users'
+export type UploadFolder = 'events' | 'speakers' | 'organizers' | 'users' | 'platform'
 
 /**
  * Generate a presigned URL for uploading a file directly to S3/MinIO

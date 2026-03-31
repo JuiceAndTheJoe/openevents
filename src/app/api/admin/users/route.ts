@@ -30,12 +30,6 @@ export async function GET(request: NextRequest) {
           role: 'ORGANIZER',
         },
       }
-    } else if (role === 'ATTENDEE_ONLY') {
-      where.roles = {
-        none: {
-          role: 'ORGANIZER',
-        },
-      }
     }
 
     // Search by email or name
@@ -109,7 +103,7 @@ const createAdminUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   firstName: z.string().trim().min(1, 'First name is required'),
   lastName: z.string().trim().min(1, 'Last name is required'),
-  accountType: z.enum(['ATTENDEE', 'ORGANIZER', 'SUPER_ADMIN']).default('ORGANIZER'),
+  accountType: z.enum(['ORGANIZER', 'SUPER_ADMIN']).default('ORGANIZER'),
 })
 
 function generateOneTimePassword(length = 12): string {
@@ -183,14 +177,6 @@ export async function POST(request: NextRequest) {
           passwordHash,
           emailVerified: new Date(),
           mustChangePassword: true,
-        },
-      })
-
-      await tx.userRole.create({
-        data: {
-          userId: user.id,
-          role: 'ATTENDEE',
-          grantedBy: admin.id,
         },
       })
 

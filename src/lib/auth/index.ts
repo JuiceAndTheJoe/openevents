@@ -94,7 +94,3 @@ export function isOrganizer(userRoles: Role[]): boolean {
 export function isSuperAdmin(userRoles: Role[]): boolean {
   return hasRole(userRoles, 'SUPER_ADMIN')
 }
-
-export function isAttendee(userRoles: Role[]): boolean {
-  return hasRole(userRoles, 'ATTENDEE')
-}

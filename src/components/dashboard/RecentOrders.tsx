@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { OrderStatus } from '@prisma/client'
+import { OrderStatus, PaymentMethod } from '@prisma/client'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 
 type RecentOrdersProps = {
@@ -7,6 +7,7 @@ type RecentOrdersProps = {
     id: string
     orderNumber: string
     status: OrderStatus
+    paymentMethod: PaymentMethod | null
     totalAmount: number
     currency: string
     buyerEmail: string
@@ -38,7 +39,16 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
                 <p className="text-sm font-medium text-gray-900">{formatCurrency(order.totalAmount, order.currency)}</p>
               </div>
               <p className="text-sm text-gray-600">{order.event.title}</p>
-              <p className="text-xs text-gray-500">{order.buyerEmail} · {order.status} · {formatDateTime(order.createdAt)}</p>
+              <p className="text-xs text-gray-500">
+                {order.buyerEmail} · {order.status}
+                {order.paymentMethod === 'INVOICE' && (
+                  <span className="ml-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Invoice</span>
+                )}
+                {order.paymentMethod === 'FREE' && (
+                  <span className="ml-1 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">Free order</span>
+                )}
+                {' · '}{formatDateTime(order.createdAt)}
+              </p>
             </div>
           ))}
         </div>

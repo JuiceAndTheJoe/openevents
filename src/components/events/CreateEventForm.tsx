@@ -8,14 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { EventPreviewModal } from '@/components/events/EventPreviewModal'
 
-type CategoryOption = {
-  id: string
-  name: string
-}
-
-type CreateEventFormProps = {
-  categories: CategoryOption[]
-}
+type CreateEventFormProps = Record<string, never>
 
 type LocationType = 'PHYSICAL' | 'ONLINE' | 'HYBRID'
 
@@ -41,10 +34,9 @@ function toIso(date: string, time: string) {
   return new Date(`${date}T${time}`).toISOString()
 }
 
-export function CreateEventForm({ categories }: CreateEventFormProps) {
+export function CreateEventForm(_props: CreateEventFormProps) {
   const router = useRouter()
   const [form, setForm] = useState(initialState)
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploadingBanner, setIsUploadingBanner] = useState(false)
   const [isUploadingBottom, setIsUploadingBottom] = useState(false)
@@ -150,7 +142,6 @@ export function CreateEventForm({ categories }: CreateEventFormProps) {
         sponsorNames: parseNameList(form.sponsors),
         visibility: 'PUBLIC',
         cancellationDeadlineHours: 48,
-        categoryIds: selectedCategoryIds,
         autoCreateFreeTicket: true,
       }
 
@@ -218,24 +209,6 @@ export function CreateEventForm({ categories }: CreateEventFormProps) {
               />
             </div>
 
-            <div>
-              <Label htmlFor="tags">Event Tags</Label>
-              <select
-                id="tags"
-                multiple
-                value={selectedCategoryIds}
-                onChange={(e) => {
-                  const ids = Array.from(e.target.selectedOptions).map((option) => option.value).slice(0, 4)
-                  setSelectedCategoryIds(ids)
-                }}
-                className="h-32 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-gray-500">Select up to 4 categories.</p>
-            </div>
           </div>
         </section>
 

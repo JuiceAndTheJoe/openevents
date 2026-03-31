@@ -24,13 +24,21 @@ import { getAppUrl } from '@/lib/url'
 //
 // =============================================================================
 
-const EMAIL_MODE = process.env.EMAIL_MODE || (process.env.NODE_ENV === 'development' ? 'development' : 'smtp')
-const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@openevents.local'
-const APP_NAME = process.env.APP_NAME || 'OpenEvents'
+// OSC converts camelCase config fields to UPPER_SNAKE_CASE env vars
+// (e.g. fromEmail -> FROM_EMAIL, smtpHost -> SMTP_HOST).
+// All reads are inside functions so they resolve at runtime, not build time.
+function getSmtpHost() { return process.env.SMTP_HOST }
+function getSmtpPort() { return process.env.SMTP_PORT || '587' }
+function getSmtpSecure() { return process.env.SMTP_SECURE }
+function getSmtpUser() { return process.env.SMTP_USER }
+function getSmtpPass() { return process.env.SMTP_PASSWORD }
+function getEmailMode() { return process.env.EMAIL_MODE || (getSmtpHost() ? 'smtp' : 'development') }
+function getFromEmail() { return process.env.FROM_EMAIL || process.env.EMAIL_FROM || 'noreply@openevents.local' }
+function getAppName() { return process.env.SITE_NAME || process.env.APP_NAME || 'OpenEvents' }
 
-// Create transporter based on mode
+// Create transporter based on mode — called per send to use runtime env vars
 function createTransporter() {
-  if (EMAIL_MODE === 'development') {
+  if (getEmailMode() === 'development') {
     // Development mode: use a "fake" transport that logs to console
     return {
       sendMail: async (mailOptions: nodemailer.SendMailOptions) => {
@@ -66,17 +74,15 @@ function createTransporter() {
 
   // Production mode: use real SMTP
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: process.env.SMTP_SECURE === 'true',
+    host: getSmtpHost(),
+    port: parseInt(getSmtpPort()),
+    secure: getSmtpSecure() === 'true',
     auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASSWORD,
+      user: getSmtpUser(),
+      pass: getSmtpPass(),
     },
   })
 }
-
-const transporter = createTransporter()
 
 interface Attachment {
   filename: string
@@ -93,9 +99,14 @@ interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<void> {
+  const transporter = createTransporter()
+  const mode = getEmailMode()
+
+  const fromAddress = `${getAppName()} <${getFromEmail()}>`
+
   try {
     await transporter.sendMail({
-      from: `${APP_NAME} <${FROM_EMAIL}>`,
+      from: fromAddress,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -103,14 +114,14 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
       attachments: options.attachments,
     })
 
-    if (EMAIL_MODE !== 'development') {
-      console.log(`Email sent to ${options.to}: ${options.subject}`)
+    if (mode !== 'development') {
+      console.log(`Email sent from ${fromAddress} to ${options.to}: ${options.subject}`)
     }
   } catch (error) {
     console.error('Failed to send email:', error)
 
     // In development, don't throw - just log
-    if (EMAIL_MODE === 'development') {
+    if (mode === 'development') {
       console.warn('Email sending failed in development mode - this is expected if no SMTP is configured')
       return
     }
@@ -123,18 +134,16 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
  * Check if email service is properly configured
  */
 export function isEmailConfigured(): boolean {
-  if (EMAIL_MODE === 'development') {
+  if (getEmailMode() === 'development') {
     return true // Development mode always "works"
   }
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD)
+  return !!(getSmtpHost() && getSmtpUser() && getSmtpPass())
 }
 
 /**
  * Get current email mode
  */
-export function getEmailMode(): string {
-  return EMAIL_MODE
-}
+export { getEmailMode }
 
 // ============================================================================
 // Email Templates
@@ -144,11 +153,13 @@ export async function sendVerificationEmail(
   email: string,
   token: string
 ): Promise<void> {
-  const verifyUrl = `${getAppUrl()}/verify-email?token=${token}`
+  const appUrl = getAppUrl()
+  const appName = getAppName()
+  const verifyUrl = `${appUrl}/verify-email?token=${token}`
 
   await sendEmail({
     to: email,
-    subject: `Verify your ${APP_NAME} account`,
+    subject: `Verify your ${appName} account`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -158,7 +169,7 @@ export async function sendVerificationEmail(
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #2563eb;">Welcome to ${APP_NAME}!</h1>
+            <h1 style="color: #2563eb;">Welcome to ${appName}!</h1>
             <p>Thank you for registering. Please verify your email address by clicking the button below:</p>
             <p style="text-align: center; margin: 30px 0;">
               <a href="${verifyUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
@@ -170,13 +181,13 @@ export async function sendVerificationEmail(
             <p>This link will expire in 24 hours.</p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #666; font-size: 12px;">
-              If you didn't create an account on ${APP_NAME}, you can safely ignore this email.
+              If you didn't create an account on ${appName}, you can safely ignore this email.
             </p>
           </div>
         </body>
       </html>
     `,
-    text: `Welcome to ${APP_NAME}! Please verify your email by visiting: ${verifyUrl}`,
+    text: `Welcome to ${appName}! Please verify your email by visiting: ${verifyUrl}`,
   })
 }
 
@@ -184,11 +195,13 @@ export async function sendPasswordResetEmail(
   email: string,
   token: string
 ): Promise<void> {
-  const resetUrl = `${getAppUrl()}/reset-password?token=${token}`
+  const appUrl = getAppUrl()
+  const appName = getAppName()
+  const resetUrl = `${appUrl}/reset-password?token=${token}`
 
   await sendEmail({
     to: email,
-    subject: `Reset your ${APP_NAME} password`,
+    subject: `Reset your ${appName} password`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -216,7 +229,7 @@ export async function sendPasswordResetEmail(
         </body>
       </html>
     `,
-    text: `Reset your ${APP_NAME} password by visiting: ${resetUrl}`,
+    text: `Reset your ${appName} password by visiting: ${resetUrl}`,
   })
 }
 
@@ -320,7 +333,7 @@ async function generateOrderPdf(orderDetails: {
     // QR codes section
     if (qrBuffers.length > 0 && orderDetails.ticketCodes) {
       doc.moveDown(1.5)
-      doc.fontSize(14).font('Helvetica-Bold').text('Your Tickets')
+      doc.fontSize(14).font('Helvetica-Bold').text('Your tickets - present the QR code(s) below at the door')
       doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
       doc.moveDown(0.6)
 
@@ -594,7 +607,7 @@ export async function sendAccountDeletionConfirmationEmail(
 
   await sendEmail({
     to: email,
-    subject: `Confirm account deletion for ${APP_NAME}`,
+    subject: `Confirm account deletion for ${getAppName()}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -605,7 +618,7 @@ export async function sendAccountDeletionConfirmationEmail(
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #dc2626;">Confirm account deletion</h1>
-            <p>We received a request to delete your ${APP_NAME} account.</p>
+            <p>We received a request to delete your ${getAppName()} account.</p>
             <p style="text-align: center; margin: 30px 0;">
               <a href="${details.confirmUrl}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
                 Confirm account deletion
@@ -619,7 +632,7 @@ export async function sendAccountDeletionConfirmationEmail(
         </body>
       </html>
     `,
-    text: `Confirm your ${APP_NAME} account deletion: ${details.confirmUrl}. This link expires on ${expiryLabel}.`,
+    text: `Confirm your ${getAppName()} account deletion: ${details.confirmUrl}. This link expires on ${expiryLabel}.`,
   })
 }
 
@@ -641,7 +654,7 @@ export async function sendAccountDeletionScheduledEmail(
 
   await sendEmail({
     to: email,
-    subject: `${APP_NAME} account deletion scheduled`,
+    subject: `${getAppName()} account deletion scheduled`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -652,7 +665,7 @@ export async function sendAccountDeletionScheduledEmail(
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #dc2626;">Account deletion scheduled</h1>
-            <p>Your ${APP_NAME} account is now scheduled for deletion.</p>
+            <p>Your ${getAppName()} account is now scheduled for deletion.</p>
             <p><strong>Deletion date:</strong> ${scheduledForLabel}</p>
             <p>You can cancel this request at any time during the ${details.gracePeriodDays}-day grace period.</p>
             <p style="text-align: center; margin: 30px 0;">
@@ -666,14 +679,14 @@ export async function sendAccountDeletionScheduledEmail(
         </body>
       </html>
     `,
-    text: `Your ${APP_NAME} account deletion is scheduled for ${scheduledForLabel}. Cancel request: ${details.cancelUrl}`,
+    text: `Your ${getAppName()} account deletion is scheduled for ${scheduledForLabel}. Cancel request: ${details.cancelUrl}`,
   })
 }
 
 export async function sendAccountDeletionCancelledEmail(email: string): Promise<void> {
   await sendEmail({
     to: email,
-    subject: `${APP_NAME} account deletion canceled`,
+    subject: `${getAppName()} account deletion canceled`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -684,13 +697,13 @@ export async function sendAccountDeletionCancelledEmail(email: string): Promise<
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #0f766e;">Account deletion canceled</h1>
-            <p>Your ${APP_NAME} account deletion request has been canceled.</p>
+            <p>Your ${getAppName()} account deletion request has been canceled.</p>
             <p>You can keep using your account as usual.</p>
           </div>
         </body>
       </html>
     `,
-    text: `Your ${APP_NAME} account deletion request has been canceled.`,
+    text: `Your ${getAppName()} account deletion request has been canceled.`,
   })
 }
 
@@ -784,7 +797,7 @@ export async function sendInvoiceOrderNotificationEmail(
 
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #666; font-size: 12px;">
-              This is an automated notification from ${APP_NAME}.
+              This is an automated notification from ${getAppName()}.
             </p>
           </div>
         </body>
