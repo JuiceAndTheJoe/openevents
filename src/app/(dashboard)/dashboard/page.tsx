@@ -93,7 +93,7 @@ export default async function DashboardHomePage() {
 
   const welcomeName = organizerProfile?.orgName || user.name || 'Admin'
 
-  const resolvedAppUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const resolvedAppUrl = process.env.PUBLIC_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   return (
     <div className="space-y-6">
@@ -101,7 +101,7 @@ export default async function DashboardHomePage() {
       <div className="rounded bg-yellow-100 border border-yellow-400 px-4 py-2 text-sm text-yellow-800">
         <strong>DEBUG</strong> — Resolved APP_URL: <code>{resolvedAppUrl}</code>
         <span className="ml-2 text-xs text-yellow-600">
-          (SITE_URL={process.env.SITE_URL ?? 'unset'}, NEXT_PUBLIC_APP_URL={process.env.NEXT_PUBLIC_APP_URL ?? 'unset'})
+          (PUBLIC_URL={process.env.PUBLIC_URL ?? 'unset'}, NEXT_PUBLIC_APP_URL={process.env.NEXT_PUBLIC_APP_URL ?? 'unset'})
         </span>
       </div>
       <WorkspacePageHeader
