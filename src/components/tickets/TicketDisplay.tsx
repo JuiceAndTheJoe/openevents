@@ -3,6 +3,7 @@ import { ExternalLink, CreditCard, Clock, CheckCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/utils'
 import { DownloadTicketsButton } from '@/components/tickets/DownloadTicketsButton'
+import { DownloadReceiptButton } from '@/components/tickets/DownloadReceiptButton'
 import { TicketQRCode } from '@/components/tickets/TicketQRCode'
 import { AddToCalendar } from '@/components/events/AddToCalendar'
 
@@ -81,6 +82,9 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
   const isPendingInvoice = order.status === 'PENDING_INVOICE'
   const isPaid = order.status === 'PAID'
   const canDownloadTickets = isPaid && order.tickets.length > 0
+  const canDownloadReceipt = ['PAID', 'PENDING_INVOICE', 'REFUNDED', 'PARTIALLY_REFUNDED'].includes(
+    order.status
+  )
   const statusDisplay = getStatusDisplay(order.status)
 
   // Calculate total tickets for summary
@@ -202,6 +206,7 @@ export function TicketDisplay({ order }: TicketDisplayProps) {
               }}
             />
             {canDownloadTickets && <DownloadTicketsButton />}
+            {canDownloadReceipt && <DownloadReceiptButton orderNumber={order.orderNumber} />}
           </div>
         </CardContent>
       </Card>
