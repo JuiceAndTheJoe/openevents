@@ -164,7 +164,10 @@ model Event {
   id              String       @id @default(cuid())
   organizerId     String
   title           String
-  organization    String?      // Display name for "By:" on public page
+  organization    String?      // Display name for "By:" on public page and receipt issuer legal name
+  organizationNumber  String?  // Org number of the receipt-issuing entity (e.g. "556919-9952")
+  organizationVatNumber String? // Optional VAT/EU VAT number of the receipt-issuing entity (e.g. "SE556919995201")
+  organizationAddress String?  // Single-line address of the receipt-issuing entity
   slug            String       @unique
   description     String?      @db.Text
   descriptionHtml String?      @db.Text

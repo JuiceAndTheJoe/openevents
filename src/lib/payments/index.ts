@@ -204,9 +204,6 @@ export function isTestMode(): boolean {
  */
 export const isPaymentProviderConfigured = isStripeConfigured
 
-// Backward-compatible export names used across existing code paths.
-export const isPayPalConfigured = isStripeConfigured
-
 /**
  * Generate URLs for redirect payment flow
  */

@@ -65,3 +65,6 @@ logs
 
 # Uploaded files (local dev)
 uploads/
+
+# Local-only scripts (kept out of git, but available on the dev machine)
+scripts/import-prod.ts

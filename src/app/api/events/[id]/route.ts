@@ -103,6 +103,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         data: {
           title: input.title,
           organization: input.organization,
+          organizationNumber: input.organizationNumber,
+          organizationVatNumber:
+            input.organizationVatNumber === undefined
+              ? undefined
+              : input.organizationVatNumber?.trim() || null,
+          organizationAddress: input.organizationAddress,
           slug: newSlug,
           description: input.description,
           descriptionHtml: input.descriptionHtml,

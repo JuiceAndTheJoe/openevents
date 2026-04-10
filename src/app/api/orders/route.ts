@@ -586,6 +586,7 @@ export async function POST(request: NextRequest) {
     if (order.status === 'PAID') {
       await sendOrderConfirmationEmail(order.buyerEmail, {
         orderNumber: order.orderNumber,
+        orderId: order.id,
         eventTitle: order.event.title,
         eventDate: formatDateTime(order.event.startDate),
         eventLocation:

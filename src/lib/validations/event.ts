@@ -4,6 +4,19 @@ import { isValidTimeZone } from '@/lib/timezone'
 const eventSchemaBase = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   organization: z.string().min(1, 'Organization is required').max(200, 'Organization name is too long'),
+  organizationNumber: z
+    .string()
+    .min(1, 'Organization number is required')
+    .max(50, 'Organization number is too long'),
+  organizationVatNumber: z
+    .string()
+    .max(50, 'VAT number is too long')
+    .optional()
+    .nullable(),
+  organizationAddress: z
+    .string()
+    .min(1, 'Organization address is required')
+    .max(200, 'Organization address is too long'),
   description: z.string().optional(),
   descriptionHtml: z.string().optional(),
   startDate: z.string().datetime('Invalid start date'),

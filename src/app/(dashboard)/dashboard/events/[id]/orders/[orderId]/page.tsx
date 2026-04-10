@@ -152,6 +152,7 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
 
     await sendOrderConfirmationEmail(targetOrder.buyerEmail, {
       orderNumber: targetOrder.orderNumber,
+      orderId: targetOrder.id,
       eventTitle: targetOrder.event.title,
       eventDate: targetOrder.event.startDate.toISOString(),
       eventLocation:
@@ -333,6 +334,7 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
     // Send confirmation email
     await sendOrderConfirmationEmail(paidOrder.buyerEmail, {
       orderNumber: paidOrder.orderNumber,
+      orderId: paidOrder.id,
       eventTitle: paidOrder.event.title,
       eventDate: formatDateTime(paidOrder.event.startDate),
       eventLocation:

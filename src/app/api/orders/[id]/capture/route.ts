@@ -279,6 +279,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     try {
       await sendOrderConfirmationEmail(paidOrder.buyerEmail, {
         orderNumber: paidOrder.orderNumber,
+        orderId: paidOrder.id,
         eventTitle: paidOrder.event.title,
         eventDate: formatDateTime(paidOrder.event.startDate),
         eventLocation:

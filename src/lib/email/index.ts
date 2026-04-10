@@ -2,6 +2,9 @@ import nodemailer from 'nodemailer'
 import PDFDocument from 'pdfkit'
 import QRCode from 'qrcode'
 import { getAppUrl } from '@/lib/url'
+import { prisma } from '@/lib/db'
+import { generateReceiptPdf } from '@/lib/pdf/receipt'
+import { buildReceiptDataForOrder } from '@/lib/pdf/buildReceiptData'
 
 // =============================================================================
 // Email Configuration
@@ -356,6 +359,9 @@ export async function sendOrderConfirmationEmail(
   email: string,
   orderDetails: {
     orderNumber: string
+    // Optional order DB id. When provided, the email also attaches a receipt
+    // PDF generated via buildReceiptDataForOrder + generateReceiptPdf.
+    orderId?: string
     eventTitle: string
     eventDate: string
     eventLocation: string
@@ -379,7 +385,43 @@ export async function sendOrderConfirmationEmail(
     )
     .join('')
 
-  const pdfBuffer = await generateOrderPdf(orderDetails)
+  const orderPdfBuffer = await generateOrderPdf(orderDetails)
+
+  const attachments: Attachment[] = [
+    {
+      filename: `order-${orderDetails.orderNumber}.pdf`,
+      content: orderPdfBuffer,
+      contentType: 'application/pdf',
+    },
+  ]
+
+  // Try to attach the receipt PDF as a second file. The order PDF (with QR
+  // codes) is the ticket, the receipt PDF is the financial document. Failing
+  // to generate the receipt should not block the email — the buyer still
+  // gets their tickets.
+  if (orderDetails.orderId) {
+    try {
+      const receiptData = await buildReceiptDataForOrder(prisma, orderDetails.orderId)
+      if (receiptData) {
+        const receiptPdfBuffer = await generateReceiptPdf(receiptData)
+        attachments.push({
+          filename: `receipt-${orderDetails.orderNumber}.pdf`,
+          content: receiptPdfBuffer,
+          contentType: 'application/pdf',
+        })
+      }
+    } catch (error) {
+      console.error(
+        `Failed to generate receipt PDF for order ${orderDetails.orderNumber}, continuing without it:`,
+        error
+      )
+    }
+  }
+
+  const hasReceipt = attachments.length > 1
+  const attachmentCopy = hasReceipt
+    ? 'Your tickets and receipt are attached as PDFs.'
+    : 'Your order confirmation is attached as a PDF.'
 
   await sendEmail({
     to: email,
@@ -423,7 +465,7 @@ export async function sendOrderConfirmationEmail(
               </tfoot>
             </table>
 
-            <p>Your order confirmation is attached as a PDF.</p>
+            <p>${attachmentCopy}</p>
 
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #666; font-size: 12px;">
@@ -433,14 +475,8 @@ export async function sendOrderConfirmationEmail(
         </body>
       </html>
     `,
-    text: `Order Confirmed! Order #${orderDetails.orderNumber} for ${orderDetails.eventTitle}. Total: ${orderDetails.totalAmount}. Your order confirmation is attached as a PDF.`,
-    attachments: [
-      {
-        filename: `order-${orderDetails.orderNumber}.pdf`,
-        content: pdfBuffer,
-        contentType: 'application/pdf',
-      },
-    ],
+    text: `Order Confirmed! Order #${orderDetails.orderNumber} for ${orderDetails.eventTitle}. Total: ${orderDetails.totalAmount}. ${attachmentCopy}`,
+    attachments,
   })
 }
 
