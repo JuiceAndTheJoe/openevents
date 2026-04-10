@@ -128,6 +128,7 @@ export default async function EditEventPage({ params }: PageProps) {
           title: event.title,
           organization: event.organization,
           organizationNumber: event.organizationNumber,
+          organizationVatNumber: event.organizationVatNumber,
           organizationAddress: event.organizationAddress,
           description: event.description || event.descriptionHtml || '',
           descriptionHtml: event.descriptionHtml,

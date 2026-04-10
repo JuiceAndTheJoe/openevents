@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         title: input.title,
         organization: input.organization,
         organizationNumber: input.organizationNumber,
+        organizationVatNumber: input.organizationVatNumber?.trim() || null,
         organizationAddress: input.organizationAddress,
         description: input.description,
         descriptionHtml: input.descriptionHtml,

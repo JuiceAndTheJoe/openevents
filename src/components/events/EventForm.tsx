@@ -88,6 +88,7 @@ type EventFormData = {
   title: string;
   organization?: string | null;
   organizationNumber?: string | null;
+  organizationVatNumber?: string | null;
   organizationAddress?: string | null;
   description?: string | null;
   descriptionHtml?: string | null;
@@ -321,6 +322,7 @@ const fallbackInitialData: EventFormData = {
   title: "",
   organization: "",
   organizationNumber: "",
+  organizationVatNumber: "",
   organizationAddress: "",
   description: "",
   descriptionHtml: "",
@@ -3720,6 +3722,27 @@ export function EventForm({
               onBlur={() => handleFieldBlur("organizationAddress")}
               className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="organizationVatNumber"
+              className="text-base font-semibold text-black"
+            >
+              VAT number
+            </Label>
+            <Input
+              id="organizationVatNumber"
+              placeholder="e.g. SE556919995201"
+              value={form.organizationVatNumber || ""}
+              onChange={(e) => updateField("organizationVatNumber", e.target.value)}
+              className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
+            />
+            <p className="text-xs text-gray-500">
+              Optional. Shown on PDF receipts when provided.
+            </p>
           </div>
         </div>
 

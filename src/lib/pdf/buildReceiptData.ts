@@ -35,6 +35,7 @@ export async function buildReceiptDataForOrder(
           onlineUrl: true,
           organization: true,
           organizationNumber: true,
+          organizationVatNumber: true,
           organizationAddress: true,
           organizer: {
             select: {
@@ -109,6 +110,7 @@ export async function buildReceiptDataForOrder(
       displayName: null,
       website: order.event.organizer.website,
       orgNumber: order.event.organizationNumber,
+      vatNumber: order.event.organizationVatNumber,
       address: order.event.organizationAddress,
     },
     buyer: {

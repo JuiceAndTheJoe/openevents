@@ -8,6 +8,11 @@ const eventSchemaBase = z.object({
     .string()
     .min(1, 'Organization number is required')
     .max(50, 'Organization number is too long'),
+  organizationVatNumber: z
+    .string()
+    .max(50, 'VAT number is too long')
+    .optional()
+    .nullable(),
   organizationAddress: z
     .string()
     .min(1, 'Organization address is required')

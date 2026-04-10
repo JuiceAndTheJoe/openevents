@@ -17,6 +17,7 @@ export interface ReceiptData {
     displayName: string | null
     website: string | null
     orgNumber: string | null
+    vatNumber: string | null
     address: string | null
   }
 
@@ -118,6 +119,9 @@ export function generateReceiptPdf(data: ReceiptData): Promise<Buffer> {
     doc.font('Helvetica').fillColor('#555')
     if (data.seller.orgNumber) {
       doc.text(`Org.nr: ${data.seller.orgNumber}`, pageLeft, doc.y)
+    }
+    if (data.seller.vatNumber) {
+      doc.text(`VAT: ${data.seller.vatNumber}`, pageLeft, doc.y)
     }
     if (data.seller.address) {
       doc.text(data.seller.address, pageLeft, doc.y)
