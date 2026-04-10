@@ -127,6 +127,8 @@ export default async function EditEventPage({ params }: PageProps) {
           })),
           title: event.title,
           organization: event.organization,
+          organizationNumber: event.organizationNumber,
+          organizationAddress: event.organizationAddress,
           description: event.description || event.descriptionHtml || '',
           descriptionHtml: event.descriptionHtml,
           startDate: event.startDate.toISOString(),

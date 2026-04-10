@@ -147,9 +147,6 @@ model OrganizerProfile {
   logo        String?
   website     String?
   socialLinks Json?    // { twitter, facebook, linkedin, etc. }
-  // Legal entity details printed on receipts issued by this organizer
-  orgNumber   String?  // e.g. Swedish "556919-9952"
-  address     String?  // Single-line street address, e.g. "Vasagatan 52, 111 20 Stockholm"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -167,7 +164,9 @@ model Event {
   id              String       @id @default(cuid())
   organizerId     String
   title           String
-  organization    String?      // Display name for "By:" on public page
+  organization    String?      // Display name for "By:" on public page and receipt issuer legal name
+  organizationNumber  String?  // Org number of the receipt-issuing entity (e.g. "556919-9952")
+  organizationAddress String?  // Single-line address of the receipt-issuing entity
   slug            String       @unique
   description     String?      @db.Text
   descriptionHtml String?      @db.Text

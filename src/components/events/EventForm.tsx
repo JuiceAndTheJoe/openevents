@@ -87,6 +87,8 @@ type EventFormData = {
   ticketCapacity?: string;
   title: string;
   organization?: string | null;
+  organizationNumber?: string | null;
+  organizationAddress?: string | null;
   description?: string | null;
   descriptionHtml?: string | null;
   startDate: string;
@@ -140,7 +142,9 @@ type FieldKey =
   | "country"
   | "onlineUrl"
   | "coverImage"
-  | "bottomImage";
+  | "bottomImage"
+  | "organizationNumber"
+  | "organizationAddress";
 
 type FieldErrors = Partial<Record<FieldKey, string>>;
 
@@ -316,6 +320,8 @@ const fallbackInitialData: EventFormData = {
   ticketCapacity: "",
   title: "",
   organization: "",
+  organizationNumber: "",
+  organizationAddress: "",
   description: "",
   descriptionHtml: "",
   startDate: "",
@@ -348,6 +354,8 @@ const allowedImageMimeTypes = new Set([
 ]);
 const fieldOrder: FieldKey[] = [
   "title",
+  "organizationNumber",
+  "organizationAddress",
   "startDate",
   "endDate",
   "timezone",
@@ -656,6 +664,14 @@ function getFieldValidationMessage(
       }
       return isValidUrl(value) ? undefined : "Enter a valid URL.";
     }
+    case "organizationNumber":
+      return currentForm.organizationNumber?.trim()
+        ? undefined
+        : "Enter an organization number.";
+    case "organizationAddress":
+      return currentForm.organizationAddress?.trim()
+        ? undefined
+        : "Enter an organization address.";
     case "coverImage":
     case "bottomImage":
       return undefined;
@@ -1235,7 +1251,9 @@ export function EventForm({
       key === "address" ||
       key === "city" ||
       key === "country" ||
-      key === "onlineUrl"
+      key === "onlineUrl" ||
+      key === "organizationNumber" ||
+      key === "organizationAddress"
     ) {
       validateFieldIfActive(key, nextForm);
       return;
@@ -3658,6 +3676,48 @@ export function EventForm({
               placeholder="Organization name"
               value={form.organization || ""}
               onChange={(e) => updateField("organization", e.target.value)}
+              className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="organizationNumber"
+              required
+              className="text-base font-semibold text-black"
+            >
+              Organization number
+            </Label>
+            <Input
+              id="organizationNumber"
+              placeholder="e.g. 556919-9952"
+              value={form.organizationNumber || ""}
+              error={fieldErrors.organizationNumber}
+              onChange={(e) => updateField("organizationNumber", e.target.value)}
+              onBlur={() => handleFieldBlur("organizationNumber")}
+              className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
+            />
+            <p className="text-xs text-gray-500">
+              Shown as the receipt issuer on PDF receipts for this event.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="organizationAddress"
+              required
+              className="text-base font-semibold text-black"
+            >
+              Organization address
+            </Label>
+            <Input
+              id="organizationAddress"
+              placeholder="e.g. Vasagatan 52, 111 20 Stockholm"
+              value={form.organizationAddress || ""}
+              error={fieldErrors.organizationAddress}
+              onChange={(e) => updateField("organizationAddress", e.target.value)}
+              onBlur={() => handleFieldBlur("organizationAddress")}
               className="h-10 rounded-[10px] border-[0.8px] border-[#d1d5dc] bg-[#f9fafb] px-3 py-2 text-sm placeholder:text-[#99a1af] focus:ring-[#5c8bd9]"
             />
           </div>

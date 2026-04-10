@@ -35,12 +35,12 @@ export async function GET(_request: Request, context: RouteContext) {
             country: true,
             onlineUrl: true,
             organization: true,
+            organizationNumber: true,
+            organizationAddress: true,
             organizer: {
               select: {
                 orgName: true,
                 website: true,
-                orgNumber: true,
-                address: true,
               },
             },
           },
@@ -124,11 +124,13 @@ export async function GET(_request: Request, context: RouteContext) {
       paymentMethod: order.paymentMethod,
       currency: order.currency,
       seller: {
-        name: order.event.organizer.orgName || 'Event Organizer',
-        displayName: order.event.organization || null,
+        // Legal issuer name is per-event (falls back to the organizer's name
+        // for legacy events that predate the per-event issuer fields).
+        name: order.event.organization || order.event.organizer.orgName || 'Event Organizer',
+        displayName: null,
         website: order.event.organizer.website,
-        orgNumber: order.event.organizer.orgNumber,
-        address: order.event.organizer.address,
+        orgNumber: order.event.organizationNumber,
+        address: order.event.organizationAddress,
       },
       buyer: {
         name: buyerName,

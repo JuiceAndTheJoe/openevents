@@ -12,8 +12,6 @@ type OrganizerProfileFormProps = {
     description: string | null
     logo: string | null
     website: string | null
-    orgNumber: string | null
-    address: string | null
     socialLinks: Record<string, string>
   }
   action: (formData: FormData) => Promise<void>
@@ -238,33 +236,6 @@ export function OrganizerProfileForm({ initial, action }: OrganizerProfileFormPr
       <div>
         <Label htmlFor="linkedin">LinkedIn</Label>
         <Input id="linkedin" name="linkedin" defaultValue={initial.socialLinks.linkedin || ''} />
-      </div>
-
-      <div className="space-y-4 border-t border-gray-200 pt-4">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">Receipt issuer details</h2>
-          <p className="mt-1 text-xs text-gray-600">
-            Shown on PDF receipts issued for your events. Leave blank to omit from receipts.
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="orgNumber">Organization number</Label>
-          <Input
-            id="orgNumber"
-            name="orgNumber"
-            defaultValue={initial.orgNumber || ''}
-            placeholder="e.g. 556919-9952"
-          />
-        </div>
-        <div>
-          <Label htmlFor="address">Address</Label>
-          <Input
-            id="address"
-            name="address"
-            defaultValue={initial.address || ''}
-            placeholder="e.g. Vasagatan 52, 111 20 Stockholm"
-          />
-        </div>
       </div>
 
       <Button type="submit" disabled={isUploadingLogo}>Save Profile</Button>

@@ -19,8 +19,6 @@ export default async function OrganizerSettingsPage() {
     const description = String(formData.get('description') || '').trim() || null
     const website = String(formData.get('website') || '').trim() || null
     const logo = String(formData.get('logo') || '').trim() || null
-    const orgNumber = String(formData.get('orgNumber') || '').trim() || null
-    const address = String(formData.get('address') || '').trim() || null
 
     const existingSocialLinks = (profile?.socialLinks as Record<string, string> | null) || {}
     const socialLinks = {
@@ -36,8 +34,6 @@ export default async function OrganizerSettingsPage() {
         website,
         logo,
         socialLinks,
-        orgNumber,
-        address,
       },
       create: {
         userId: currentUser.id,
@@ -46,8 +42,6 @@ export default async function OrganizerSettingsPage() {
         website,
         logo,
         socialLinks,
-        orgNumber,
-        address,
       },
     })
 
@@ -63,8 +57,6 @@ export default async function OrganizerSettingsPage() {
         description: organizerProfile?.description || '',
         logo: organizerProfile?.logo || null,
         website: organizerProfile?.website || '',
-        orgNumber: organizerProfile?.orgNumber || null,
-        address: organizerProfile?.address || null,
         socialLinks: (organizerProfile?.socialLinks as Record<string, string> | null) || {},
       }}
       action={updateOrganizerProfile}

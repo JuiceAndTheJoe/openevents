@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
         slug,
         title: input.title,
         organization: input.organization,
+        organizationNumber: input.organizationNumber,
+        organizationAddress: input.organizationAddress,
         description: input.description,
         descriptionHtml: input.descriptionHtml,
         startDate: new Date(input.startDate),
