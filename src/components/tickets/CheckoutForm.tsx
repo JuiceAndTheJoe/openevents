@@ -80,7 +80,7 @@ function formatTierOffer(
 ): string {
   if (discount.discountType === 'PERCENTAGE') return `get ${discount.discountValue}% off!`
   if (discount.discountType === 'TIER_PRICE') {
-    return `pay ${discount.discountValue} ${currency} per ticket!`
+    return `pay ${discount.discountValue} ${currency} per ticket (excl. VAT)!`
   }
   return `get ${discount.discountValue} ${currency} off!`
 }

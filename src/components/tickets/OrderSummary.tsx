@@ -105,18 +105,6 @@ export function OrderSummary({
               {groupDiscountMessage && (
                 <p className="text-xs text-green-600">{groupDiscountMessage}</p>
               )}
-              {groupDiscountMessage && subtotal > 0 && (
-                <div className="mt-1 space-y-0.5">
-                  {items.map((item) => {
-                    const discountedUnit = item.unitPrice * (1 - discountAmount / subtotal)
-                    return (
-                      <p key={item.ticketTypeId} className="text-xs text-green-600">
-                        {item.name}: {formatCurrency(discountedUnit, currency)} per ticket after discount
-                      </p>
-                    )
-                  })}
-                </div>
-              )}
             </div>
           )}
 
