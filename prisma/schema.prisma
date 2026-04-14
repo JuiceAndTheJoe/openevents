@@ -403,8 +403,16 @@ model GroupDiscount {
   eventId         String
   ticketTypeId    String?     // null = all ticket types
   minQuantity     Int         // Buy X tickets
-  discountType    String      @default("PERCENTAGE") // PERCENTAGE or FIXED
-  discountValue   Decimal     @db.Decimal(10, 2)     // Get Y% or $Y off
+  discountType    String      @default("PERCENTAGE") // PERCENTAGE, FIXED, or TIER_PRICE
+  // Interpretation depends on discountType:
+  //   PERCENTAGE -> percent off (e.g. 20 = 20%)
+  //   FIXED      -> absolute amount off (VAT-inclusive)
+  //   TIER_PRICE -> per-ticket target price in the same ex-VAT convention as
+  //                TicketType.price (e.g. 6100 means each ticket is priced
+  //                at 6100 SEK ex-VAT when minQuantity is reached). Avoids
+  //                the rounding drift that PERCENTAGE introduces when the
+  //                organizer's rate card uses fixed tier prices.
+  discountValue   Decimal     @db.Decimal(10, 2)
   isActive        Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

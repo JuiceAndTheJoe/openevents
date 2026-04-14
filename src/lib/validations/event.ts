@@ -93,7 +93,7 @@ export const eventMediaSchema = z.object({
 const groupDiscountBaseSchema = z.object({
   ticketTypeId: z.string().cuid().optional().nullable(),
   minQuantity: z.number().min(1, 'Minimum quantity must be at least 1'),
-  discountType: z.enum(['PERCENTAGE', 'FIXED']).default('PERCENTAGE'),
+  discountType: z.enum(['PERCENTAGE', 'FIXED', 'TIER_PRICE']).default('PERCENTAGE'),
   discountValue: z.number().min(0, 'Discount value must be positive').refine((val) => val > 0, {
     message: 'Discount value must be greater than 0',
   }),

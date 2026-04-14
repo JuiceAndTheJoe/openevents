@@ -25,6 +25,18 @@ interface OrderSummaryProps {
   freeOrderMessage?: string | null
 }
 
+// Stored `subtotal`, `discountAmount`, and `totalAmount` are VAT-inclusive
+// (see src/lib/orders/index.ts). To avoid the confusion of showing "Total"
+// above "VAT (25%)" where 25% of the total does not equal the VAT line
+// (bug: kvitto-visar-fel-baspris rapport 2026-04-14), the summary presents
+// the VAT-exclusive base, the discount, the VAT, and the VAT-inclusive total
+// on separate rows so that subtotalExVat - discountExVat + vat = total.
+function toExVat(amountInclVat: number, vatRate: number): number {
+  if (vatRate <= 0) return Number(amountInclVat.toFixed(2))
+  const multiplier = 1 + vatRate
+  return Number((amountInclVat / multiplier).toFixed(2))
+}
+
 export function OrderSummary({
   items,
   subtotal,
@@ -37,6 +49,9 @@ export function OrderSummary({
   groupDiscountMessage,
   freeOrderMessage,
 }: OrderSummaryProps) {
+  const hasVat = vatRate > 0
+  const subtotalExVat = toExVat(subtotal, vatRate)
+  const discountExVat = toExVat(discountAmount, vatRate)
   return (
     <Card>
       <CardHeader>
@@ -65,8 +80,8 @@ export function OrderSummary({
 
         <div className="space-y-2 border-t border-gray-200 pt-3 text-sm">
           <div className="flex items-center justify-between text-gray-600">
-            <span>Subtotal</span>
-            <span>{formatCurrency(subtotal, currency)}</span>
+            <span>{hasVat ? 'Subtotal (excl. VAT)' : 'Subtotal'}</span>
+            <span>{formatCurrency(subtotalExVat, currency)}</span>
           </div>
 
           {freeOrderMessage && (
@@ -85,7 +100,7 @@ export function OrderSummary({
                       ? 'Group Discount'
                       : 'Discount'}
                 </span>
-                <span>-{formatCurrency(discountAmount, currency)}</span>
+                <span>-{formatCurrency(discountExVat, currency)}</span>
               </div>
               {groupDiscountMessage && (
                 <p className="text-xs text-green-600">{groupDiscountMessage}</p>
@@ -105,13 +120,16 @@ export function OrderSummary({
             </div>
           )}
 
+          {hasVat && (
+            <div className="flex items-center justify-between text-gray-600">
+              <span>VAT ({Math.round(vatRate * 100)}%)</span>
+              <span>{formatCurrency(includedVat, currency)}</span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between border-t border-gray-200 pt-2 font-semibold text-gray-900">
-            <span>Total</span>
+            <span>{hasVat ? 'Total (incl. VAT)' : 'Total'}</span>
             <span>{formatCurrency(totalAmount, currency)}</span>
-          </div>
-          <div className="flex items-center justify-between text-gray-600">
-            <span>VAT ({Math.round(vatRate * 100)}%)</span>
-            <span>{formatCurrency(includedVat, currency)}</span>
           </div>
         </div>
       </CardContent>

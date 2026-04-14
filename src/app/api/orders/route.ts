@@ -38,19 +38,29 @@ type GroupDiscountRecord = {
 
 function calculateGroupDiscountAmount(
   groupDiscount: GroupDiscountRecord,
-  items: { ticketTypeId: string; quantity: number; totalPrice: number }[]
+  items: { ticketTypeId: string; quantity: number; unitPrice: number; totalPrice: number }[],
+  vatRate: number
 ): number {
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
   const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0)
+  const value = decimalToNumber(groupDiscount.discountValue)
+  // TIER_PRICE: organizer enters the exact per-ticket price (ex-VAT, matching
+  // ticketType.price convention) that applies when minQuantity is reached.
+  // Convert to VAT-inclusive so it matches the stored item.unitPrice.
+  const targetUnitInclVat = value * (1 + (vatRate ?? 0))
 
-  // Check if discount applies
   if (groupDiscount.ticketTypeId === null) {
     // Global discount - check total quantity
     if (totalQuantity < groupDiscount.minQuantity) return 0
 
-    const value = decimalToNumber(groupDiscount.discountValue)
     if (groupDiscount.discountType === 'PERCENTAGE') {
       return Number(Math.min(subtotal, (subtotal * value) / 100).toFixed(2))
+    } else if (groupDiscount.discountType === 'TIER_PRICE') {
+      const reduced = items.reduce(
+        (sum, item) => sum + Math.max(0, item.unitPrice - targetUnitInclVat) * item.quantity,
+        0
+      )
+      return Number(Math.min(subtotal, reduced).toFixed(2))
     } else {
       return Number(Math.min(subtotal, value).toFixed(2))
     }
@@ -59,9 +69,11 @@ function calculateGroupDiscountAmount(
     const applicableItem = items.find(item => item.ticketTypeId === groupDiscount.ticketTypeId)
     if (!applicableItem || applicableItem.quantity < groupDiscount.minQuantity) return 0
 
-    const value = decimalToNumber(groupDiscount.discountValue)
     if (groupDiscount.discountType === 'PERCENTAGE') {
       return Number(Math.min(applicableItem.totalPrice, (applicableItem.totalPrice * value) / 100).toFixed(2))
+    } else if (groupDiscount.discountType === 'TIER_PRICE') {
+      const reduced = Math.max(0, applicableItem.unitPrice - targetUnitInclVat) * applicableItem.quantity
+      return Number(Math.min(applicableItem.totalPrice, reduced).toFixed(2))
     } else {
       return Number(Math.min(applicableItem.totalPrice, value).toFixed(2))
     }
@@ -357,7 +369,7 @@ export async function POST(request: NextRequest) {
 
           if (gd && gd.eventId === input.eventId && gd.isActive) {
             groupDiscountRecord = gd
-            groupDiscountAmount = calculateGroupDiscountAmount(gd, preparedOrder.items)
+            groupDiscountAmount = calculateGroupDiscountAmount(gd, preparedOrder.items, vatRate)
           }
         }
 
