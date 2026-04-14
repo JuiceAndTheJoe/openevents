@@ -16,7 +16,7 @@ interface GroupDiscount {
   ticketTypeId: string | null
   ticketTypeName: string
   minQuantity: number
-  discountType: 'PERCENTAGE' | 'FIXED'
+  discountType: 'PERCENTAGE' | 'FIXED' | 'TIER_PRICE'
   discountValue: number
   isActive: boolean
 }
@@ -36,7 +36,7 @@ export function GroupDiscountEditor({ eventId, ticketTypes }: GroupDiscountEdito
   const [newDiscount, setNewDiscount] = useState({
     ticketTypeId: '',
     minQuantity: 2,
-    discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED',
+    discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED' | 'TIER_PRICE',
     discountValue: 10,
     isActive: true,
   })
@@ -270,12 +270,13 @@ export function GroupDiscountEditor({ eventId, ticketTypes }: GroupDiscountEdito
                 onChange={(e) =>
                   setNewDiscount({
                     ...newDiscount,
-                    discountType: e.target.value as 'PERCENTAGE' | 'FIXED',
+                    discountType: e.target.value as 'PERCENTAGE' | 'FIXED' | 'TIER_PRICE',
                   })
                 }
               >
                 <option value="PERCENTAGE">Percentage</option>
                 <option value="FIXED">Fixed Amount</option>
+                <option value="TIER_PRICE">Fixed per-ticket price (ex. VAT)</option>
               </select>
             </div>
 
@@ -298,7 +299,11 @@ export function GroupDiscountEditor({ eventId, ticketTypes }: GroupDiscountEdito
                 required
               />
               <p className="text-xs text-gray-500">
-                {newDiscount.discountType === 'PERCENTAGE' ? 'Percentage (e.g., 10 for 10%)' : 'Fixed amount'}
+                {newDiscount.discountType === 'PERCENTAGE'
+                  ? 'Percentage (e.g., 10 for 10%)'
+                  : newDiscount.discountType === 'TIER_PRICE'
+                    ? 'Per-ticket price ex. VAT when minimum quantity is met (e.g., 6100 = 6 100 per ticket)'
+                    : 'Fixed amount (VAT-inclusive)'}
               </p>
             </div>
           </div>
@@ -376,7 +381,7 @@ export function GroupDiscountEditor({ eventId, ticketTypes }: GroupDiscountEdito
                             onChange={(e) =>
                               setEditForm({
                                 ...editForm,
-                                discountType: e.target.value as 'PERCENTAGE' | 'FIXED',
+                                discountType: e.target.value as 'PERCENTAGE' | 'FIXED' | 'TIER_PRICE',
                               })
                             }
                           >
@@ -418,11 +423,12 @@ export function GroupDiscountEditor({ eventId, ticketTypes }: GroupDiscountEdito
                           {discount.ticketTypeName}
                         </p>
                         <p className="text-sm text-gray-600">
-                          Buy {discount.minQuantity}+ tickets, get{' '}
+                          Buy {discount.minQuantity}+ tickets,{' '}
                           {discount.discountType === 'PERCENTAGE'
-                            ? `${discount.discountValue}%`
-                            : `$${discount.discountValue}`}{' '}
-                          off
+                            ? `get ${discount.discountValue}% off`
+                            : discount.discountType === 'TIER_PRICE'
+                              ? `pay ${discount.discountValue} per ticket (ex. VAT)`
+                              : `get ${discount.discountValue} off`}
                         </p>
                         <p className="text-xs text-gray-500">
                           Status: {discount.isActive ? 'Active' : 'Inactive'}

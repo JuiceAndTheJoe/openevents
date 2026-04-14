@@ -62,7 +62,7 @@ type GroupDiscountDraft = {
   id?: string;
   ticketTypeId: string;
   minQuantity: string;
-  discountType: "PERCENTAGE" | "FIXED";
+  discountType: "PERCENTAGE" | "FIXED" | "TIER_PRICE";
   discountValue: string;
   isActive: boolean;
 };
@@ -5044,12 +5044,13 @@ export function EventForm({
                             updateGroupDiscountField(
                               index,
                               "discountType",
-                              e.target.value as "PERCENTAGE" | "FIXED",
+                              e.target.value as "PERCENTAGE" | "FIXED" | "TIER_PRICE",
                             )
                           }
                         >
                           <option value="PERCENTAGE">Percentage</option>
                           <option value="FIXED">Fixed Amount</option>
+                          <option value="TIER_PRICE">Fixed per-ticket price (ex. VAT)</option>
                         </select>
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                       </div>
@@ -5061,7 +5062,9 @@ export function EventForm({
                       >
                         {gd.discountType === "PERCENTAGE"
                           ? "Discount %"
-                          : "Discount Amount"}
+                          : gd.discountType === "TIER_PRICE"
+                            ? "Per-ticket price (ex. VAT)"
+                            : "Discount Amount"}
                       </label>
                       <input
                         id={`gdDiscountValue-${index}`}
@@ -5069,7 +5072,11 @@ export function EventForm({
                         inputMode="decimal"
                         value={gd.discountValue}
                         placeholder={
-                          gd.discountType === "PERCENTAGE" ? "e.g., 10" : "e.g., 5.00"
+                          gd.discountType === "PERCENTAGE"
+                            ? "e.g., 10"
+                            : gd.discountType === "TIER_PRICE"
+                              ? "e.g., 6100"
+                              : "e.g., 5.00"
                         }
                         className="h-[42px] w-full rounded-[10px] border border-[#d1d5dc] bg-white px-4 text-base outline-none focus:border-[#5c8bd9] focus:ring-1 focus:ring-[#5c8bd9]"
                         onChange={(e) => {

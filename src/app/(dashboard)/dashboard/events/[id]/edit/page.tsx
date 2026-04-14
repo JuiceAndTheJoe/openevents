@@ -110,7 +110,7 @@ export default async function EditEventPage({ params }: PageProps) {
           id: gd.id,
           ticketTypeId: gd.ticketTypeId ?? '',
           minQuantity: String(gd.minQuantity),
-          discountType: gd.discountType as 'PERCENTAGE' | 'FIXED',
+          discountType: gd.discountType as 'PERCENTAGE' | 'FIXED' | 'TIER_PRICE',
           discountValue: String(Number(gd.discountValue)),
           isActive: gd.isActive,
         }))}

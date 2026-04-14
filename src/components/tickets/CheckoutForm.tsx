@@ -74,9 +74,21 @@ function emptyAttendee(): AttendeeFormState {
   return { firstName: '', lastName: '', email: '', title: '', organization: '', allergies: '' }
 }
 
+function formatTierOffer(
+  discount: GroupDiscount,
+  currency: string
+): string {
+  if (discount.discountType === 'PERCENTAGE') return `get ${discount.discountValue}% off!`
+  if (discount.discountType === 'TIER_PRICE') {
+    return `pay ${discount.discountValue} ${currency} per ticket (excl. VAT)!`
+  }
+  return `get ${discount.discountValue} ${currency} off!`
+}
+
 function calculateBestGroupDiscount(
   selectedItems: SummaryLineItem[],
-  groupDiscounts: GroupDiscount[]
+  groupDiscounts: GroupDiscount[],
+  vatRate: number
 ): { amount: number; description: string | null; id: string | null } {
   if (!groupDiscounts || groupDiscounts.length === 0) {
     return { amount: 0, description: null, id: null }
@@ -86,10 +98,9 @@ function calculateBestGroupDiscount(
   let bestDescription: string | null = null
   let bestId: string | null = null
 
-  // Calculate total quantity across all ticket types
   const totalQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0)
+  const vatMultiplier = 1 + (vatRate ?? 0)
 
-  // Check discounts that apply to all ticket types (ticketTypeId = null)
   const globalDiscounts = groupDiscounts
     .filter((gd) => gd.ticketTypeId === null && totalQuantity >= gd.minQuantity)
     .sort((a, b) => b.minQuantity - a.minQuantity)
@@ -101,6 +112,14 @@ function calculateBestGroupDiscount(
     let discountAmount = 0
     if (topGlobalDiscount.discountType === 'PERCENTAGE') {
       discountAmount = (subtotal * topGlobalDiscount.discountValue) / 100
+    } else if (topGlobalDiscount.discountType === 'TIER_PRICE') {
+      // discountValue is the per-ticket target price in the ex-VAT convention
+      // (matching ticketType.price). Convert to VAT-inclusive for comparison.
+      const targetInclVat = topGlobalDiscount.discountValue * vatMultiplier
+      discountAmount = selectedItems.reduce(
+        (sum, item) => sum + Math.max(0, item.unitPrice - targetInclVat) * item.quantity,
+        0
+      )
     } else if (topGlobalDiscount.discountType === 'FIXED') {
       discountAmount = topGlobalDiscount.discountValue
     }
@@ -108,15 +127,11 @@ function calculateBestGroupDiscount(
     if (discountAmount > bestDiscount) {
       bestDiscount = discountAmount
       bestId = topGlobalDiscount.id
-      bestDescription = `Buy ${topGlobalDiscount.minQuantity}+ tickets, get ${
-        topGlobalDiscount.discountType === 'PERCENTAGE'
-          ? `${topGlobalDiscount.discountValue}%`
-          : `$${topGlobalDiscount.discountValue}`
-      } off!`
+      const currency = selectedItems[0]?.currency ?? ''
+      bestDescription = `Buy ${topGlobalDiscount.minQuantity}+ tickets, ${formatTierOffer(topGlobalDiscount, currency)}`
     }
   }
 
-  // Check discounts specific to ticket types
   for (const item of selectedItems) {
     const ticketDiscounts = groupDiscounts
       .filter((gd) => gd.ticketTypeId === item.ticketTypeId && item.quantity >= gd.minQuantity)
@@ -128,6 +143,9 @@ function calculateBestGroupDiscount(
       let discountAmount = 0
       if (topTicketDiscount.discountType === 'PERCENTAGE') {
         discountAmount = (item.totalPrice * topTicketDiscount.discountValue) / 100
+      } else if (topTicketDiscount.discountType === 'TIER_PRICE') {
+        const targetInclVat = topTicketDiscount.discountValue * vatMultiplier
+        discountAmount = Math.max(0, item.unitPrice - targetInclVat) * item.quantity
       } else if (topTicketDiscount.discountType === 'FIXED') {
         discountAmount = topTicketDiscount.discountValue
       }
@@ -135,11 +153,7 @@ function calculateBestGroupDiscount(
       if (discountAmount > bestDiscount) {
         bestDiscount = discountAmount
         bestId = topTicketDiscount.id
-        bestDescription = `Buy ${topTicketDiscount.minQuantity}+ ${item.name} tickets, get ${
-          topTicketDiscount.discountType === 'PERCENTAGE'
-            ? `${topTicketDiscount.discountValue}%`
-            : `$${topTicketDiscount.discountValue}`
-        } off!`
+        bestDescription = `Buy ${topTicketDiscount.minQuantity}+ ${item.name} tickets, ${formatTierOffer(topTicketDiscount, item.currency)}`
       }
     }
   }
@@ -405,8 +419,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
   )
 
   const groupDiscount = useMemo(
-    () => calculateBestGroupDiscount(selectedItems, groupDiscounts),
-    [selectedItems, groupDiscounts]
+    () => calculateBestGroupDiscount(selectedItems, groupDiscounts, vatRate),
+    [selectedItems, groupDiscounts, vatRate]
   )
 
   const promoCodeDiscountAmount = useMemo(
