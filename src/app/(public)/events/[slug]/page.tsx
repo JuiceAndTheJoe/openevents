@@ -6,7 +6,6 @@ import { prisma } from '@/lib/db'
 import { EventNoticeToast } from '@/components/events/EventNoticeToast'
 import { CHECKOUT_UNAVAILABLE_NOTICE } from '@/lib/orders/checkoutAvailability'
 import { isValidTimeZone } from '@/lib/timezone'
-import { getPriceIncludingVat } from '@/lib/pricing/vat'
 import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
 import { formatEventPrice, formatEventDateTime } from '@/lib/utils'
 import { sanitizeHtml } from '@/lib/sanitize'
@@ -80,11 +79,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
   const mapEmbedUrl = `https://www.google.com/maps?q=${mapQuery}&output=embed`
 
   const eventVatRate = getVatRateForCountryNameOrCode(event.country ?? '')
-  const ticketTypesWithVat = event.ticketTypes.map((ticketType) => ({
-    ...ticketType,
-    price: getPriceIncludingVat(Number(ticketType.price), eventVatRate),
-  }))
-  const priceDisplay = formatEventPrice(ticketTypesWithVat)
+  const priceDisplay = formatEventPrice(event.ticketTypes)
   const hasPaidTickets = event.ticketTypes.some((ticketType) => Number(ticketType.price) > 0)
   const bottomImage = event.media.find((item) => item.title === 'BOTTOM_IMAGE')?.url || null
   const coverImageSrc = `/api/events/${encodeURIComponent(event.slug)}/image?slot=cover&v=${event.updatedAt.getTime()}`
@@ -280,7 +275,7 @@ export default async function EventDetailsPage({ params, searchParams }: PagePro
                 className="mt-1 text-[13px] leading-5 text-[#4a5565]"
                 style={{ fontFamily: 'var(--font-outfit), sans-serif' }}
               >
-                VAT included ({Math.round(eventVatRate * 100)}%).
+                Excl. VAT ({Math.round(eventVatRate * 100)}%).
               </p>
             ) : null}
 
