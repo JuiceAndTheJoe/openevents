@@ -10,7 +10,7 @@ import {
   getCheckoutUnavailableReason,
   getOrderErrorForCheckoutUnavailableReason,
 } from '@/lib/orders/checkoutAvailability'
-import { getOrderReservationExpiry, getOrderReservationTtlMinutes } from '@/lib/orders/reservation'
+import { getOrderReservationTtlMinutes } from '@/lib/orders/reservation'
 import {
   calculateDiscountAmount,
   decimalToNumber,
@@ -435,7 +435,9 @@ export async function POST(request: NextRequest) {
         }
 
         const now = new Date()
-        const expiresAt = status === 'PENDING' ? getOrderReservationExpiry(now, reservationTtlMinutes) : null
+        // PENDING orders no longer auto-expire; organizers manage them manually
+        // via the dashboard (reminder flow + manual cancel).
+        const expiresAt = null
 
         const order = await tx.order.create({
           data: {

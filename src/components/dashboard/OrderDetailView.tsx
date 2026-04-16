@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
+import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
+import { useToast } from '@/components/ui/toaster'
 
 type OrderDetailViewProps = {
   order: {
@@ -20,6 +22,7 @@ type OrderDetailViewProps = {
     currency: string
     createdAt: Date
     invoiceSentAt?: Date | null
+    reminderSentAt?: Date | null
     discountCode?: string | null
     items: Array<{
       id: string
@@ -35,12 +38,15 @@ type OrderDetailViewProps = {
   emailAction: (formData: FormData) => Promise<void>
   markPaidAction?: (formData: FormData) => Promise<void>
   markInvoiceSentAction?: (formData: FormData) => Promise<void>
+  sendReminderAction?: (formData: FormData) => Promise<void>
   deleteOrderAction?: (formData: FormData) => Promise<void>
 }
 
-export function OrderDetailView({ order, refundAction, emailAction, markPaidAction, markInvoiceSentAction, deleteOrderAction }: OrderDetailViewProps) {
+export function OrderDetailView({ order, refundAction, emailAction, markPaidAction, markInvoiceSentAction, sendReminderAction, deleteOrderAction }: OrderDetailViewProps) {
   const isPendingInvoice = order.status === 'PENDING_INVOICE'
   const showMarkInvoiceSent = isPendingInvoice && !order.invoiceSentAt && markInvoiceSentAction
+  const pendingLabel = getPendingOrderLabel(order)
+  const pendingLabelIsReminder = order.reminderSentAt != null
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-gray-200 bg-white p-6">
@@ -51,6 +57,22 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
         {order.paymentMethod === 'INVOICE' && (
           <p className="mt-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
             Invoice order, confirm payment externally
+          </p>
+        )}
+        {pendingLabel && (
+          <p
+            className={`mt-2 inline-flex items-center justify-center rounded-full px-3 py-1 text-center text-sm font-medium ${
+              pendingLabelIsReminder
+                ? 'bg-blue-100 text-blue-600'
+                : 'bg-amber-100 text-amber-600'
+            }`}
+          >
+            {pendingLabel}
+            {pendingLabelIsReminder && order.reminderSentAt && (
+              <span className="ml-1 font-normal">
+                on {formatDateTime(order.reminderSentAt)}
+              </span>
+            )}
           </p>
         )}
         {order.paymentMethod === 'FREE' && order.discountCode && (
@@ -118,7 +140,19 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
             <input type="hidden" name="orderId" value={order.id} />
             <Button variant="outline" type="submit">Mark Refund Pending</Button>
           </form>
-          <SendEmailButton orderId={order.id} action={emailAction} />
+          <SendEmailButton
+            orderId={order.id}
+            action={emailAction}
+            deemphasize={order.status === 'PENDING'}
+          />
+          {order.status === 'PENDING' && sendReminderAction && (
+            <SendReminderButton
+              orderId={order.id}
+              action={sendReminderAction}
+              alreadySent={order.reminderSentAt != null}
+              emphasize
+            />
+          )}
           {deleteOrderAction && (
             <DeleteOrderButton orderId={order.id} action={deleteOrderAction} />
           )}
@@ -128,38 +162,84 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
   )
 }
 
-function SendEmailButton({ orderId, action }: { orderId: string; action: (formData: FormData) => Promise<void> }) {
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+function SendEmailButton({
+  orderId,
+  action,
+  deemphasize = false,
+}: {
+  orderId: string
+  action: (formData: FormData) => Promise<void>
+  deemphasize?: boolean
+}) {
+  const [isSending, setIsSending] = useState(false)
+  const showToast = useToast()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setStatus('sending')
+    setIsSending(true)
     try {
       const formData = new FormData(e.currentTarget)
       await action(formData)
-      setStatus('sent')
-      setTimeout(() => setStatus('idle'), 4000)
+      showToast('Confirmation sent!', 'success')
     } catch {
-      setStatus('error')
-      setTimeout(() => setStatus('idle'), 4000)
+      showToast('Failed to send confirmation', 'error')
+    } finally {
+      setIsSending(false)
     }
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <form onSubmit={handleSubmit}>
-        <input type="hidden" name="orderId" value={orderId} />
-        <Button type="submit" disabled={status === 'sending'}>
-          {status === 'sending' ? 'Sending...' : 'Send Email to Buyer'}
-        </Button>
-      </form>
-      {status === 'sent' && (
-        <span className="text-sm font-medium text-green-600">Email sent!</span>
-      )}
-      {status === 'error' && (
-        <span className="text-sm font-medium text-red-600">Failed to send email</span>
-      )}
-    </div>
+    <form onSubmit={handleSubmit}>
+      <input type="hidden" name="orderId" value={orderId} />
+      <Button type="submit" variant={deemphasize ? 'outline' : 'default'} disabled={isSending}>
+        {isSending ? 'Sending…' : 'Resend order confirmation (tickets + receipt)'}
+      </Button>
+    </form>
+  )
+}
+
+function SendReminderButton({
+  orderId,
+  action,
+  alreadySent,
+  emphasize = false,
+}: {
+  orderId: string
+  action: (formData: FormData) => Promise<void>
+  alreadySent: boolean
+  emphasize?: boolean
+}) {
+  const [isSending, setIsSending] = useState(false)
+  const showToast = useToast()
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (alreadySent && !confirm('A reminder has already been sent for this order. Send another?')) {
+      return
+    }
+    setIsSending(true)
+    try {
+      const formData = new FormData(e.currentTarget)
+      await action(formData)
+      showToast('Reminder sent!', 'success')
+    } catch {
+      showToast('Failed to send reminder', 'error')
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="hidden" name="orderId" value={orderId} />
+      <Button type="submit" variant={emphasize ? 'default' : 'outline'} disabled={isSending}>
+        {isSending
+          ? 'Sending…'
+          : alreadySent
+          ? 'Resend payment reminder'
+          : 'Send payment reminder'}
+      </Button>
+    </form>
   )
 }
 

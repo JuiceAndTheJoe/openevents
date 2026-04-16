@@ -472,6 +472,7 @@ model Order {
   cancelledAt     DateTime?
   refundedAt      DateTime?
   invoiceSentAt   DateTime?    // When invoice was sent (for invoice orders)
+  reminderSentAt  DateTime?    // When a pending-payment reminder email was sent
 
   // Refund info
   refundStatus    RefundStatus?

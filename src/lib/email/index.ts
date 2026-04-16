@@ -743,6 +743,65 @@ export async function sendAccountDeletionCancelledEmail(email: string): Promise<
   })
 }
 
+export async function sendPendingOrderReminderEmail(
+  email: string,
+  details: {
+    buyerName: string
+    orderNumber: string
+    eventTitle: string
+    eventDate: string
+    eventSlug: string
+  }
+): Promise<void> {
+  const appUrl = getAppUrl()
+  const appName = getAppName()
+  const eventUrl = `${appUrl}/events/${encodeURIComponent(details.eventSlug)}`
+
+  await sendEmail({
+    to: email,
+    subject: `Complete your order for ${details.eventTitle}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Complete your order</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #d97706;">Your tickets aren't secured yet</h1>
+            <p>Hi ${details.buyerName},</p>
+            <p>We noticed you started an order for <strong>${details.eventTitle}</strong> but payment wasn't completed, so your tickets aren't reserved yet.</p>
+
+            <div style="background-color: #fffbeb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d97706;">
+              <p><strong>Order Number:</strong> #${details.orderNumber}</p>
+              <p><strong>Event:</strong> ${details.eventTitle}</p>
+              <p><strong>Event Date:</strong> ${details.eventDate}</p>
+            </div>
+
+            <p>To secure your tickets, please return to the event page and place a new order:</p>
+
+            <p style="text-align: center; margin: 30px 0;">
+              <a href="${eventUrl}" style="background-color: #d97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                Go to event page
+              </a>
+            </p>
+
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #666;">${eventUrl}</p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #666; font-size: 12px;">
+              If you've already purchased tickets through another order, you can ignore this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Hi ${details.buyerName}, your order #${details.orderNumber} for ${details.eventTitle} (${details.eventDate}) wasn't paid, so your tickets aren't secured. Complete a new order: ${eventUrl}. — ${appName}`,
+  })
+}
+
 export async function sendInvoiceOrderNotificationEmail(
   organizerEmail: string,
   details: {

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type DashboardOrderDetails } from '@/components/dashboard/OrderDetails'
+import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
 
 export interface DashboardOrderListItem extends DashboardOrderDetails {
   event: {
@@ -111,6 +112,22 @@ export function OrderList({ orders }: OrderListProps) {
                 <div className="grid gap-2 sm:grid-cols-2">
                   <p>
                     <span className="font-medium text-gray-900">Status:</span> {order.status}
+                    {(() => {
+                      const label = getPendingOrderLabel(order)
+                      if (!label) return null
+                      const isReminded = order.reminderSentAt != null
+                      return (
+                        <span
+                          className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-center text-xs font-medium ${
+                            isReminded
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'bg-amber-100 text-amber-600'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      )
+                    })()}
                   </p>
                   <p>
                     <span className="font-medium text-gray-900">Event Date:</span>{' '}

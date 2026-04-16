@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { OrderStatus, PaymentMethod, DiscountType } from '@prisma/client'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
+import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
 
 type OrdersTableProps = {
   eventId: string
@@ -16,6 +17,7 @@ type OrdersTableProps = {
     totalAmount: number
     currency: string
     createdAt: Date
+    reminderSentAt?: Date | string | null
     discountCode?: {
       code: string
       discountType: DiscountType
@@ -58,7 +60,27 @@ export function OrdersTable({ eventId, orders }: OrdersTableProps) {
                   {order.buyerFirstName} {order.buyerLastName}
                   <p className="text-xs text-gray-500">{order.buyerEmail}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-700">{order.status}</td>
+                <td className="px-4 py-3 text-gray-700">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>{order.status}</span>
+                    {(() => {
+                      const label = getPendingOrderLabel(order)
+                      if (!label) return null
+                      const isReminded = order.reminderSentAt != null
+                      return (
+                        <span
+                          className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-center text-xs font-medium ${
+                            isReminded
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'bg-amber-100 text-amber-600'
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-gray-700">
                   {order.paymentMethod === 'INVOICE' ? (
                     <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Invoice</span>

@@ -46,6 +46,7 @@ export default async function EventDetailDashboardPage({ params }: PageProps) {
         currency: true,
         buyerEmail: true,
         createdAt: true,
+        reminderSentAt: true,
         event: { select: { id: true, title: true } },
       },
       orderBy: { createdAt: 'desc' },

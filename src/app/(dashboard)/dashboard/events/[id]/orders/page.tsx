@@ -7,6 +7,8 @@ import { requireOrganizerProfile, buildEventWhereClause, canAccessEvent } from '
 import { OrderFilters } from '@/components/dashboard/OrderFilters'
 import { OrdersTable } from '@/components/dashboard/OrdersTable'
 import { BulkActionForm } from '@/components/dashboard/BulkActionForm'
+import { SendPendingRemindersButton } from '@/components/dashboard/SendPendingRemindersButton'
+import { sendPendingOrderReminders } from '@/lib/orders/sendPendingReminders'
 
 export const dynamic = 'force-dynamic'
 
@@ -96,6 +98,7 @@ export default async function EventOrdersPage({ params, searchParams }: PageProp
       totalAmount: true,
       currency: true,
       createdAt: true,
+      reminderSentAt: true,
       discountCode: {
         select: {
           code: true,
@@ -171,6 +174,19 @@ export default async function EventOrdersPage({ params, searchParams }: PageProp
     revalidatePath(`/dashboard/events/${id}/orders`)
   }
 
+  async function sendRemindersAction() {
+    'use server'
+
+    const { event: eventCheck } = await canAccessEvent(id)
+    if (!eventCheck) {
+      throw new Error('Event not found')
+    }
+
+    const result = await sendPendingOrderReminders({ eventId: id })
+    revalidatePath(`/dashboard/events/${id}/orders`)
+    return result
+  }
+
   const exportParams = new URLSearchParams()
   if (search) exportParams.set('search', search)
   if (status) exportParams.set('status', status)
@@ -229,7 +245,8 @@ export default async function EventOrdersPage({ params, searchParams }: PageProp
           <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
           <p className="text-gray-600">Order management for {event.title}.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <SendPendingRemindersButton action={sendRemindersAction} />
           <Link
             href={`/dashboard/events/${id}/orders/new`}
             className="inline-flex rounded-md bg-[#5C8BD9] px-4 py-2 text-sm font-medium text-white hover:bg-[#4a7ac8]"

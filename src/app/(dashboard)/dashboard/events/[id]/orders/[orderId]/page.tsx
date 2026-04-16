@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { notFound, redirect } from 'next/navigation'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { sendOrderConfirmationEmail } from '@/lib/email'
+import { sendOrderConfirmationEmail, sendPendingOrderReminderEmail } from '@/lib/email'
 import { requireOrganizerProfile, canAccessEvent } from '@/lib/dashboard/organizer'
 import { OrderDetailView } from '@/components/dashboard/OrderDetailView'
 import { generateTicketCreateInput, lockTicketTypes } from '@/lib/orders'
@@ -39,6 +39,7 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       currency: true,
       createdAt: true,
       invoiceSentAt: true,
+      reminderSentAt: true,
       discountCode: {
         select: {
           code: true,
@@ -172,6 +173,64 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
     })
 
     revalidatePath(`/dashboard/events/${id}/orders/${submittedOrderId}`)
+  }
+
+  async function sendReminderAction(formData: FormData) {
+    'use server'
+
+    const { event: eventCheck } = await canAccessEvent(id)
+    if (!eventCheck) {
+      throw new Error('Event not found')
+    }
+
+    const submittedOrderId = String(formData.get('orderId') || '')
+
+    const targetOrder = await prisma.order.findFirst({
+      where: {
+        id: submittedOrderId,
+        eventId: id,
+        event: { id, deletedAt: null },
+      },
+      select: {
+        id: true,
+        status: true,
+        orderNumber: true,
+        buyerFirstName: true,
+        buyerLastName: true,
+        buyerEmail: true,
+        event: {
+          select: {
+            title: true,
+            slug: true,
+            startDate: true,
+          },
+        },
+      },
+    })
+
+    if (!targetOrder) {
+      throw new Error('Order not found')
+    }
+
+    if (targetOrder.status !== 'PENDING') {
+      throw new Error(`Only PENDING orders can be sent a payment reminder. Current status: ${targetOrder.status}`)
+    }
+
+    await sendPendingOrderReminderEmail(targetOrder.buyerEmail, {
+      buyerName: `${targetOrder.buyerFirstName} ${targetOrder.buyerLastName}`.trim(),
+      orderNumber: targetOrder.orderNumber,
+      eventTitle: targetOrder.event.title,
+      eventDate: formatDateTime(targetOrder.event.startDate),
+      eventSlug: targetOrder.event.slug,
+    })
+
+    await prisma.order.update({
+      where: { id: targetOrder.id },
+      data: { reminderSentAt: new Date() },
+    })
+
+    revalidatePath(`/dashboard/events/${id}/orders/${submittedOrderId}`)
+    revalidatePath(`/dashboard/events/${id}/orders`)
   }
 
   async function markPaidAction(formData: FormData) {
@@ -477,6 +536,7 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
         discountAmount: Number(order.discountAmount.toString()),
         totalAmount: Number(order.totalAmount.toString()),
         invoiceSentAt: order.invoiceSentAt,
+        reminderSentAt: order.reminderSentAt,
         discountCode: order.discountCode?.code ?? null,
         items: order.items.map((item) => ({
           ...item,
@@ -488,6 +548,7 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       emailAction={emailAction}
       markPaidAction={markPaidAction}
       markInvoiceSentAction={markInvoiceSentAction}
+      sendReminderAction={sendReminderAction}
       deleteOrderAction={deleteOrderAction}
     />
     </div>

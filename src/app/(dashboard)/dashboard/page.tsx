@@ -64,6 +64,7 @@ export default async function DashboardHomePage() {
             currency: true,
             buyerEmail: true,
             createdAt: true,
+            reminderSentAt: true,
             event: { select: { id: true, title: true } },
           },
           orderBy: { createdAt: 'desc' },

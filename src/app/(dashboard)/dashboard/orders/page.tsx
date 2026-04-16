@@ -58,6 +58,7 @@ export default async function DashboardOrdersPage() {
       totalAmount: Number(order.totalAmount.toString()),
       currency: order.currency,
       buyerEmail: order.buyerEmail,
+      reminderSentAt: order.reminderSentAt ? order.reminderSentAt.toISOString() : null,
       event: {
         title: order.event.title,
         slug: order.event.slug,

@@ -10,6 +10,7 @@ export interface DashboardOrderDetails {
   totalAmount: number
   currency: string
   buyerEmail: string
+  reminderSentAt?: string | null
   items: Array<{
     id: string
     quantity: number
