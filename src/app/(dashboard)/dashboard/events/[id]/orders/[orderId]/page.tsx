@@ -15,6 +15,27 @@ type PageProps = {
   params: Promise<{ id: string; orderId: string }>
 }
 
+// Mirror of the discount label shown on the receipt PDF so the dashboard and
+// receipt stay in sync (see src/lib/pdf/buildReceiptData.ts).
+function buildDiscountLabel(order: {
+  currency: string
+  groupDiscount: { minQuantity: number; discountType: string; discountValue: Prisma.Decimal } | null
+  discountCode: { code: string } | null
+}): string | null {
+  if (order.groupDiscount) {
+    const value = Number(order.groupDiscount.discountValue.toString())
+    const valueLabel =
+      order.groupDiscount.discountType === 'PERCENTAGE'
+        ? `${value}%`
+        : `${value} ${order.currency}`
+    return `group ${order.groupDiscount.minQuantity}+, ${valueLabel} off`
+  }
+  if (order.discountCode) {
+    return `code ${order.discountCode.code}`
+  }
+  return null
+}
+
 export default async function EventOrderDetailPage({ params }: PageProps) {
   await requireOrganizerProfile()
   const { id, orderId } = await params
@@ -36,6 +57,8 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       subtotal: true,
       discountAmount: true,
       totalAmount: true,
+      vatRate: true,
+      vatAmount: true,
       currency: true,
       createdAt: true,
       invoiceSentAt: true,
@@ -43,6 +66,15 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       discountCode: {
         select: {
           code: true,
+          discountType: true,
+          discountValue: true,
+        },
+      },
+      groupDiscount: {
+        select: {
+          minQuantity: true,
+          discountType: true,
+          discountValue: true,
         },
       },
       event: {
@@ -535,9 +567,12 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
         subtotal: Number(order.subtotal.toString()),
         discountAmount: Number(order.discountAmount.toString()),
         totalAmount: Number(order.totalAmount.toString()),
+        vatRate: Number(order.vatRate.toString()),
+        vatAmount: Number(order.vatAmount.toString()),
         invoiceSentAt: order.invoiceSentAt,
         reminderSentAt: order.reminderSentAt,
         discountCode: order.discountCode?.code ?? null,
+        discountLabel: buildDiscountLabel(order),
         items: order.items.map((item) => ({
           ...item,
           unitPrice: Number(item.unitPrice.toString()),

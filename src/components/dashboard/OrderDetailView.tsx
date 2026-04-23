@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
 import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
+import { getIncludedVatFromVatInclusiveTotal } from '@/lib/pricing/vat'
 import { useToast } from '@/components/ui/toaster'
 
 type OrderDetailViewProps = {
@@ -19,11 +20,14 @@ type OrderDetailViewProps = {
     totalAmount: number
     subtotal: number
     discountAmount: number
+    vatRate: number
+    vatAmount: number
     currency: string
     createdAt: Date
     invoiceSentAt?: Date | null
     reminderSentAt?: Date | null
     discountCode?: string | null
+    discountLabel?: string | null
     items: Array<{
       id: string
       quantity: number
@@ -47,6 +51,25 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
   const showMarkInvoiceSent = isPendingInvoice && !order.invoiceSentAt && markInvoiceSentAction
   const pendingLabel = getPendingOrderLabel(order)
   const pendingLabelIsReminder = order.reminderSentAt != null
+
+  // Stored subtotal/discount/unitPrice/totalPrice are VAT-inclusive (see
+  // src/lib/orders/index.ts:prepareOrderItems). Convert back to ex-VAT so
+  // organizers feeding an external invoicing tool (Fortnox etc.) don't
+  // accidentally treat the gross total as a net base and get double VAT.
+  const hasVat = order.vatRate > 0
+  const toExVat = (vatInclusive: number): number => {
+    if (!hasVat) return vatInclusive
+    return Number(
+      (vatInclusive - getIncludedVatFromVatInclusiveTotal(vatInclusive, order.vatRate)).toFixed(2)
+    )
+  }
+  const subtotalExVat = toExVat(order.subtotal)
+  const discountExVat = toExVat(order.discountAmount)
+  const vatPercent = hasVat ? Math.round(order.vatRate * 100) : 0
+  const discountRowLabel = order.discountLabel
+    ? `Discount (${order.discountLabel})`
+    : 'Discount'
+
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-gray-200 bg-white p-6">
@@ -98,22 +121,42 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
           </div>
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Totals</h2>
-            <p className="text-sm text-gray-700">Subtotal: {formatCurrency(order.subtotal, order.currency)}</p>
-            <p className="text-sm text-gray-700">Discount: {formatCurrency(order.discountAmount, order.currency)}</p>
-            <p className="text-sm font-semibold text-gray-900">Total: {formatCurrency(order.totalAmount, order.currency)}</p>
+            <p className="text-sm text-gray-700">
+              {hasVat ? 'Subtotal (excl. VAT)' : 'Subtotal'}: {formatCurrency(subtotalExVat, order.currency)}
+            </p>
+            {order.discountAmount > 0 && (
+              <p className="text-sm text-gray-700">
+                {discountRowLabel}: -{formatCurrency(discountExVat, order.currency)}
+              </p>
+            )}
+            {hasVat && (
+              <p className="text-sm text-gray-700">
+                VAT ({vatPercent}%): {formatCurrency(order.vatAmount, order.currency)}
+              </p>
+            )}
+            <p className="text-sm font-semibold text-gray-900">
+              {hasVat ? 'Total (incl. VAT)' : 'Total'}: {formatCurrency(order.totalAmount, order.currency)}
+            </p>
           </div>
         </div>
       </section>
 
       <section className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="text-lg font-semibold text-gray-900">Tickets</h2>
+        {hasVat && (
+          <p className="mt-1 text-xs text-gray-500">Unit and line totals shown excl. VAT.</p>
+        )}
         <div className="mt-4 space-y-3">
-          {order.items.map((item) => (
-            <div key={item.id} className="rounded-lg border border-gray-100 p-3 text-sm">
-              <p className="font-medium text-gray-900">{item.ticketType.name}</p>
-              <p className="text-gray-600">Qty {item.quantity} × {formatCurrency(item.unitPrice, order.currency)} = {formatCurrency(item.totalPrice, order.currency)}</p>
-            </div>
-          ))}
+          {order.items.map((item) => {
+            const unitPriceExVat = toExVat(item.unitPrice)
+            const lineTotalExVat = toExVat(item.totalPrice)
+            return (
+              <div key={item.id} className="rounded-lg border border-gray-100 p-3 text-sm">
+                <p className="font-medium text-gray-900">{item.ticketType.name}</p>
+                <p className="text-gray-600">Qty {item.quantity} × {formatCurrency(unitPriceExVat, order.currency)} = {formatCurrency(lineTotalExVat, order.currency)}</p>
+              </div>
+            )
+          })}
         </div>
       </section>
 
