@@ -5,6 +5,7 @@ import { getAppUrl } from '@/lib/url'
 import { prisma } from '@/lib/db'
 import { generateReceiptPdf } from '@/lib/pdf/receipt'
 import { buildReceiptDataForOrder } from '@/lib/pdf/buildReceiptData'
+import { getIncludedVatFromVatInclusiveTotal } from '@/lib/pricing/vat'
 
 // =============================================================================
 // Email Configuration
@@ -810,24 +811,77 @@ export async function sendInvoiceOrderNotificationEmail(
     eventId: string
     buyerName: string
     buyerEmail: string
-    totalAmount: string
     currency: string
-    tickets: Array<{ name: string; quantity: number; price: string }>
-    vatRate?: number | null
-    vatAmount?: string | null
+    // All money fields are VAT-inclusive (as stored on the Order) — the
+    // function derives the excl-VAT breakdown itself so what the organizer
+    // sees here matches the receipt PDF exactly. This matters because
+    // organizers key these numbers into external invoicing tools (Fortnox
+    // etc.), and reading a gross amount as a net base causes double VAT.
+    subtotal: number
+    discountAmount: number
+    discountLabel?: string | null
+    vatRate: number | null
+    vatAmount: number | null
+    totalAmount: number
+    tickets: Array<{
+      name: string
+      quantity: number
+      unitPrice: number
+      lineTotal: number
+    }>
   }
 ): Promise<void> {
+  const hasVat = details.vatRate != null && details.vatRate > 0
+  const vatRate = details.vatRate ?? 0
+  const toExVat = (vatInclusive: number): number => {
+    if (!hasVat) return vatInclusive
+    return Number(
+      (vatInclusive - getIncludedVatFromVatInclusiveTotal(vatInclusive, vatRate)).toFixed(2)
+    )
+  }
+  const formatMoney = (n: number) => `${n.toFixed(2)} ${details.currency}`
+
+  const subtotalExVat = toExVat(details.subtotal)
+  const discountExVat = toExVat(details.discountAmount)
+  const vatPercent = hasVat ? Math.round(vatRate * 100) : 0
+
+  const unitHeader = hasVat ? 'Unit price (excl. VAT)' : 'Unit price'
+  const lineHeader = hasVat ? 'Amount (excl. VAT)' : 'Amount'
+  const subtotalLabel = hasVat ? 'Subtotal (excl. VAT)' : 'Subtotal'
+  const totalLabel = hasVat ? 'Total (incl. VAT)' : 'Total'
+
   const ticketRows = details.tickets
-    .map(
-      (t) => `
+    .map((t) => {
+      const unit = toExVat(t.unitPrice)
+      const line = toExVat(t.lineTotal)
+      return `
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #eee;">${t.name}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${t.quantity}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${t.price}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatMoney(unit)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatMoney(line)}</td>
         </tr>
       `
-    )
+    })
     .join('')
+
+  const discountRow = details.discountAmount > 0
+    ? `
+      <tr>
+        <td colspan="3" style="padding: 8px; text-align: right;">${
+          details.discountLabel ? `Discount (${details.discountLabel})` : 'Discount'
+        }:</td>
+        <td style="padding: 8px; text-align: right;">-${formatMoney(discountExVat)}</td>
+      </tr>
+    ` : ''
+
+  const vatRow = hasVat
+    ? `
+      <tr>
+        <td colspan="3" style="padding: 8px; text-align: right;">VAT (${vatPercent}%):</td>
+        <td style="padding: 8px; text-align: right;">${formatMoney(details.vatAmount ?? 0)}</td>
+      </tr>
+    ` : ''
 
   const dashboardUrl = `${getAppUrl()}/dashboard/events/${details.eventId}/orders`
 
@@ -858,25 +912,32 @@ export async function sendInvoiceOrderNotificationEmail(
                 <tr style="background-color: #f1f5f9;">
                   <th style="padding: 8px; text-align: left;">Ticket</th>
                   <th style="padding: 8px; text-align: center;">Qty</th>
-                  <th style="padding: 8px; text-align: right;">Price</th>
+                  <th style="padding: 8px; text-align: right;">${unitHeader}</th>
+                  <th style="padding: 8px; text-align: right;">${lineHeader}</th>
                 </tr>
               </thead>
               <tbody>
                 ${ticketRows}
               </tbody>
               <tfoot>
-                ${details.vatRate && details.vatRate > 0 ? `
                 <tr>
-                  <td colspan="2" style="padding: 8px; text-align: right;">VAT (${Math.round(details.vatRate * 100)}%):</td>
-                  <td style="padding: 8px; text-align: right;">${details.vatAmount ?? '0.00'} ${details.currency}</td>
+                  <td colspan="3" style="padding: 8px; text-align: right;">${subtotalLabel}:</td>
+                  <td style="padding: 8px; text-align: right;">${formatMoney(subtotalExVat)}</td>
                 </tr>
-                ` : ''}
+                ${discountRow}
+                ${vatRow}
                 <tr>
-                  <td colspan="2" style="padding: 8px; text-align: right;"><strong>Total:</strong></td>
-                  <td style="padding: 8px; text-align: right;"><strong>${details.totalAmount} ${details.currency}</strong></td>
+                  <td colspan="3" style="padding: 8px; text-align: right;"><strong>${totalLabel}:</strong></td>
+                  <td style="padding: 8px; text-align: right;"><strong>${formatMoney(details.totalAmount)}</strong></td>
                 </tr>
               </tfoot>
             </table>
+
+            ${hasVat ? `
+            <p style="color: #666; font-size: 12px; margin-top: -10px;">
+              Amounts shown excl. VAT except the grand total. When issuing an external invoice, use the excl-VAT figures as the net base so VAT is not added twice.
+            </p>
+            ` : ''}
 
             <div style="background-color: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0;">
               <p style="margin: 0; color: #92400e;">
@@ -898,6 +959,6 @@ export async function sendInvoiceOrderNotificationEmail(
         </body>
       </html>
     `,
-    text: `New Invoice Order #${details.orderNumber} for ${details.eventTitle}. Buyer: ${details.buyerName} (${details.buyerEmail}). Total: ${details.totalAmount} ${details.currency}. View orders: ${dashboardUrl}`,
+    text: `New Invoice Order #${details.orderNumber} for ${details.eventTitle}. Buyer: ${details.buyerName} (${details.buyerEmail}). ${totalLabel}: ${formatMoney(details.totalAmount)}. View orders: ${dashboardUrl}`,
   })
 }

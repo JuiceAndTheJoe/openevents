@@ -555,6 +555,18 @@ export async function POST(request: NextRequest) {
               },
             },
             tickets: true,
+            groupDiscount: {
+              select: {
+                minQuantity: true,
+                discountType: true,
+                discountValue: true,
+              },
+            },
+            discountCode: {
+              select: {
+                code: true,
+              },
+            },
             event: {
               select: {
                 id: true,
@@ -626,21 +638,34 @@ export async function POST(request: NextRequest) {
     if (order.status === 'PENDING_INVOICE') {
       const organizerEmail = order.event.organizer?.user?.email
       if (organizerEmail) {
+        const discountLabel = order.groupDiscount
+          ? `group ${order.groupDiscount.minQuantity}+, ${
+              order.groupDiscount.discountType === 'PERCENTAGE'
+                ? `${Number(order.groupDiscount.discountValue.toString())}%`
+                : `${Number(order.groupDiscount.discountValue.toString())} ${order.currency}`
+            } off`
+          : order.discountCode
+            ? `code ${order.discountCode.code}`
+            : null
         await sendInvoiceOrderNotificationEmail(organizerEmail, {
           orderNumber: order.orderNumber,
           eventTitle: order.event.title,
           eventId: order.event.id,
           buyerName: `${order.buyerFirstName} ${order.buyerLastName}`,
           buyerEmail: order.buyerEmail,
-          totalAmount: order.totalAmount.toString(),
           currency: order.currency,
+          subtotal: Number(order.subtotal.toString()),
+          discountAmount: Number(order.discountAmount.toString()),
+          discountLabel,
+          vatRate: order.vatRate ? parseFloat(order.vatRate.toString()) : null,
+          vatAmount: order.vatAmount ? Number(order.vatAmount.toString()) : null,
+          totalAmount: Number(order.totalAmount.toString()),
           tickets: order.items.map((item) => ({
             name: item.ticketType.name,
             quantity: item.quantity,
-            price: `${item.totalPrice.toString()} ${order.currency}`,
+            unitPrice: Number(item.unitPrice.toString()),
+            lineTotal: Number(item.totalPrice.toString()),
           })),
-          vatRate: order.vatRate ? parseFloat(order.vatRate.toString()) : null,
-          vatAmount: order.vatAmount ? order.vatAmount.toString() : null,
         })
       }
     }
