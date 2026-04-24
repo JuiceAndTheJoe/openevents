@@ -3,7 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { sendOrderConfirmationEmail } from '@/lib/email'
+import { sendOrderConfirmationEmail, sendAttendeeTicketEmailsForOrder } from '@/lib/email'
 import { canAccessOrder } from '@/lib/orders/authorization'
 import { capturePayment, getPaymentStatus } from '@/lib/payments'
 import { generateTicketCreateInput, lockTicketTypes } from '@/lib/orders'
@@ -275,32 +275,61 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     )
 
+    const eventLocation =
+      paidOrder.event.locationType === 'ONLINE'
+        ? paidOrder.event.onlineUrl || 'Online event'
+        : [paidOrder.event.venue, paidOrder.event.city, paidOrder.event.country]
+            .filter(Boolean)
+            .join(', ')
+    const eventDate = formatDateTime(paidOrder.event.startDate)
+    const buyerName = `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`
+    const paidOrderTickets = (paidOrder as typeof paidOrder & {
+      tickets: Array<{
+        ticketCode: string
+        ticketTypeId: string
+        attendeeFirstName: string | null
+        attendeeLastName: string | null
+        attendeeEmail: string | null
+      }>
+    }).tickets
+
     // Email failures must not fail a successful payment flow.
     try {
       await sendOrderConfirmationEmail(paidOrder.buyerEmail, {
         orderNumber: paidOrder.orderNumber,
         orderId: paidOrder.id,
         eventTitle: paidOrder.event.title,
-        eventDate: formatDateTime(paidOrder.event.startDate),
-        eventLocation:
-          paidOrder.event.locationType === 'ONLINE'
-            ? paidOrder.event.onlineUrl || 'Online event'
-            : [paidOrder.event.venue, paidOrder.event.city, paidOrder.event.country]
-                .filter(Boolean)
-                .join(', '),
+        eventDate,
+        eventLocation,
         tickets: paidOrder.items.map((item) => ({
           name: item.ticketType.name,
           quantity: item.quantity,
           price: `${item.totalPrice.toString()} ${paidOrder.currency}`,
         })),
         totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
-        buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+        buyerName,
         vatRate: parseFloat(paidOrder.vatRate.toString()),
         vatAmount: paidOrder.vatAmount.toString(),
-        ticketCodes: (paidOrder as typeof paidOrder & { tickets: Array<{ ticketCode: string }> }).tickets.map((t) => t.ticketCode),
+        ticketCodes: paidOrderTickets.map((t) => t.ticketCode),
       })
     } catch (emailError) {
       console.error('[Capture] Confirmation email failed after successful payment:', emailError)
+    }
+
+    // Send each non-buyer attendee their own ticket email
+    try {
+      await sendAttendeeTicketEmailsForOrder({
+        orderNumber: paidOrder.orderNumber,
+        buyerEmail: paidOrder.buyerEmail,
+        buyerName,
+        eventTitle: paidOrder.event.title,
+        eventDate,
+        eventLocation,
+        tickets: paidOrderTickets,
+        items: paidOrder.items,
+      })
+    } catch (emailError) {
+      console.error('[Capture] Attendee ticket emails failed after successful payment:', emailError)
     }
 
     revalidateTag('event-analytics', 'max')

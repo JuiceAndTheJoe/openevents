@@ -3,7 +3,11 @@ import { revalidateTag } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { sendOrderConfirmationEmail, sendInvoiceOrderNotificationEmail } from '@/lib/email'
+import {
+  sendOrderConfirmationEmail,
+  sendInvoiceOrderNotificationEmail,
+  sendAttendeeTicketEmailsForOrder,
+} from '@/lib/email'
 import { lockTicketTypes, prepareOrderItems, generateTicketCreateInput } from '@/lib/orders'
 import { claimDiscountCodeUsage, getDiscountUsageUnitsFromItems } from '@/lib/orders/discountUsage'
 import {
@@ -610,27 +614,43 @@ export async function POST(request: NextRequest) {
     revalidateTag('dashboard-analytics', 'max')
 
     if (order.status === 'PAID') {
+      const eventLocation =
+        order.event.locationType === 'ONLINE'
+          ? order.event.onlineUrl || 'Online event'
+          : [order.event.venue, order.event.city, order.event.country]
+              .filter(Boolean)
+              .join(', ')
+      const eventDate = formatDateTime(order.event.startDate)
+      const buyerName = `${order.buyerFirstName} ${order.buyerLastName}`
+
       await sendOrderConfirmationEmail(order.buyerEmail, {
         orderNumber: order.orderNumber,
         orderId: order.id,
         eventTitle: order.event.title,
-        eventDate: formatDateTime(order.event.startDate),
-        eventLocation:
-          order.event.locationType === 'ONLINE'
-            ? order.event.onlineUrl || 'Online event'
-            : [order.event.venue, order.event.city, order.event.country]
-                .filter(Boolean)
-                .join(', '),
+        eventDate,
+        eventLocation,
         tickets: order.items.map((item) => ({
           name: item.ticketType.name,
           quantity: item.quantity,
           price: `${item.totalPrice.toString()} ${order.currency}`,
         })),
         totalAmount: `${order.totalAmount.toString()} ${order.currency}`,
-        buyerName: `${order.buyerFirstName} ${order.buyerLastName}`,
+        buyerName,
         vatRate: parseFloat(order.vatRate.toString()),
         vatAmount: order.vatAmount.toString(),
         ticketCodes: order.tickets.map((t) => t.ticketCode),
+      })
+
+      // Send each non-buyer attendee their own ticket email
+      await sendAttendeeTicketEmailsForOrder({
+        orderNumber: order.orderNumber,
+        buyerEmail: order.buyerEmail,
+        buyerName,
+        eventTitle: order.event.title,
+        eventDate,
+        eventLocation,
+        tickets: order.tickets,
+        items: order.items,
       })
     }
 

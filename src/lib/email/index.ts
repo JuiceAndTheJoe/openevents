@@ -481,6 +481,227 @@ export async function sendOrderConfirmationEmail(
   })
 }
 
+async function generateAttendeeTicketPdf(details: {
+  orderNumber: string
+  eventTitle: string
+  eventDate: string
+  eventLocation: string
+  attendeeName: string
+  tickets: Array<{ name: string; ticketCode: string }>
+}): Promise<Buffer> {
+  const qrBuffers: Buffer[] = []
+  for (const t of details.tickets) {
+    const buf = await QRCode.toBuffer(t.ticketCode, { type: 'png', width: 150, margin: 1 })
+    qrBuffers.push(buf)
+  }
+
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' })
+    const chunks: Buffer[] = []
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    doc.fontSize(22).font('Helvetica-Bold').text('Your Ticket', { align: 'center' })
+    doc.moveDown(0.5)
+    doc.fontSize(12).font('Helvetica').text(`Order #${details.orderNumber}`, { align: 'center' })
+    doc.moveDown(1.5)
+
+    doc.fontSize(14).font('Helvetica-Bold').text('Event Details')
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.4)
+    doc.fontSize(11).font('Helvetica')
+    doc.text(`Event:     ${details.eventTitle}`)
+    doc.text(`Date:      ${details.eventDate}`)
+    doc.text(`Location:  ${details.eventLocation}`)
+    doc.moveDown(1.2)
+
+    doc.fontSize(14).font('Helvetica-Bold').text('Attendee')
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.4)
+    doc.fontSize(11).font('Helvetica').text(details.attendeeName)
+    doc.moveDown(1.2)
+
+    doc.fontSize(14).font('Helvetica-Bold').text(
+      details.tickets.length > 1
+        ? 'Your tickets - present the QR code(s) below at the door'
+        : 'Your ticket - present the QR code below at the door'
+    )
+    doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke()
+    doc.moveDown(0.6)
+
+    for (let i = 0; i < qrBuffers.length; i++) {
+      const t = details.tickets[i]
+      const ticketY = doc.y
+      doc.image(qrBuffers[i], 50, ticketY, { width: 80, height: 80 })
+      doc.fontSize(11).font('Helvetica-Bold').text(t.name, 150, ticketY)
+      doc.fontSize(9).font('Helvetica').text(t.ticketCode, 150, ticketY + 16, { width: 370 })
+      doc.y = ticketY + 90
+      doc.moveDown(0.3)
+    }
+
+    doc.end()
+  })
+}
+
+export async function sendAttendeeTicketEmail(
+  email: string,
+  details: {
+    orderNumber: string
+    eventTitle: string
+    eventDate: string
+    eventLocation: string
+    attendeeName: string
+    buyerName: string
+    tickets: Array<{ name: string; ticketCode: string }>
+  }
+): Promise<void> {
+  const pdfBuffer = await generateAttendeeTicketPdf(details)
+  const multiple = details.tickets.length > 1
+
+  const ticketRows = details.tickets
+    .map(
+      (t) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${t.name}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; font-family: monospace;">${t.ticketCode}</td>
+        </tr>
+      `
+    )
+    .join('')
+
+  await sendEmail({
+    to: email,
+    subject: `Your ticket${multiple ? 's' : ''} for ${details.eventTitle}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Your ticket</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #2563eb;">You're going to ${details.eventTitle}!</h1>
+            <p>Hi ${details.attendeeName},</p>
+            <p>${details.buyerName} booked ${multiple ? 'tickets' : 'a ticket'} for you. Your ${multiple ? 'tickets are' : 'ticket is'} attached as a PDF — present the QR code${multiple ? 's' : ''} at the door.</p>
+
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h2 style="margin-top: 0; color: #1e40af;">${details.eventTitle}</h2>
+              <p><strong>Date:</strong> ${details.eventDate}</p>
+              <p><strong>Location:</strong> ${details.eventLocation}</p>
+              <p><strong>Order Number:</strong> #${details.orderNumber}</p>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <thead>
+                <tr style="background-color: #f1f5f9;">
+                  <th style="padding: 10px; text-align: left;">Ticket</th>
+                  <th style="padding: 10px; text-align: right;">Code</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ticketRows}
+              </tbody>
+            </table>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="color: #666; font-size: 12px;">
+              This email contains only your ticket${multiple ? 's' : ''}. For order receipts or billing questions, please contact ${details.buyerName} or the event organizer.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Hi ${details.attendeeName}, ${details.buyerName} booked ${multiple ? 'tickets' : 'a ticket'} for you for ${details.eventTitle} on ${details.eventDate}. Your ticket${multiple ? 's are' : ' is'} attached as a PDF.`,
+    attachments: [
+      {
+        filename: `ticket-${details.orderNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      },
+    ],
+  })
+}
+
+/**
+ * Group an order's tickets by attendee email and send each non-buyer attendee
+ * their own ticket email (with just their QR code(s)). The buyer already
+ * receives all tickets via sendOrderConfirmationEmail, so attendees whose
+ * email matches the buyer's are skipped. Individual failures are logged but
+ * don't throw — one attendee's bad email shouldn't block the rest.
+ */
+export async function sendAttendeeTicketEmailsForOrder(params: {
+  orderNumber: string
+  buyerEmail: string
+  buyerName: string
+  eventTitle: string
+  eventDate: string
+  eventLocation: string
+  tickets: Array<{
+    ticketCode: string
+    ticketTypeId: string
+    attendeeFirstName: string | null
+    attendeeLastName: string | null
+    attendeeEmail: string | null
+  }>
+  items: Array<{ ticketTypeId: string; ticketType: { name: string } }>
+}): Promise<void> {
+  const typeNameById = new Map(params.items.map((i) => [i.ticketTypeId, i.ticketType.name]))
+  const buyerKey = params.buyerEmail.trim().toLowerCase()
+
+  const groups = new Map<
+    string,
+    {
+      email: string
+      attendeeName: string
+      tickets: Array<{ name: string; ticketCode: string }>
+    }
+  >()
+
+  for (const ticket of params.tickets) {
+    const rawEmail = ticket.attendeeEmail?.trim()
+    if (!rawEmail) continue
+    const key = rawEmail.toLowerCase()
+    if (key === buyerKey) continue
+
+    const name =
+      [ticket.attendeeFirstName, ticket.attendeeLastName].filter(Boolean).join(' ').trim() ||
+      'Attendee'
+    const ticketTypeName = typeNameById.get(ticket.ticketTypeId) ?? 'Ticket'
+
+    const existing = groups.get(key)
+    if (existing) {
+      existing.tickets.push({ name: ticketTypeName, ticketCode: ticket.ticketCode })
+    } else {
+      groups.set(key, {
+        email: rawEmail,
+        attendeeName: name,
+        tickets: [{ name: ticketTypeName, ticketCode: ticket.ticketCode }],
+      })
+    }
+  }
+
+  for (const group of groups.values()) {
+    try {
+      await sendAttendeeTicketEmail(group.email, {
+        orderNumber: params.orderNumber,
+        eventTitle: params.eventTitle,
+        eventDate: params.eventDate,
+        eventLocation: params.eventLocation,
+        attendeeName: group.attendeeName,
+        buyerName: params.buyerName,
+        tickets: group.tickets,
+      })
+    } catch (error) {
+      console.error(
+        `Failed to send attendee ticket email to ${group.email} for order ${params.orderNumber}:`,
+        error
+      )
+    }
+  }
+}
+
 export async function sendEventCancellationEmail(
   email: string,
   details: {
