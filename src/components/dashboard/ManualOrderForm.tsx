@@ -514,11 +514,14 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="buyer-organization">Organization</Label>
+              <Label htmlFor="buyer-organization" required>
+                Organization
+              </Label>
               <Input
                 id="buyer-organization"
                 value={buyer.organization}
                 onChange={(e) => updateBuyerField('organization', e.target.value)}
+                required
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -660,7 +663,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                               />
                             </div>
                             <div className="space-y-1">
-                              <Label htmlFor={`attendee-${item.ticketTypeId}-${i}-organization`}>
+                              <Label htmlFor={`attendee-${item.ticketTypeId}-${i}-organization`} required>
                                 Organization
                               </Label>
                               <Input
@@ -669,6 +672,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                                 onChange={(e) =>
                                   updateAttendeeField(item.ticketTypeId, i, 'organization', e.target.value)
                                 }
+                                required
                               />
                             </div>
                           </div>
