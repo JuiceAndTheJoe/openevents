@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -276,11 +276,28 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
     })
   }, [selectedItems])
 
-  // Keep first attendee synced with buyer details
+  // One-way pre-fill: buyer -> first attendee of the first selected ticket type.
+  // Only overwrite fields the user hasn't edited (i.e., still equal to the last synced buyer value).
+  const lastSyncedBuyerRef = useRef({
+    firstName: '',
+    lastName: '',
+    email: '',
+    title: '',
+    organization: '',
+  })
   useEffect(() => {
     if (selectedItems.length === 0) return
 
     const firstTypeId = selectedItems[0].ticketTypeId
+    const prev = lastSyncedBuyerRef.current
+    const nextBuyerSnapshot = {
+      firstName: buyer.firstName,
+      lastName: buyer.lastName,
+      email: buyer.email,
+      title: buyer.title,
+      organization: buyer.organization,
+    }
+    lastSyncedBuyerRef.current = nextBuyerSnapshot
 
     setAttendeesByType((current) => {
       const slots = current[firstTypeId]
@@ -289,11 +306,11 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
       const first = slots[0]
       const nextFirst: AttendeeFormState = {
         ...first,
-        firstName: buyer.firstName,
-        lastName: buyer.lastName,
-        email: buyer.email,
-        title: buyer.title,
-        organization: buyer.organization,
+        firstName: first.firstName === prev.firstName ? buyer.firstName : first.firstName,
+        lastName: first.lastName === prev.lastName ? buyer.lastName : first.lastName,
+        email: first.email === prev.email ? buyer.email : first.email,
+        title: first.title === prev.title ? buyer.title : first.title,
+        organization: first.organization === prev.organization ? buyer.organization : first.organization,
       }
 
       const unchanged =
@@ -365,7 +382,6 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
     }
 
     const buyerEmailValue = buyer.email.trim()
-    const firstSelectedTicketTypeId = selectedItems[0]?.ticketTypeId
 
     if (!buyer.firstName || !buyer.lastName) {
       setSubmitError('First name and last name are required')
@@ -381,18 +397,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
     for (const item of selectedItems) {
       const slots = attendeesByType[item.ticketTypeId] ?? []
       for (let i = 0; i < item.quantity; i++) {
-        const linkedToBuyer = item.ticketTypeId === firstSelectedTicketTypeId && i === 0
-        const a = linkedToBuyer
-          ? {
-              ...(slots[i] ?? emptyAttendee()),
-              firstName: buyer.firstName,
-              lastName: buyer.lastName,
-              email: buyerEmailValue,
-              title: buyer.title,
-              organization: buyer.organization,
-            }
-          : slots[i]
-
+        const a = slots[i]
         if (!a || !a.firstName || !a.lastName || !a.email) {
           const ticketName = ticketTypes.find((t) => t.id === item.ticketTypeId)?.name ?? 'ticket'
           setSubmitError(`Please fill in all attendee details for "${ticketName}" (ticket ${i + 1})`)
@@ -415,21 +420,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
           items: selectedItems.map((item) => ({
             ticketTypeId: item.ticketTypeId,
             quantity: item.quantity,
-            attendees: (attendeesByType[item.ticketTypeId] ?? [])
-              .slice(0, item.quantity)
-              .map((attendee, index) => {
-                const linkedToBuyer = item.ticketTypeId === firstSelectedTicketTypeId && index === 0
-                if (!linkedToBuyer) return attendee
-
-                return {
-                  ...(attendee ?? emptyAttendee()),
-                  firstName: buyer.firstName,
-                  lastName: buyer.lastName,
-                  email: buyerEmailValue,
-                  title: buyer.title,
-                  organization: buyer.organization,
-                }
-              }),
+            attendees: (attendeesByType[item.ticketTypeId] ?? []).slice(0, item.quantity),
           })),
           buyer: {
             ...buyer,
@@ -523,11 +514,14 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="buyer-organization">Organization</Label>
+              <Label htmlFor="buyer-organization" required>
+                Organization
+              </Label>
               <Input
                 id="buyer-organization"
                 value={buyer.organization}
                 onChange={(e) => updateBuyerField('organization', e.target.value)}
+                required
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -583,17 +577,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                   <div key={item.ticketTypeId} className="space-y-4">
                     {Array.from({ length: item.quantity }, (_, i) => {
                       const attendee = slots[i] ?? emptyAttendee()
-                      const isBuyerLinkedAttendee = item.ticketTypeId === selectedItems[0]?.ticketTypeId && i === 0
-                      const attendeeDisplay = isBuyerLinkedAttendee
-                        ? {
-                            ...attendee,
-                            firstName: buyer.firstName,
-                            lastName: buyer.lastName,
-                            email: buyer.email,
-                            title: buyer.title,
-                            organization: buyer.organization,
-                          }
-                        : attendee
+                      const attendeeDisplay = attendee
                       const label =
                         item.quantity > 1
                           ? `${ticketType?.name ?? 'Ticket'} #${i + 1}`
@@ -606,7 +590,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                         >
                           <div className="mb-3 flex items-center justify-between gap-2">
                             <p className="text-sm font-medium text-gray-700">{label}</p>
-                            {!isBuyerLinkedAttendee && buyer.firstName && buyer.lastName && buyer.email && (
+                            {buyer.firstName && buyer.lastName && buyer.email && (
                               <button
                                 type="button"
                                 onClick={() => fillAttendeeFromBuyer(item.ticketTypeId, i)}
@@ -628,9 +612,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                                 id={`attendee-${item.ticketTypeId}-${i}-first-name`}
                                 value={attendeeDisplay.firstName}
                                 onChange={(e) =>
-                                  isBuyerLinkedAttendee
-                                    ? updateBuyerField('firstName', e.target.value)
-                                    : updateAttendeeField(item.ticketTypeId, i, 'firstName', e.target.value)
+                                  updateAttendeeField(item.ticketTypeId, i, 'firstName', e.target.value)
                                 }
                                 required
                               />
@@ -646,9 +628,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                                 id={`attendee-${item.ticketTypeId}-${i}-last-name`}
                                 value={attendeeDisplay.lastName}
                                 onChange={(e) =>
-                                  isBuyerLinkedAttendee
-                                    ? updateBuyerField('lastName', e.target.value)
-                                    : updateAttendeeField(item.ticketTypeId, i, 'lastName', e.target.value)
+                                  updateAttendeeField(item.ticketTypeId, i, 'lastName', e.target.value)
                                 }
                                 required
                               />
@@ -665,9 +645,7 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                                 type="email"
                                 value={attendeeDisplay.email}
                                 onChange={(e) =>
-                                  isBuyerLinkedAttendee
-                                    ? updateBuyerField('email', e.target.value)
-                                    : updateAttendeeField(item.ticketTypeId, i, 'email', e.target.value)
+                                  updateAttendeeField(item.ticketTypeId, i, 'email', e.target.value)
                                 }
                                 required
                               />
@@ -680,24 +658,21 @@ export function ManualOrderForm({ event, ticketTypes, groupDiscounts = [] }: Man
                                 id={`attendee-${item.ticketTypeId}-${i}-title`}
                                 value={attendeeDisplay.title}
                                 onChange={(e) =>
-                                  isBuyerLinkedAttendee
-                                    ? updateBuyerField('title', e.target.value)
-                                    : updateAttendeeField(item.ticketTypeId, i, 'title', e.target.value)
+                                  updateAttendeeField(item.ticketTypeId, i, 'title', e.target.value)
                                 }
                               />
                             </div>
                             <div className="space-y-1">
-                              <Label htmlFor={`attendee-${item.ticketTypeId}-${i}-organization`}>
+                              <Label htmlFor={`attendee-${item.ticketTypeId}-${i}-organization`} required>
                                 Organization
                               </Label>
                               <Input
                                 id={`attendee-${item.ticketTypeId}-${i}-organization`}
                                 value={attendeeDisplay.organization}
                                 onChange={(e) =>
-                                  isBuyerLinkedAttendee
-                                    ? updateBuyerField('organization', e.target.value)
-                                    : updateAttendeeField(item.ticketTypeId, i, 'organization', e.target.value)
+                                  updateAttendeeField(item.ticketTypeId, i, 'organization', e.target.value)
                                 }
+                                required
                               />
                             </div>
                           </div>
