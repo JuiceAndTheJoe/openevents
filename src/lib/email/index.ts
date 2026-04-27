@@ -554,10 +554,12 @@ export async function sendAttendeeTicketEmail(
     attendeeName: string
     buyerName: string
     tickets: Array<{ name: string; ticketCode: string }>
+    isBuyer?: boolean
   }
 ): Promise<void> {
   const pdfBuffer = await generateAttendeeTicketPdf(details)
   const multiple = details.tickets.length > 1
+  const isBuyer = details.isBuyer === true
 
   const ticketRows = details.tickets
     .map(
@@ -569,6 +571,18 @@ export async function sendAttendeeTicketEmail(
       `
     )
     .join('')
+
+  const introHtml = isBuyer
+    ? `Here ${multiple ? 'are your tickets' : 'is your ticket'} for ${details.eventTitle}, attached as a PDF — present the QR code${multiple ? 's' : ''} at the door. A separate receipt email contains the full order details.`
+    : `${details.buyerName} booked ${multiple ? 'tickets' : 'a ticket'} for you. Your ${multiple ? 'tickets are' : 'ticket is'} attached as a PDF — present the QR code${multiple ? 's' : ''} at the door.`
+
+  const footerHtml = isBuyer
+    ? `This email contains only your ticket${multiple ? 's' : ''}. The full order receipt has been sent separately.`
+    : `This email contains only your ticket${multiple ? 's' : ''}. For order receipts or billing questions, please contact ${details.buyerName} or the event organizer.`
+
+  const textBody = isBuyer
+    ? `Hi ${details.attendeeName}, here ${multiple ? 'are your tickets' : 'is your ticket'} for ${details.eventTitle} on ${details.eventDate}. Attached as a PDF. The full order receipt has been sent in a separate email.`
+    : `Hi ${details.attendeeName}, ${details.buyerName} booked ${multiple ? 'tickets' : 'a ticket'} for you for ${details.eventTitle} on ${details.eventDate}. Your ticket${multiple ? 's are' : ' is'} attached as a PDF.`
 
   await sendEmail({
     to: email,
@@ -584,7 +598,7 @@ export async function sendAttendeeTicketEmail(
           <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #2563eb;">You're going to ${details.eventTitle}!</h1>
             <p>Hi ${details.attendeeName},</p>
-            <p>${details.buyerName} booked ${multiple ? 'tickets' : 'a ticket'} for you. Your ${multiple ? 'tickets are' : 'ticket is'} attached as a PDF — present the QR code${multiple ? 's' : ''} at the door.</p>
+            <p>${introHtml}</p>
 
             <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h2 style="margin-top: 0; color: #1e40af;">${details.eventTitle}</h2>
@@ -607,13 +621,13 @@ export async function sendAttendeeTicketEmail(
 
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="color: #666; font-size: 12px;">
-              This email contains only your ticket${multiple ? 's' : ''}. For order receipts or billing questions, please contact ${details.buyerName} or the event organizer.
+              ${footerHtml}
             </p>
           </div>
         </body>
       </html>
     `,
-    text: `Hi ${details.attendeeName}, ${details.buyerName} booked ${multiple ? 'tickets' : 'a ticket'} for you for ${details.eventTitle} on ${details.eventDate}. Your ticket${multiple ? 's are' : ' is'} attached as a PDF.`,
+    text: textBody,
     attachments: [
       {
         filename: `ticket-${details.orderNumber}.pdf`,
@@ -625,11 +639,12 @@ export async function sendAttendeeTicketEmail(
 }
 
 /**
- * Group an order's tickets by attendee email and send each non-buyer attendee
- * their own ticket email (with just their QR code(s)). The buyer already
- * receives all tickets via sendOrderConfirmationEmail, so attendees whose
- * email matches the buyer's are skipped. Individual failures are logged but
- * don't throw — one attendee's bad email shouldn't block the rest.
+ * Group an order's tickets by attendee email and send each attendee their own
+ * ticket email (with just their QR code(s)). If the buyer is also listed as an
+ * attendee, they get a separate ticket-only email in addition to the receipt
+ * (sendOrderConfirmationEmail) — that email's wording is tweaked for the
+ * self-purchase case. Individual failures are logged but don't throw — one
+ * attendee's bad email shouldn't block the rest.
  */
 export async function sendAttendeeTicketEmailsForOrder(params: {
   orderNumber: string
@@ -655,6 +670,7 @@ export async function sendAttendeeTicketEmailsForOrder(params: {
     {
       email: string
       attendeeName: string
+      isBuyer: boolean
       tickets: Array<{ name: string; ticketCode: string }>
     }
   >()
@@ -663,7 +679,6 @@ export async function sendAttendeeTicketEmailsForOrder(params: {
     const rawEmail = ticket.attendeeEmail?.trim()
     if (!rawEmail) continue
     const key = rawEmail.toLowerCase()
-    if (key === buyerKey) continue
 
     const name =
       [ticket.attendeeFirstName, ticket.attendeeLastName].filter(Boolean).join(' ').trim() ||
@@ -677,6 +692,7 @@ export async function sendAttendeeTicketEmailsForOrder(params: {
       groups.set(key, {
         email: rawEmail,
         attendeeName: name,
+        isBuyer: key === buyerKey,
         tickets: [{ name: ticketTypeName, ticketCode: ticket.ticketCode }],
       })
     }
@@ -692,6 +708,7 @@ export async function sendAttendeeTicketEmailsForOrder(params: {
         attendeeName: group.attendeeName,
         buyerName: params.buyerName,
         tickets: group.tickets,
+        isBuyer: group.isBuyer,
       })
     } catch (error) {
       console.error(
