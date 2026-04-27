@@ -3,7 +3,11 @@ import { revalidatePath, revalidateTag } from 'next/cache'
 import { notFound, redirect } from 'next/navigation'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { sendOrderConfirmationEmail, sendPendingOrderReminderEmail } from '@/lib/email'
+import {
+  sendOrderConfirmationEmail,
+  sendPendingOrderReminderEmail,
+  sendAttendeeTicketEmailsForOrder,
+} from '@/lib/email'
 import { requireOrganizerProfile, canAccessEvent } from '@/lib/dashboard/organizer'
 import { OrderDetailView } from '@/components/dashboard/OrderDetailView'
 import { generateTicketCreateInput, lockTicketTypes } from '@/lib/orders'
@@ -422,26 +426,51 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     )
 
-    // Send confirmation email
+    const eventLocation =
+      paidOrder.event.locationType === 'ONLINE'
+        ? paidOrder.event.onlineUrl || 'Online event'
+        : [paidOrder.event.venue, paidOrder.event.city, paidOrder.event.country].filter(Boolean).join(', ')
+    const eventDate = formatDateTime(paidOrder.event.startDate)
+    const buyerName = `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`
+    const paidOrderTickets = (paidOrder as typeof paidOrder & {
+      tickets: Array<{
+        ticketCode: string
+        ticketTypeId: string
+        attendeeFirstName: string | null
+        attendeeLastName: string | null
+        attendeeEmail: string | null
+      }>
+    }).tickets
+
+    // Buyer: full receipt + every ticket
     await sendOrderConfirmationEmail(paidOrder.buyerEmail, {
       orderNumber: paidOrder.orderNumber,
       orderId: paidOrder.id,
       eventTitle: paidOrder.event.title,
-      eventDate: formatDateTime(paidOrder.event.startDate),
-      eventLocation:
-        paidOrder.event.locationType === 'ONLINE'
-          ? paidOrder.event.onlineUrl || 'Online event'
-          : [paidOrder.event.venue, paidOrder.event.city, paidOrder.event.country].filter(Boolean).join(', '),
+      eventDate,
+      eventLocation,
       tickets: paidOrder.items.map((item) => ({
         name: item.ticketType.name,
         quantity: item.quantity,
         price: `${item.totalPrice.toString()} ${paidOrder.currency}`,
       })),
       totalAmount: `${paidOrder.totalAmount.toString()} ${paidOrder.currency}`,
-      buyerName: `${paidOrder.buyerFirstName} ${paidOrder.buyerLastName}`,
+      buyerName,
       vatRate: parseFloat(paidOrder.vatRate.toString()),
       vatAmount: paidOrder.vatAmount.toString(),
-      ticketCodes: (paidOrder as typeof paidOrder & { tickets: Array<{ ticketCode: string }> }).tickets.map((t) => t.ticketCode),
+      ticketCodes: paidOrderTickets.map((t) => t.ticketCode),
+    })
+
+    // Each non-buyer attendee: ticket-only email
+    await sendAttendeeTicketEmailsForOrder({
+      orderNumber: paidOrder.orderNumber,
+      buyerEmail: paidOrder.buyerEmail,
+      buyerName,
+      eventTitle: paidOrder.event.title,
+      eventDate,
+      eventLocation,
+      tickets: paidOrderTickets,
+      items: paidOrder.items,
     })
 
     revalidateTag('event-analytics', 'max')
