@@ -100,17 +100,23 @@ export async function createStripeCheckoutSession(
   const currency = options.currency.toLowerCase()
   const configuredProductId = process.env.STRIPE_PRODUCT_ID
 
+  // `unit_amount` is the gross (VAT-inclusive) total — see prepareOrderItems in
+  // src/lib/orders/index.ts. Stripe Tax must therefore treat the price as
+  // tax-inclusive and back-calculate the VAT portion from the buyer's location.
   const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = configuredProductId
     ? {
         currency,
         unit_amount: amountMinor,
+        tax_behavior: 'inclusive',
         product: configuredProductId,
       }
     : {
         currency,
         unit_amount: amountMinor,
+        tax_behavior: 'inclusive',
         product_data: {
           name: options.description || `OpenEvents Order ${options.orderId}`,
+          tax_code: 'txcd_10000000',
         },
       }
 
@@ -124,6 +130,9 @@ export async function createStripeCheckoutSession(
         price_data: priceData,
       },
     ],
+    automatic_tax: { enabled: true },
+    billing_address_collection: 'required',
+    tax_id_collection: { enabled: true },
     metadata: {
       orderId: options.orderId,
     },
