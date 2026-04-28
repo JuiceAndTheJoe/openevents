@@ -430,10 +430,16 @@ export async function POST(request: NextRequest) {
         let status: 'PENDING' | 'PENDING_INVOICE' | 'PAID' = 'PENDING'
         let paymentMethod: 'PAYPAL' | 'INVOICE' | 'FREE' = 'PAYPAL'
 
-        if (discountCodeRecord?.discountType === 'INVOICE') {
+        // A zero-total order is never invoiced — even when the applied discount
+        // code is INVOICE-typed (e.g. an INVOICE code used on a free ticket
+        // type, or stacked with a 100% group discount).
+        if (totalAmount === 0) {
+          status = 'PAID'
+          paymentMethod = 'FREE'
+        } else if (discountCodeRecord?.discountType === 'INVOICE') {
           status = 'PAID'
           paymentMethod = 'INVOICE'
-        } else if (totalAmount === 0 || discountCodeRecord?.discountType === 'FREE_TICKET') {
+        } else if (discountCodeRecord?.discountType === 'FREE_TICKET') {
           status = 'PAID'
           paymentMethod = 'FREE'
         }
