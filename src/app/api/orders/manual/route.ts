@@ -3,8 +3,12 @@ import { revalidateTag } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { sendInvoiceOrderNotificationEmail } from '@/lib/email'
-import { lockTicketTypes, prepareOrderItems } from '@/lib/orders'
+import {
+  sendInvoiceOrderNotificationEmail,
+  sendOrderConfirmationEmail,
+  sendAttendeeTicketEmailsForOrder,
+} from '@/lib/email'
+import { generateTicketCreateInput, lockTicketTypes, prepareOrderItems } from '@/lib/orders'
 import { claimDiscountCodeUsage, getDiscountUsageUnitsFromItems } from '@/lib/orders/discountUsage'
 import {
   calculateDiscountAmount,
@@ -13,7 +17,7 @@ import {
   getDiscountCodeRemainingTicketUses,
   normalizeDiscountCode,
 } from '@/lib/tickets'
-import { generateOrderNumber } from '@/lib/utils'
+import { formatDateTime, generateOrderNumber } from '@/lib/utils'
 import { getVatRateForCountryNameOrCode } from '@/lib/pricing/vatRates'
 import { getIncludedVatFromVatInclusiveTotal } from '@/lib/pricing/vat'
 import { z } from 'zod'
@@ -324,6 +328,12 @@ export async function POST(request: NextRequest) {
         const totalAmount = Number(Math.max(0, subtotal - discountAmount).toFixed(2))
         const vatAmount = getIncludedVatFromVatInclusiveTotal(totalAmount, vatRate)
 
+        // Free manual orders skip the invoice flow entirely — we don't invoice
+        // anyone for a zero-total order.
+        const isFreeOrder = totalAmount === 0
+        const orderStatus = isFreeOrder ? 'PAID' : 'PENDING_INVOICE'
+        const orderPaymentMethod = isFreeOrder ? 'FREE' : 'INVOICE'
+
         const order = await tx.order.create({
           data: {
             orderNumber: generateOrderNumber(),
@@ -346,9 +356,10 @@ export async function POST(request: NextRequest) {
             vatRate,
             vatAmount,
             currency: ticketTypes[0]?.currency ?? 'SEK',
-            status: 'PENDING_INVOICE',
-            paymentMethod: 'INVOICE',
-            expiresAt: null, // Invoice orders don't expire
+            status: orderStatus,
+            paymentMethod: orderPaymentMethod,
+            expiresAt: null,
+            paidAt: isFreeOrder ? new Date() : null,
           },
         })
 
@@ -373,14 +384,32 @@ export async function POST(request: NextRequest) {
           })
         }
 
-        // Reserve tickets
-        for (const item of preparedOrder.items) {
-          await tx.ticketType.update({
-            where: { id: item.ticketTypeId },
-            data: {
-              reservedCount: { increment: item.quantity },
-            },
-          })
+        if (isFreeOrder) {
+          // Free manual orders complete immediately: count as sold and mint tickets.
+          for (const item of preparedOrder.items) {
+            await tx.ticketType.update({
+              where: { id: item.ticketTypeId },
+              data: { soldCount: { increment: item.quantity } },
+            })
+          }
+
+          const ticketCreateData = generateTicketCreateInput(
+            order.id,
+            preparedOrder.items.map((item) => ({
+              ...item,
+              attendees: attendeesByTicketType.get(item.ticketTypeId),
+            }))
+          )
+          if (ticketCreateData.length > 0) {
+            await tx.ticket.createMany({ data: ticketCreateData })
+          }
+        } else {
+          for (const item of preparedOrder.items) {
+            await tx.ticketType.update({
+              where: { id: item.ticketTypeId },
+              data: { reservedCount: { increment: item.quantity } },
+            })
+          }
         }
 
         // Claim discount code usage if the promo code was applied
@@ -407,6 +436,7 @@ export async function POST(request: NextRequest) {
                 },
               },
             },
+            tickets: true,
             groupDiscount: {
               select: {
                 minQuantity: true,
@@ -423,6 +453,12 @@ export async function POST(request: NextRequest) {
               select: {
                 id: true,
                 title: true,
+                startDate: true,
+                locationType: true,
+                venue: true,
+                city: true,
+                country: true,
+                onlineUrl: true,
               },
             },
           },
@@ -436,38 +472,79 @@ export async function POST(request: NextRequest) {
     revalidateTag('event-analytics', 'max')
     revalidateTag('dashboard-analytics', 'max')
 
-    // Notify organizer of the new invoice order
-    const organizerEmail = event.organizer.user.email
-    if (organizerEmail) {
-      const discountLabel = createdOrder.groupDiscount
-        ? `group ${createdOrder.groupDiscount.minQuantity}+, ${
-            createdOrder.groupDiscount.discountType === 'PERCENTAGE'
-              ? `${Number(createdOrder.groupDiscount.discountValue.toString())}%`
-              : `${Number(createdOrder.groupDiscount.discountValue.toString())} ${createdOrder.currency}`
-          } off`
-        : createdOrder.discountCode
-          ? `code ${createdOrder.discountCode.code}`
-          : null
-      await sendInvoiceOrderNotificationEmail(organizerEmail, {
+    if (createdOrder.status === 'PAID' && createdOrder.paymentMethod === 'FREE') {
+      // Free manual order: send the buyer their confirmation + tickets directly.
+      const eventLocation =
+        createdOrder.event.locationType === 'ONLINE'
+          ? createdOrder.event.onlineUrl || 'Online event'
+          : [createdOrder.event.venue, createdOrder.event.city, createdOrder.event.country]
+              .filter(Boolean)
+              .join(', ')
+      const eventDate = formatDateTime(createdOrder.event.startDate)
+      const buyerName = `${createdOrder.buyerFirstName} ${createdOrder.buyerLastName}`
+
+      await sendOrderConfirmationEmail(createdOrder.buyerEmail, {
         orderNumber: createdOrder.orderNumber,
+        orderId: createdOrder.id,
         eventTitle: createdOrder.event.title,
-        eventId: createdOrder.event.id,
-        buyerName: `${createdOrder.buyerFirstName} ${createdOrder.buyerLastName}`,
-        buyerEmail: createdOrder.buyerEmail,
-        currency: createdOrder.currency,
-        subtotal: Number(createdOrder.subtotal.toString()),
-        discountAmount: Number(createdOrder.discountAmount.toString()),
-        discountLabel,
-        vatRate: createdOrder.vatRate ? parseFloat(createdOrder.vatRate.toString()) : null,
-        vatAmount: createdOrder.vatAmount ? Number(createdOrder.vatAmount.toString()) : null,
-        totalAmount: Number(createdOrder.totalAmount.toString()),
+        eventDate,
+        eventLocation,
         tickets: createdOrder.items.map((item) => ({
           name: item.ticketType.name,
           quantity: item.quantity,
-          unitPrice: Number(item.unitPrice.toString()),
-          lineTotal: Number(item.totalPrice.toString()),
+          price: `${item.totalPrice.toString()} ${createdOrder.currency}`,
         })),
+        totalAmount: `${createdOrder.totalAmount.toString()} ${createdOrder.currency}`,
+        buyerName,
+        vatRate: parseFloat(createdOrder.vatRate.toString()),
+        vatAmount: createdOrder.vatAmount.toString(),
+        ticketCodes: createdOrder.tickets.map((t) => t.ticketCode),
       })
+
+      await sendAttendeeTicketEmailsForOrder({
+        orderNumber: createdOrder.orderNumber,
+        buyerEmail: createdOrder.buyerEmail,
+        buyerName,
+        eventTitle: createdOrder.event.title,
+        eventDate,
+        eventLocation,
+        tickets: createdOrder.tickets,
+        items: createdOrder.items,
+      })
+    } else {
+      // Notify organizer of the new invoice order
+      const organizerEmail = event.organizer.user.email
+      if (organizerEmail) {
+        const discountLabel = createdOrder.groupDiscount
+          ? `group ${createdOrder.groupDiscount.minQuantity}+, ${
+              createdOrder.groupDiscount.discountType === 'PERCENTAGE'
+                ? `${Number(createdOrder.groupDiscount.discountValue.toString())}%`
+                : `${Number(createdOrder.groupDiscount.discountValue.toString())} ${createdOrder.currency}`
+            } off`
+          : createdOrder.discountCode
+            ? `code ${createdOrder.discountCode.code}`
+            : null
+        await sendInvoiceOrderNotificationEmail(organizerEmail, {
+          orderNumber: createdOrder.orderNumber,
+          eventTitle: createdOrder.event.title,
+          eventId: createdOrder.event.id,
+          buyerName: `${createdOrder.buyerFirstName} ${createdOrder.buyerLastName}`,
+          buyerEmail: createdOrder.buyerEmail,
+          currency: createdOrder.currency,
+          subtotal: Number(createdOrder.subtotal.toString()),
+          discountAmount: Number(createdOrder.discountAmount.toString()),
+          discountLabel,
+          vatRate: createdOrder.vatRate ? parseFloat(createdOrder.vatRate.toString()) : null,
+          vatAmount: createdOrder.vatAmount ? Number(createdOrder.vatAmount.toString()) : null,
+          totalAmount: Number(createdOrder.totalAmount.toString()),
+          tickets: createdOrder.items.map((item) => ({
+            name: item.ticketType.name,
+            quantity: item.quantity,
+            unitPrice: Number(item.unitPrice.toString()),
+            lineTotal: Number(item.totalPrice.toString()),
+          })),
+        })
+      }
     }
 
     return NextResponse.json({
