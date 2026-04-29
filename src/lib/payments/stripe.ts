@@ -148,19 +148,26 @@ export async function createStripeCheckoutSession(
   const performanceLocationId = process.env.STRIPE_PERFORMANCE_LOCATION_ID
   const ticketTaxCode = process.env.STRIPE_TAX_CODE || DEFAULT_TICKET_TAX_CODE
 
-  // When Tax for Tickets is on, prices are tax-exclusive (Stripe adds VAT on top).
-  // When it's off, behaviour is unchanged from before — the caller decides the tax model.
+  // OpenEvents already adds VAT to the order total before calling this function (see
+  // prepareOrderItems → unitPrice = baseUnitPrice × (1 + vatRate)). So the `amount`
+  // we receive is already VAT-inclusive. We tell Stripe `tax_behavior: 'inclusive'`
+  // so Stripe parses the VAT out of the amount instead of stacking another 25% on
+  // top — which would result in double VAT. Stripe Tax still records and reports
+  // the VAT correctly; only the presentation differs from `exclusive`.
+  //
+  // When Tax for Tickets is off, `tax_behavior` is left unset so existing
+  // behaviour is preserved exactly.
   const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = configuredProductId
     ? {
         currency,
         unit_amount: amountMinor,
         product: configuredProductId,
-        ...(taxForTickets ? { tax_behavior: 'exclusive' as const } : {}),
+        ...(taxForTickets ? { tax_behavior: 'inclusive' as const } : {}),
       }
     : {
         currency,
         unit_amount: amountMinor,
-        ...(taxForTickets ? { tax_behavior: 'exclusive' as const } : {}),
+        ...(taxForTickets ? { tax_behavior: 'inclusive' as const } : {}),
         product_data: {
           name: options.description || `OpenEvents Order ${options.orderId}`,
           ...(taxForTickets ? { tax_code: ticketTaxCode } : {}),
