@@ -435,6 +435,7 @@ model GroupDiscount {
 model Order {
   id              String       @id @default(cuid())
   orderNumber     String       @unique
+  invoiceNumber   Int?         @unique  // Sequential invoice number for INVOICE payment method orders (Swedish VAT compliance)
   userId          String?
   eventId         String
   discountCodeId  String?
