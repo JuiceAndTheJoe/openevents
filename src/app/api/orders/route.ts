@@ -444,6 +444,13 @@ export async function POST(request: NextRequest) {
           paymentMethod = 'FREE'
         }
 
+        // Assign a sequential invoice number for INVOICE payment method orders.
+        let invoiceNumber: number | null = null
+        if (paymentMethod === 'INVOICE') {
+          const seqResult = await tx.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('invoice_number_seq')`
+          invoiceNumber = Number(seqResult[0].nextval)
+        }
+
         const now = new Date()
         // PENDING orders no longer auto-expire; organizers manage them manually
         // via the dashboard (reminder flow + manual cancel).
@@ -452,6 +459,7 @@ export async function POST(request: NextRequest) {
         const order = await tx.order.create({
           data: {
             orderNumber: generateOrderNumber(),
+            invoiceNumber: invoiceNumber ?? undefined,
             userId: user?.id, // Associate with user if logged in
             eventId: input.eventId,
             discountCodeId: appliedDiscountCodeId,
