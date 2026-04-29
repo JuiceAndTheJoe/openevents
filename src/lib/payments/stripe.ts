@@ -52,8 +52,36 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
   'XPF',
 ])
 
+/**
+ * Tax for Tickets (public preview) requires a preview API version. We only pin to it
+ * when the feature is enabled — in default mode the SDK uses its built-in version so
+ * existing integrations are unaffected.
+ *
+ * Reference: https://docs.stripe.com/tax/tax-for-tickets/integration-guide
+ */
+const TAX_FOR_TICKETS_API_VERSION = '2026-03-25.preview'
+
+const DEFAULT_TICKET_TAX_CODE = 'txcd_20030000' // General — Services (required as default)
+
+/**
+ * Returns true when the deployment is configured to use Stripe Tax for Tickets — i.e. a
+ * performance location ID is set. When enabled:
+ *   - automatic_tax is turned on
+ *   - the line item is pinned to the performance location so tax follows the venue
+ *   - prices are treated as tax-exclusive (Stripe adds VAT on top)
+ *   - the line item product gets a tax_code so Stripe Tax can classify it
+ *   - billing address + VAT-ID collection are enabled (Stripe Tax requires them)
+ *
+ * Without STRIPE_PERFORMANCE_LOCATION_ID set the previous behaviour is preserved exactly,
+ * so this PR is non-breaking for existing deployments that calculate tax outside Stripe.
+ */
+export function isStripeTaxForTicketsEnabled(): boolean {
+  return Boolean(process.env.STRIPE_PERFORMANCE_LOCATION_ID)
+}
+
 let stripeClient: Stripe | null = null
 let stripeClientKey: string | null = null
+let stripeClientApiVersion: string | null = null
 
 function getStripeClient(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY
@@ -62,9 +90,25 @@ function getStripeClient(): Stripe {
     throw new Error('Stripe secret key not configured')
   }
 
-  if (!stripeClient || stripeClientKey !== secretKey) {
-    stripeClient = new Stripe(secretKey)
+  // Only pin a preview API version when Tax for Tickets is on; otherwise let the SDK
+  // use its built-in default to avoid surprising callers that don't need preview.
+  const desiredApiVersion = isStripeTaxForTicketsEnabled()
+    ? TAX_FOR_TICKETS_API_VERSION
+    : null
+
+  if (
+    !stripeClient ||
+    stripeClientKey !== secretKey ||
+    stripeClientApiVersion !== desiredApiVersion
+  ) {
+    stripeClient = desiredApiVersion
+      ? new Stripe(secretKey, {
+          // Cast: preview API versions aren't in the SDK's stable type union.
+          apiVersion: desiredApiVersion as unknown as Stripe.LatestApiVersion,
+        })
+      : new Stripe(secretKey)
     stripeClientKey = secretKey
+    stripeClientApiVersion = desiredApiVersion
   }
 
   return stripeClient
@@ -100,30 +144,49 @@ export async function createStripeCheckoutSession(
   const currency = options.currency.toLowerCase()
   const configuredProductId = process.env.STRIPE_PRODUCT_ID
 
+  const taxForTickets = isStripeTaxForTicketsEnabled()
+  const performanceLocationId = process.env.STRIPE_PERFORMANCE_LOCATION_ID
+  const ticketTaxCode = process.env.STRIPE_TAX_CODE || DEFAULT_TICKET_TAX_CODE
+
+  // When Tax for Tickets is on, prices are tax-exclusive (Stripe adds VAT on top).
+  // When it's off, behaviour is unchanged from before — the caller decides the tax model.
   const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = configuredProductId
     ? {
         currency,
         unit_amount: amountMinor,
         product: configuredProductId,
+        ...(taxForTickets ? { tax_behavior: 'exclusive' as const } : {}),
       }
     : {
         currency,
         unit_amount: amountMinor,
+        ...(taxForTickets ? { tax_behavior: 'exclusive' as const } : {}),
         product_data: {
           name: options.description || `OpenEvents Order ${options.orderId}`,
+          ...(taxForTickets ? { tax_code: ticketTaxCode } : {}),
         },
       }
 
-  const session = await stripe.checkout.sessions.create({
+  // performance_location is a public-preview field on line items — not in the SDK type
+  // union for SessionCreateParams.LineItem, so we build the line item via a typed
+  // intersection and rely on the rawRequest-style serialization Stripe handles for us.
+  type LineItemWithPerformanceLocation = Stripe.Checkout.SessionCreateParams.LineItem & {
+    performance_location?: string
+  }
+
+  const lineItem: LineItemWithPerformanceLocation = {
+    quantity: 1,
+    price_data: priceData,
+    ...(taxForTickets && performanceLocationId
+      ? { performance_location: performanceLocationId }
+      : {}),
+  }
+
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'payment',
     success_url: `${options.returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: options.cancelUrl,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: priceData,
-      },
-    ],
+    line_items: [lineItem],
     metadata: {
       orderId: options.orderId,
     },
@@ -132,7 +195,22 @@ export async function createStripeCheckoutSession(
         orderId: options.orderId,
       },
     },
-  })
+    ...(taxForTickets
+      ? {
+          automatic_tax: { enabled: true },
+          // Stripe Tax requires a customer record + billing address to compute and report
+          // the transaction. Performance location pins the rate, but these fields are still
+          // mandated by the API.
+          customer_creation: 'always' as const,
+          billing_address_collection: 'required' as const,
+          // Allow B2B buyers to attach a VAT number — doesn't change the rate (no reverse
+          // charge for event admission) but lets the buyer's bookkeeping reference it.
+          tax_id_collection: { enabled: true },
+        }
+      : {}),
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams)
 
   if (!session.url) {
     throw new Error('Stripe did not return a checkout URL')
