@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { OrderStatus, PaymentMethod, DiscountType } from '@prisma/client'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
+import { ORDER_STATUS_LABELS } from '@/lib/labels'
 import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
 
 type OrdersTableProps = {
@@ -62,7 +63,7 @@ export function OrdersTable({ eventId, orders }: OrdersTableProps) {
                 </td>
                 <td className="px-4 py-3 text-gray-700">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span>{order.status}</span>
+                    <span>{ORDER_STATUS_LABELS[order.status]}</span>
                     {(() => {
                       const label = getPendingOrderLabel(order)
                       if (!label) return null

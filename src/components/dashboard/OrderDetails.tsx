@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
+import { ORDER_STATUS_LABELS } from '@/lib/labels'
+import { OrderStatus } from '@prisma/client'
 
 export interface DashboardOrderDetails {
   id: string
@@ -35,7 +37,7 @@ export function OrderDetails({ order }: OrderDetailsProps) {
       <CardContent className="space-y-3 text-sm">
         <div className="grid gap-2 sm:grid-cols-2">
           <p>
-            <span className="font-medium text-gray-900">Status:</span> {order.status}
+            <span className="font-medium text-gray-900">Status:</span> {ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}
           </p>
           <p>
             <span className="font-medium text-gray-900">Payment:</span>{' '}

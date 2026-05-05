@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { requireOrganizerProfile } from '@/lib/dashboard/organizer'
+import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from '@/lib/labels'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -79,8 +80,8 @@ export async function GET(request: Request, context: RouteContext) {
         csvCell(order.orderNumber),
         csvCell(`${order.buyerFirstName} ${order.buyerLastName}`.trim()),
         csvCell(order.buyerEmail),
-        csvCell(order.status),
-        csvCell(order.paymentMethod),
+        csvCell(ORDER_STATUS_LABELS[order.status]),
+        csvCell(order.paymentMethod ? PAYMENT_METHOD_LABELS[order.paymentMethod] : null),
         csvCell(order.subtotal.toString()),
         csvCell(order.discountAmount.toString()),
         csvCell(order.totalAmount.toString()),

@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentMethod } from '@prisma/client'
+import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS } from '@/lib/labels'
 
 type OrderFiltersProps = {
   initial: {
@@ -26,21 +27,18 @@ export function OrderFilters({ initial }: OrderFiltersProps) {
         <label htmlFor="status" className="text-xs font-medium text-gray-600">Status</label>
         <select id="status" name="status" defaultValue={initial.status || ''} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm">
           <option value="">All</option>
-          <option value="PENDING">PENDING</option>
-          <option value="PENDING_INVOICE">PENDING_INVOICE</option>
-          <option value="PAID">PAID</option>
-          <option value="CANCELLED">CANCELLED</option>
-          <option value="REFUNDED">REFUNDED</option>
-          <option value="PARTIALLY_REFUNDED">PARTIALLY_REFUNDED</option>
+          {(Object.keys(ORDER_STATUS_LABELS) as OrderStatus[]).map((status) => (
+            <option key={status} value={status}>{ORDER_STATUS_LABELS[status]}</option>
+          ))}
         </select>
       </div>
       <div>
         <label htmlFor="paymentMethod" className="text-xs font-medium text-gray-600">Payment</label>
         <select id="paymentMethod" name="paymentMethod" defaultValue={initial.paymentMethod || ''} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 text-sm">
           <option value="">All</option>
-          <option value="PAYPAL">Stripe</option>
-          <option value="INVOICE">Invoice</option>
-          <option value="FREE">Free</option>
+          {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
+            <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>
+          ))}
         </select>
       </div>
       <div>
