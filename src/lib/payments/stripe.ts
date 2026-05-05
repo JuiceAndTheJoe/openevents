@@ -52,8 +52,37 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
   'XPF',
 ])
 
+/**
+ * Tax for Tickets (public preview) requires a preview API version. We only pin to it
+ * when the feature is enabled — in default mode the SDK uses its built-in version so
+ * existing integrations are unaffected.
+ *
+ * Reference: https://docs.stripe.com/tax/tax-for-tickets/integration-guide
+ */
+const TAX_FOR_TICKETS_API_VERSION = '2026-03-25.preview'
+
+const DEFAULT_TICKET_TAX_CODE = 'txcd_50010001' // Admission to events (Stripe's recommended code for ticket sales)
+
+/**
+ * Returns true when the deployment is configured to use Stripe Tax for Tickets — i.e. a
+ * performance location ID is set. When enabled:
+ *   - automatic_tax is turned on
+ *   - the line item product carries tax_details.performance_location so tax follows the venue
+ *   - prices are treated as tax-inclusive — OpenEvents already adds VAT to the order total
+ *     in prepareOrderItems, so Stripe parses the VAT out instead of stacking another 25% on top
+ *   - the line item product carries tax_details.tax_code so Stripe Tax can classify it
+ *   - billing address + VAT-ID collection are enabled (Stripe Tax requires them)
+ *
+ * Without STRIPE_PERFORMANCE_LOCATION_ID set the previous behaviour is preserved exactly,
+ * so this PR is non-breaking for existing deployments that calculate tax outside Stripe.
+ */
+export function isStripeTaxForTicketsEnabled(): boolean {
+  return Boolean(process.env.STRIPE_PERFORMANCE_LOCATION_ID)
+}
+
 let stripeClient: Stripe | null = null
 let stripeClientKey: string | null = null
+let stripeClientApiVersion: string | null = null
 
 function getStripeClient(): Stripe {
   const secretKey = process.env.STRIPE_SECRET_KEY
@@ -62,9 +91,25 @@ function getStripeClient(): Stripe {
     throw new Error('Stripe secret key not configured')
   }
 
-  if (!stripeClient || stripeClientKey !== secretKey) {
-    stripeClient = new Stripe(secretKey)
+  // Only pin a preview API version when Tax for Tickets is on; otherwise let the SDK
+  // use its built-in default to avoid surprising callers that don't need preview.
+  const desiredApiVersion = isStripeTaxForTicketsEnabled()
+    ? TAX_FOR_TICKETS_API_VERSION
+    : null
+
+  if (
+    !stripeClient ||
+    stripeClientKey !== secretKey ||
+    stripeClientApiVersion !== desiredApiVersion
+  ) {
+    stripeClient = desiredApiVersion
+      ? new Stripe(secretKey, {
+          // Cast: preview API versions aren't in the SDK's stable type union.
+          apiVersion: desiredApiVersion as unknown as Stripe.LatestApiVersion,
+        })
+      : new Stripe(secretKey)
     stripeClientKey = secretKey
+    stripeClientApiVersion = desiredApiVersion
   }
 
   return stripeClient
@@ -100,30 +145,77 @@ export async function createStripeCheckoutSession(
   const currency = options.currency.toLowerCase()
   const configuredProductId = process.env.STRIPE_PRODUCT_ID
 
-  const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = configuredProductId
+  const taxForTickets = isStripeTaxForTicketsEnabled()
+  const performanceLocationId = process.env.STRIPE_PERFORMANCE_LOCATION_ID
+  const ticketTaxCode = process.env.STRIPE_TAX_CODE || DEFAULT_TICKET_TAX_CODE
+
+  // OpenEvents already adds VAT to the order total before calling this function (see
+  // prepareOrderItems → unitPrice = baseUnitPrice × (1 + vatRate)). So the `amount`
+  // we receive is already VAT-inclusive. We tell Stripe `tax_behavior: 'inclusive'`
+  // so Stripe parses the VAT out of the amount instead of stacking another 25% on
+  // top — which would result in double VAT. Stripe Tax still records and reports
+  // the VAT correctly; only the presentation differs from `exclusive`.
+  //
+  // When Tax for Tickets is off, `tax_behavior` is left unset so existing
+  // behaviour is preserved exactly.
+  //
+  // Tax for Tickets and STRIPE_PRODUCT_ID are mutually exclusive on this code path:
+  // performance_location and tax_code travel under price_data.product_data.tax_details
+  // (per Stripe's Tax for Tickets integration guide), and price_data accepts EITHER an
+  // existing `product` reference OR inline `product_data` — never both. To attach
+  // tax_details to a stored Product the configuration must live on the Product object
+  // itself, which is dashboard-side admin work outside this function's scope. So when
+  // Tax for Tickets is enabled we deliberately fall back to inline product_data.
+  type ProductDataWithTaxDetails = Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData & {
+    tax_details?: {
+      performance_location?: string
+      tax_code?: string
+    }
+  }
+
+  const productData: ProductDataWithTaxDetails = {
+    name: options.description || `OpenEvents Order ${options.orderId}`,
+    ...(taxForTickets && performanceLocationId
+      ? {
+          tax_details: {
+            performance_location: performanceLocationId,
+            tax_code: ticketTaxCode,
+          },
+        }
+      : {}),
+  }
+
+  const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = taxForTickets
     ? {
         currency,
         unit_amount: amountMinor,
-        product: configuredProductId,
+        tax_behavior: 'inclusive',
+        product_data: productData as Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData,
       }
-    : {
-        currency,
-        unit_amount: amountMinor,
-        product_data: {
-          name: options.description || `OpenEvents Order ${options.orderId}`,
-        },
-      }
+    : configuredProductId
+      ? {
+          currency,
+          unit_amount: amountMinor,
+          product: configuredProductId,
+        }
+      : {
+          currency,
+          unit_amount: amountMinor,
+          product_data: {
+            name: options.description || `OpenEvents Order ${options.orderId}`,
+          },
+        }
 
-  const session = await stripe.checkout.sessions.create({
+  const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = {
+    quantity: 1,
+    price_data: priceData,
+  }
+
+  const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: 'payment',
     success_url: `${options.returnUrl}?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: options.cancelUrl,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: priceData,
-      },
-    ],
+    line_items: [lineItem],
     metadata: {
       orderId: options.orderId,
     },
@@ -132,7 +224,22 @@ export async function createStripeCheckoutSession(
         orderId: options.orderId,
       },
     },
-  })
+    ...(taxForTickets
+      ? {
+          automatic_tax: { enabled: true },
+          // Stripe Tax requires a customer record + billing address to compute and report
+          // the transaction. Performance location pins the rate, but these fields are still
+          // mandated by the API.
+          customer_creation: 'always' as const,
+          billing_address_collection: 'required' as const,
+          // Allow B2B buyers to attach a VAT number — doesn't change the rate (no reverse
+          // charge for event admission) but lets the buyer's bookkeeping reference it.
+          tax_id_collection: { enabled: true },
+        }
+      : {}),
+  }
+
+  const session = await stripe.checkout.sessions.create(sessionParams)
 
   if (!session.url) {
     throw new Error('Stripe did not return a checkout URL')
