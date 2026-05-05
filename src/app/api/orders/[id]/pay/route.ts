@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { z } from 'zod'
 import { getSession } from '@/lib/auth'
@@ -146,8 +145,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
           },
         })
       }
-      revalidateTag('event-analytics', 'max')
-      revalidateTag('dashboard-analytics', 'max')
       // Invoice orders stay in PENDING_INVOICE status until manually marked as paid
       return NextResponse.json({
         order: orderForResponse,
@@ -365,9 +362,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } catch (emailError) {
       console.error('[Pay] Attendee ticket emails failed after successful payment:', emailError)
     }
-
-    revalidateTag('event-analytics', 'max')
-    revalidateTag('dashboard-analytics', 'max')
 
     return NextResponse.json({
       order: paidOrder,

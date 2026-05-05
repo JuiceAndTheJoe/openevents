@@ -59,8 +59,11 @@ export async function GET() {
             result.contact = parsed
             break
         }
-      } catch {
-        // Skip invalid JSON
+      } catch (err) {
+        console.warn(
+          `[admin/legal] Skipping platform setting ${setting.key} with invalid JSON:`,
+          err
+        )
       }
     }
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { notFound } from 'next/navigation'
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
@@ -164,9 +164,6 @@ export default async function EventOrdersPage({ params, searchParams }: PageProp
           where: { id: { in: ordersToDelete.map((o) => o.id) } },
         })
       })
-
-      revalidateTag('event-analytics', 'max')
-      revalidateTag('dashboard-analytics', 'max')
     } else {
       return
     }

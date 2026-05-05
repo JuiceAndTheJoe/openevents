@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { getSession } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -8,7 +7,12 @@ import {
   sendInvoiceOrderNotificationEmail,
   sendAttendeeTicketEmailsForOrder,
 } from '@/lib/email'
-import { lockTicketTypes, prepareOrderItems, generateTicketCreateInput } from '@/lib/orders'
+import {
+  applyTicketTypeCountDelta,
+  generateTicketCreateInput,
+  lockTicketTypes,
+  prepareOrderItems,
+} from '@/lib/orders'
 import { claimDiscountCodeUsage, getDiscountUsageUnitsFromItems } from '@/lib/orders/discountUsage'
 import {
   getCheckoutUnavailableReason,
@@ -504,16 +508,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (status === 'PAID') {
-          for (const item of preparedOrder.items) {
-            await tx.ticketType.update({
-              where: { id: item.ticketTypeId },
-              data: {
-                soldCount: {
-                  increment: item.quantity,
-                },
-              },
-            })
-          }
+          await applyTicketTypeCountDelta(tx, preparedOrder.items, 'soldCount', 'increment')
 
           const tickets = generateTicketCreateInput(
             order.id,
@@ -526,16 +521,7 @@ export async function POST(request: NextRequest) {
             await tx.ticket.createMany({ data: tickets })
           }
         } else {
-          for (const item of preparedOrder.items) {
-            await tx.ticketType.update({
-              where: { id: item.ticketTypeId },
-              data: {
-                reservedCount: {
-                  increment: item.quantity,
-                },
-              },
-            })
-          }
+          await applyTicketTypeCountDelta(tx, preparedOrder.items, 'reservedCount', 'increment')
         }
 
         // Only claim discount code usage if the promo code was actually applied (not when group discount won)
@@ -615,9 +601,6 @@ export async function POST(request: NextRequest) {
     )
 
     const { order, promoCodeWarning } = createdOrder
-
-    revalidateTag('event-analytics', 'max')
-    revalidateTag('dashboard-analytics', 'max')
 
     if (order.status === 'PAID') {
       const eventLocation =

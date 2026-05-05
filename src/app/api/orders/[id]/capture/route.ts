@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -331,9 +330,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     } catch (emailError) {
       console.error('[Capture] Attendee ticket emails failed after successful payment:', emailError)
     }
-
-    revalidateTag('event-analytics', 'max')
-    revalidateTag('dashboard-analytics', 'max')
 
     // Redirect to confirmation page
     return NextResponse.redirect(`${getAppUrl()}/orders/${paidOrder.orderNumber}`)
