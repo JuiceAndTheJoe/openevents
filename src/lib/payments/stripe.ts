@@ -61,15 +61,16 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
  */
 const TAX_FOR_TICKETS_API_VERSION = '2026-03-25.preview'
 
-const DEFAULT_TICKET_TAX_CODE = 'txcd_20030000' // General — Services (required as default)
+const DEFAULT_TICKET_TAX_CODE = 'txcd_50010001' // Admission to events (Stripe's recommended code for ticket sales)
 
 /**
  * Returns true when the deployment is configured to use Stripe Tax for Tickets — i.e. a
  * performance location ID is set. When enabled:
  *   - automatic_tax is turned on
- *   - the line item is pinned to the performance location so tax follows the venue
- *   - prices are treated as tax-exclusive (Stripe adds VAT on top)
- *   - the line item product gets a tax_code so Stripe Tax can classify it
+ *   - the line item product carries tax_details.performance_location so tax follows the venue
+ *   - prices are treated as tax-inclusive — OpenEvents already adds VAT to the order total
+ *     in prepareOrderItems, so Stripe parses the VAT out instead of stacking another 25% on top
+ *   - the line item product carries tax_details.tax_code so Stripe Tax can classify it
  *   - billing address + VAT-ID collection are enabled (Stripe Tax requires them)
  *
  * Without STRIPE_PERFORMANCE_LOCATION_ID set the previous behaviour is preserved exactly,
@@ -157,36 +158,57 @@ export async function createStripeCheckoutSession(
   //
   // When Tax for Tickets is off, `tax_behavior` is left unset so existing
   // behaviour is preserved exactly.
-  const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = configuredProductId
+  //
+  // Tax for Tickets and STRIPE_PRODUCT_ID are mutually exclusive on this code path:
+  // performance_location and tax_code travel under price_data.product_data.tax_details
+  // (per Stripe's Tax for Tickets integration guide), and price_data accepts EITHER an
+  // existing `product` reference OR inline `product_data` — never both. To attach
+  // tax_details to a stored Product the configuration must live on the Product object
+  // itself, which is dashboard-side admin work outside this function's scope. So when
+  // Tax for Tickets is enabled we deliberately fall back to inline product_data.
+  type ProductDataWithTaxDetails = Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData & {
+    tax_details?: {
+      performance_location?: string
+      tax_code?: string
+    }
+  }
+
+  const productData: ProductDataWithTaxDetails = {
+    name: options.description || `OpenEvents Order ${options.orderId}`,
+    ...(taxForTickets && performanceLocationId
+      ? {
+          tax_details: {
+            performance_location: performanceLocationId,
+            tax_code: ticketTaxCode,
+          },
+        }
+      : {}),
+  }
+
+  const priceData: Stripe.Checkout.SessionCreateParams.LineItem.PriceData = taxForTickets
     ? {
         currency,
         unit_amount: amountMinor,
-        product: configuredProductId,
-        ...(taxForTickets ? { tax_behavior: 'inclusive' as const } : {}),
+        tax_behavior: 'inclusive',
+        product_data: productData as Stripe.Checkout.SessionCreateParams.LineItem.PriceData.ProductData,
       }
-    : {
-        currency,
-        unit_amount: amountMinor,
-        ...(taxForTickets ? { tax_behavior: 'inclusive' as const } : {}),
-        product_data: {
-          name: options.description || `OpenEvents Order ${options.orderId}`,
-          ...(taxForTickets ? { tax_code: ticketTaxCode } : {}),
-        },
-      }
+    : configuredProductId
+      ? {
+          currency,
+          unit_amount: amountMinor,
+          product: configuredProductId,
+        }
+      : {
+          currency,
+          unit_amount: amountMinor,
+          product_data: {
+            name: options.description || `OpenEvents Order ${options.orderId}`,
+          },
+        }
 
-  // performance_location is a public-preview field on line items — not in the SDK type
-  // union for SessionCreateParams.LineItem, so we build the line item via a typed
-  // intersection and rely on the rawRequest-style serialization Stripe handles for us.
-  type LineItemWithPerformanceLocation = Stripe.Checkout.SessionCreateParams.LineItem & {
-    performance_location?: string
-  }
-
-  const lineItem: LineItemWithPerformanceLocation = {
+  const lineItem: Stripe.Checkout.SessionCreateParams.LineItem = {
     quantity: 1,
     price_data: priceData,
-    ...(taxForTickets && performanceLocationId
-      ? { performance_location: performanceLocationId }
-      : {}),
   }
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
