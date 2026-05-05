@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { buyerInfoSchema, checkoutAttendeeSchema } from '@/lib/validations/order'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
@@ -269,6 +270,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [countryError, setCountryError] = useState<string | null>(null)
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [buyerFieldErrors, setBuyerFieldErrors] = useState<Partial<Record<keyof BuyerFormState, string>>>({})
+  const [touchedBuyerFields, setTouchedBuyerFields] = useState<Set<keyof BuyerFormState>>(new Set())
+  const [attendeeFieldErrors, setAttendeeFieldErrors] = useState<Record<string, string | undefined>>({})
+  const [touchedAttendeeFields, setTouchedAttendeeFields] = useState<Set<string>>(new Set())
+  const [hasSubmitted, setHasSubmitted] = useState(false)
   const [reservationTtlMinutes, setReservationTtlMinutes] = useState(initialReservationTtlMinutes)
   const [reservationExpiresAt, setReservationExpiresAt] = useState<Date | null>(() =>
     new Date(Date.now() + initialReservationTtlMinutes * 60 * 1000)
@@ -634,12 +640,44 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
       ...current,
       [field]: value,
     }))
+    if (touchedBuyerFields.has(field) || hasSubmitted) {
+      const error = validateSingleBuyerField(field, value as string)
+      setBuyerFieldErrors((prev) => ({ ...prev, [field]: error ?? undefined }))
+    }
   }
 
   function validateCountry(value: string): string | null {
     if (!value.trim()) return null
     const isValid = COUNTRIES.some((c) => c.name.toLowerCase() === value.trim().toLowerCase())
     return isValid ? null : 'Please write a valid country.'
+  }
+
+  function validateSingleBuyerField(field: keyof BuyerFormState, value: string): string | null {
+    const fieldSchema = buyerInfoSchema.shape[field as keyof typeof buyerInfoSchema.shape]
+    if (!fieldSchema) return null
+    const result = fieldSchema.safeParse(value)
+    return result.success ? null : result.error.issues[0]?.message ?? null
+  }
+
+  function validateSingleAttendeeField(field: keyof AttendeeFormState, value: string): string | null {
+    const shape = checkoutAttendeeSchema.shape
+    const fieldSchema = shape[field as keyof typeof shape]
+    if (!fieldSchema) return null
+    const result = fieldSchema.safeParse(value)
+    return result.success ? null : result.error.issues[0]?.message ?? null
+  }
+
+  function handleBuyerBlur(field: keyof BuyerFormState, value: string) {
+    setTouchedBuyerFields((prev) => new Set(prev).add(field))
+    const error = validateSingleBuyerField(field, value)
+    setBuyerFieldErrors((prev) => ({ ...prev, [field]: error ?? undefined }))
+  }
+
+  function handleAttendeeBlur(ticketTypeId: string, index: number, field: keyof AttendeeFormState, value: string) {
+    const key = `${ticketTypeId}:${index}:${field}`
+    setTouchedAttendeeFields((prev) => new Set(prev).add(key))
+    const error = validateSingleAttendeeField(field, value)
+    setAttendeeFieldErrors((prev) => ({ ...prev, [key]: error ?? undefined }))
   }
 
   function updateAttendeeField(
@@ -654,6 +692,11 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
       slots[index] = { ...slots[index], [field]: value }
       return { ...current, [ticketTypeId]: slots }
     })
+    const key = `${ticketTypeId}:${index}:${field}`
+    if (touchedAttendeeFields.has(key) || hasSubmitted) {
+      const error = validateSingleAttendeeField(field, value)
+      setAttendeeFieldErrors((prev) => ({ ...prev, [key]: error ?? undefined }))
+    }
   }
 
   function fillAttendeeFromBuyer(ticketTypeId: string, index: number) {
@@ -685,36 +728,38 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
       return
     }
 
-    const buyerEmailValue = buyer.email.trim()
+    setHasSubmitted(true)
 
-    if (!buyer.firstName || !buyer.lastName) {
-      setSubmitError('First name and last name are required')
-      return
+    // Validate all buyer fields using the server-side Zod schema
+    const newBuyerErrors: Partial<Record<keyof BuyerFormState, string>> = {}
+    for (const field of Object.keys(buyerInfoSchema.shape) as (keyof BuyerFormState)[]) {
+      const error = validateSingleBuyerField(field, buyer[field])
+      if (error) newBuyerErrors[field] = error
     }
-
-    if (!buyerEmailValue) {
-      setSubmitError('Email address is required')
-      return
-    }
+    setBuyerFieldErrors(newBuyerErrors)
 
     const countryValidationError = validateCountry(buyer.country)
-    if (countryValidationError) {
-      setCountryError(countryValidationError)
-      return
-    }
+    if (countryValidationError) setCountryError(countryValidationError)
 
-    // Validate all attendee slots are filled
+    // Validate all attendee fields
+    const newAttendeeErrors: Record<string, string> = {}
     for (const item of selectedItems) {
       const slots = attendeesByType[item.ticketTypeId] ?? []
       for (let i = 0; i < item.quantity; i++) {
-        const a = slots[i]
-        if (!a || !a.firstName || !a.lastName || !a.email) {
-          const ticketName = displayTicketTypes.find((t) => t.id === item.ticketTypeId)?.name ?? 'ticket'
-          setSubmitError(`Please fill in all attendee details for "${ticketName}" (ticket ${i + 1})`)
-          return
+        const a = slots[i] ?? emptyAttendee()
+        for (const field of (['firstName', 'lastName', 'email', 'organization'] as (keyof AttendeeFormState)[])) {
+          const error = validateSingleAttendeeField(field, a[field])
+          if (error) newAttendeeErrors[`${item.ticketTypeId}:${i}:${field}`] = error
         }
       }
     }
+    setAttendeeFieldErrors(newAttendeeErrors)
+
+    if (Object.keys(newBuyerErrors).length > 0 || countryValidationError || Object.keys(newAttendeeErrors).length > 0) {
+      return
+    }
+
+    const buyerEmailValue = buyer.email.trim()
 
     setIsSubmitting(true)
     setSubmitError(null)
@@ -852,7 +897,7 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
   }
 
   return (
-    <form className="grid gap-6 lg:grid-cols-3" onSubmit={handleSubmit}>
+    <form className="grid gap-6 lg:grid-cols-3" onSubmit={handleSubmit} noValidate>
       <div className="space-y-6 lg:col-span-2">
         <Card>
           <CardHeader>
@@ -889,6 +934,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                 id="buyer-first-name"
                 value={buyer.firstName}
                 onChange={(eventValue) => updateBuyerField('firstName', eventValue.target.value)}
+                onBlur={(e) => handleBuyerBlur('firstName', e.target.value)}
+                error={buyerFieldErrors.firstName}
                 required
               />
             </div>
@@ -900,6 +947,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                 id="buyer-last-name"
                 value={buyer.lastName}
                 onChange={(eventValue) => updateBuyerField('lastName', eventValue.target.value)}
+                onBlur={(e) => handleBuyerBlur('lastName', e.target.value)}
+                error={buyerFieldErrors.lastName}
                 required
               />
             </div>
@@ -912,6 +961,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                 type="email"
                 value={buyer.email}
                 onChange={(eventValue) => updateBuyerField('email', eventValue.target.value)}
+                onBlur={(e) => handleBuyerBlur('email', e.target.value)}
+                error={buyerFieldErrors.email}
                 required
               />
             </div>
@@ -929,6 +980,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                 id="buyer-organization"
                 value={buyer.organization}
                 onChange={(eventValue) => updateBuyerField('organization', eventValue.target.value)}
+                onBlur={(e) => handleBuyerBlur('organization', e.target.value)}
+                error={buyerFieldErrors.organization}
                 required
               />
             </div>
@@ -1028,6 +1081,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                                 onChange={(e) =>
                                   updateAttendeeField(item.ticketTypeId, i, 'firstName', e.target.value)
                                 }
+                                onBlur={(e) => handleAttendeeBlur(item.ticketTypeId, i, 'firstName', e.target.value)}
+                                error={attendeeFieldErrors[`${item.ticketTypeId}:${i}:firstName`]}
                                 required
                               />
                             </div>
@@ -1044,6 +1099,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                                 onChange={(e) =>
                                   updateAttendeeField(item.ticketTypeId, i, 'lastName', e.target.value)
                                 }
+                                onBlur={(e) => handleAttendeeBlur(item.ticketTypeId, i, 'lastName', e.target.value)}
+                                error={attendeeFieldErrors[`${item.ticketTypeId}:${i}:lastName`]}
                                 required
                               />
                             </div>
@@ -1061,6 +1118,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                                 onChange={(e) =>
                                   updateAttendeeField(item.ticketTypeId, i, 'email', e.target.value)
                                 }
+                                onBlur={(e) => handleAttendeeBlur(item.ticketTypeId, i, 'email', e.target.value)}
+                                error={attendeeFieldErrors[`${item.ticketTypeId}:${i}:email`]}
                                 required
                               />
                             </div>
@@ -1086,6 +1145,8 @@ export function CheckoutForm({ event, groupDiscounts = [] }: CheckoutFormProps) 
                                 onChange={(e) =>
                                   updateAttendeeField(item.ticketTypeId, i, 'organization', e.target.value)
                                 }
+                                onBlur={(e) => handleAttendeeBlur(item.ticketTypeId, i, 'organization', e.target.value)}
+                                error={attendeeFieldErrors[`${item.ticketTypeId}:${i}:organization`]}
                                 required
                               />
                             </div>

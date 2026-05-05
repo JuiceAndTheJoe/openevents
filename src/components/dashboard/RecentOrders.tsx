@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { OrderStatus, PaymentMethod } from '@prisma/client'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
+import { ORDER_STATUS_LABELS } from '@/lib/labels'
 
 type RecentOrdersProps = {
   orders: Array<{
@@ -45,7 +46,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
                 </div>
                 <p className="text-sm text-gray-600">{order.event.title}</p>
                 <p className="text-xs text-gray-500">
-                  {order.buyerEmail} · {order.status}
+                  {order.buyerEmail} · {ORDER_STATUS_LABELS[order.status]}
                   {pendingLabel && (
                     <span
                       className={`ml-1 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-center text-xs font-medium ${

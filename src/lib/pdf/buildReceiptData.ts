@@ -100,6 +100,9 @@ export async function buildReceiptDataForOrder(
 
   return {
     orderNumber: order.orderNumber,
+    invoiceNumber: order.invoiceNumber != null
+      ? `INV-${String(order.invoiceNumber).padStart(4, '0')}`
+      : null,
     orderDate: order.createdAt,
     paidAt: order.paidAt,
     status: order.status,

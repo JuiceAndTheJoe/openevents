@@ -4,6 +4,7 @@ import { getIncludedVatFromVatInclusiveTotal } from '@/lib/pricing/vat'
 
 export interface ReceiptData {
   orderNumber: string
+  invoiceNumber: string | null  // Formatted sequential invoice number (e.g. "INV-0001"), null for non-invoice orders
   orderDate: Date
   paidAt: Date | null
   status: string
@@ -112,7 +113,8 @@ export function generateReceiptPdf(data: ReceiptData): Promise<Buffer> {
     const colWidth = pageRight - pageLeft
 
     // ---- Header ----
-    doc.fontSize(26).font('Helvetica-Bold').text('RECEIPT', pageLeft, 50)
+    const isInvoice = data.invoiceNumber != null
+    doc.fontSize(26).font('Helvetica-Bold').text(isInvoice ? 'INVOICE' : 'RECEIPT', pageLeft, 50)
 
     // Issuer block (legal entity issuing the receipt, from the event organizer)
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#000').text(data.seller.name, pageLeft, 82)
@@ -131,28 +133,41 @@ export function generateReceiptPdf(data: ReceiptData): Promise<Buffer> {
     }
     doc.fillColor('#000')
 
-    // Right side: receipt metadata box
+    // Right side: receipt/invoice metadata box
     const metaX = 360
     let metaY = 50
-    doc.fontSize(10).font('Helvetica-Bold').text('Receipt #', metaX, metaY)
-    doc.font('Helvetica').text(data.orderNumber, metaX + 80, metaY)
+    // Value column starts 60pt after the label column, giving 125pt of space
+    // (pageRight 545 − value start 420). This ensures the order number
+    // "OE-XXXXXXXX-XXXX" (≈107pt) never wraps onto the next label row.
+    const metaValX = metaX + 60
+    const metaValueOpts = { lineBreak: false, width: pageRight - metaValX }
+    if (isInvoice) {
+      doc.fontSize(10).font('Helvetica-Bold').text('Invoice #', metaX, metaY)
+      doc.font('Helvetica').text(data.invoiceNumber!, metaValX, metaY, metaValueOpts)
+      metaY += 14
+      doc.font('Helvetica-Bold').text('Receipt #', metaX, metaY)
+      doc.font('Helvetica').text(data.orderNumber, metaValX, metaY, metaValueOpts)
+    } else {
+      doc.fontSize(10).font('Helvetica-Bold').text('Receipt #', metaX, metaY)
+      doc.font('Helvetica').text(data.orderNumber, metaValX, metaY, metaValueOpts)
+    }
     metaY += 14
     doc.font('Helvetica-Bold').text('Issued', metaX, metaY)
-    doc.font('Helvetica').text(formatDate(new Date()), metaX + 80, metaY)
+    doc.font('Helvetica').text(formatDate(new Date()), metaValX, metaY, metaValueOpts)
     metaY += 14
     doc.font('Helvetica-Bold').text('Order date', metaX, metaY)
-    doc.font('Helvetica').text(formatDate(data.orderDate), metaX + 80, metaY)
+    doc.font('Helvetica').text(formatDate(data.orderDate), metaValX, metaY, metaValueOpts)
     if (data.paidAt) {
       metaY += 14
       doc.font('Helvetica-Bold').text('Paid on', metaX, metaY)
-      doc.font('Helvetica').text(formatDate(data.paidAt), metaX + 80, metaY)
+      doc.font('Helvetica').text(formatDate(data.paidAt), metaValX, metaY, metaValueOpts)
     }
     metaY += 14
     doc.font('Helvetica-Bold').text('Status', metaX, metaY)
-    doc.font('Helvetica').text(humanStatus(data.status), metaX + 80, metaY)
+    doc.font('Helvetica').text(humanStatus(data.status), metaValX, metaY, metaValueOpts)
     metaY += 14
     doc.font('Helvetica-Bold').text('Payment', metaX, metaY)
-    doc.font('Helvetica').text(humanPaymentMethod(data.paymentMethod), metaX + 80, metaY)
+    doc.font('Helvetica').text(humanPaymentMethod(data.paymentMethod), metaValX, metaY, metaValueOpts)
 
     // Move cursor below both columns
     doc.y = Math.max(120, metaY + 30)
@@ -355,12 +370,10 @@ export function generateReceiptPdf(data: ReceiptData): Promise<Buffer> {
     const footerIssuer = data.seller.orgNumber
       ? `${data.seller.name} (Org.nr ${data.seller.orgNumber})`
       : data.seller.name
-    doc.text(
-      `Receipt for order #${data.orderNumber} issued by ${footerIssuer}.`,
-      pageLeft,
-      doc.y,
-      { width: colWidth, align: 'center' }
-    )
+    const footerRef = data.invoiceNumber
+      ? `Invoice ${data.invoiceNumber} (order #${data.orderNumber}) issued by ${footerIssuer}.`
+      : `Receipt for order #${data.orderNumber} issued by ${footerIssuer}.`
+    doc.text(footerRef, pageLeft, doc.y, { width: colWidth, align: 'center' })
     doc.text('Thank you for your purchase.', pageLeft, doc.y, {
       width: colWidth,
       align: 'center',

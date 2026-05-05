@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { formatPaymentMethodLabel } from '@/lib/payments/labels'
+import { ORDER_STATUS_LABELS } from '@/lib/labels'
+import { OrderStatus } from '@prisma/client'
 import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
 import { getIncludedVatFromVatInclusiveTotal } from '@/lib/pricing/vat'
 import { useToast } from '@/components/ui/toaster'
@@ -75,7 +77,7 @@ export function OrderDetailView({ order, refundAction, emailAction, markPaidActi
       <section className="rounded-xl border border-gray-200 bg-white p-6">
         <h1 className="text-2xl font-bold text-gray-900">Order {order.orderNumber}</h1>
         <p className="mt-1 text-sm text-gray-600">
-          {order.status} · {formatPaymentMethodLabel(order.paymentMethod, 'No payment method')} · {formatDateTime(order.createdAt)}
+          {ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status} · {formatPaymentMethodLabel(order.paymentMethod, 'No payment method')} · {formatDateTime(order.createdAt)}
         </p>
         {order.paymentMethod === 'INVOICE' && (
           <p className="mt-2 inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">

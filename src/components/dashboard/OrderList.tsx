@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { type DashboardOrderDetails } from '@/components/dashboard/OrderDetails'
 import { getPendingOrderLabel } from '@/lib/orders/pendingLabel'
+import { ORDER_STATUS_LABELS } from '@/lib/labels'
+import { OrderStatus } from '@prisma/client'
 
 export interface DashboardOrderListItem extends DashboardOrderDetails {
   event: {
@@ -111,7 +113,7 @@ export function OrderList({ orders }: OrderListProps) {
               <CardContent className="space-y-3 text-sm text-gray-700">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <p>
-                    <span className="font-medium text-gray-900">Status:</span> {order.status}
+                    <span className="font-medium text-gray-900">Status:</span> {ORDER_STATUS_LABELS[order.status as OrderStatus] ?? order.status}
                     {(() => {
                       const label = getPendingOrderLabel(order)
                       if (!label) return null

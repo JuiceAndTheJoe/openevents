@@ -334,9 +334,19 @@ export async function POST(request: NextRequest) {
         const orderStatus = isFreeOrder ? 'PAID' : 'PENDING_INVOICE'
         const orderPaymentMethod = isFreeOrder ? 'FREE' : 'INVOICE'
 
+        // Assign a sequential invoice number for all non-free invoice orders.
+        // We call nextval inside the transaction so the number is only consumed
+        // when the order actually commits (avoiding gaps from rolled-back orders).
+        let invoiceNumber: number | null = null
+        if (!isFreeOrder) {
+          const seqResult = await tx.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('invoice_number_seq')`
+          invoiceNumber = Number(seqResult[0].nextval)
+        }
+
         const order = await tx.order.create({
           data: {
             orderNumber: generateOrderNumber(),
+            invoiceNumber: invoiceNumber ?? undefined,
             userId: null, // Manual orders don't have a user association
             eventId: input.eventId,
             discountCodeId: appliedDiscountCodeId,
