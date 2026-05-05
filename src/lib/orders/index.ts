@@ -43,6 +43,38 @@ export async function lockTicketTypes(
   `
 }
 
+// Apply soldCount/reservedCount deltas across many ticket types using
+// updateMany. Items are grouped by their per-row delta so the work collapses
+// to one statement per distinct quantity rather than one per row — keeping
+// Serializable transactions short.
+export async function applyTicketTypeCountDelta(
+  tx: Prisma.TransactionClient,
+  items: { ticketTypeId: string; quantity: number }[],
+  field: 'soldCount' | 'reservedCount',
+  op: 'increment' | 'decrement'
+): Promise<void> {
+  if (items.length === 0) return
+
+  const idsByQuantity = new Map<number, string[]>()
+  for (const item of items) {
+    if (item.quantity <= 0) continue
+    const list = idsByQuantity.get(item.quantity) ?? []
+    list.push(item.ticketTypeId)
+    idsByQuantity.set(item.quantity, list)
+  }
+
+  for (const [quantity, ids] of idsByQuantity) {
+    const data: Prisma.TicketTypeUpdateManyMutationInput =
+      field === 'soldCount'
+        ? { soldCount: { [op]: quantity } }
+        : { reservedCount: { [op]: quantity } }
+    await tx.ticketType.updateMany({
+      where: { id: { in: ids } },
+      data,
+    })
+  }
+}
+
 export function prepareOrderItems(
   ticketTypes: Array<{
     id: string

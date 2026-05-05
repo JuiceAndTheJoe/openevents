@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { revalidateTag } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
@@ -191,9 +190,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         text: `Your refund request for order #${order.orderNumber} is being processed. Reason: ${parsed.data.reason}`,
       })
     }
-
-    revalidateTag('event-analytics', 'max')
-    revalidateTag('dashboard-analytics', 'max')
 
     return NextResponse.json({
       order: updatedOrder,

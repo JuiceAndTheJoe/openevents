@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { notFound, redirect } from 'next/navigation'
 import { Prisma, PaymentMethod } from '@prisma/client'
 import { prisma } from '@/lib/db'
@@ -473,8 +473,6 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       items: paidOrder.items,
     })
 
-    revalidateTag('event-analytics', 'max')
-    revalidateTag('dashboard-analytics', 'max')
     revalidatePath(`/dashboard/events/${id}/orders/${submittedOrderId}`)
     revalidatePath(`/dashboard/events/${id}/orders`)
   }
@@ -571,8 +569,6 @@ export default async function EventOrderDetailPage({ params }: PageProps) {
       await tx.order.delete({ where: { id: targetOrder.id } })
     })
 
-    revalidateTag('event-analytics', 'max')
-    revalidateTag('dashboard-analytics', 'max')
     redirect(`/dashboard/events/${id}/orders`)
   }
 
