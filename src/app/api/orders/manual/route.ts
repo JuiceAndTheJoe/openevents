@@ -239,6 +239,7 @@ export async function POST(request: NextRequest) {
                 .filter((item) => appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId))
 
               let discountableSubtotal: number
+              let applicableTicketCount: number
               if (foundDiscountCode.maxTicketsPerOrder !== null) {
                 const ticketPrices = applicableItems
                   .flatMap((item) => Array(item.quantity).fill(item.unitPrice) as number[])
@@ -246,27 +247,34 @@ export async function POST(request: NextRequest) {
                 const cappedPrices = ticketPrices.slice(0, foundDiscountCode.maxTicketsPerOrder)
                 discountableSubtotal = Number(cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2))
                 discountUsageUnits = cappedPrices.length
-              } else if (foundDiscountCode.applyToWholeOrder) {
+                applicableTicketCount = cappedPrices.length
+              } else if (foundDiscountCode.applyToWholeOrder || foundDiscountCode.perTicket) {
                 discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
+                applicableTicketCount = applicableItems.reduce((sum, item) => sum + item.quantity, 0)
               } else {
                 const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
                 discountableSubtotal = maxUnitPrice
+                applicableTicketCount = applicableItems.length > 0 ? 1 : 0
               }
 
               // Check usage limits
               const remainingTicketUses = getDiscountCodeRemainingTicketUses(foundDiscountCode)
               if (foundDiscountCode.maxTicketsPerOrder === null) {
-                discountUsageUnits = foundDiscountCode.applyToWholeOrder
+                discountUsageUnits = (foundDiscountCode.applyToWholeOrder || foundDiscountCode.perTicket)
                   ? getDiscountUsageUnitsFromItems(applicableItems)
                   : 1
               }
 
               if (remainingTicketUses === null || remainingTicketUses >= discountUsageUnits) {
                 discountCodeRecord = foundDiscountCode
+                const rawValue = decimalToNumber(foundDiscountCode.discountValue)
+                const effectiveValue = (foundDiscountCode.discountType === 'FIXED_AMOUNT' && foundDiscountCode.perTicket)
+                  ? rawValue * applicableTicketCount
+                  : rawValue
                 promoCodeDiscountAmount = calculateDiscountAmount(
                   discountableSubtotal,
                   foundDiscountCode.discountType,
-                  decimalToNumber(foundDiscountCode.discountValue)
+                  effectiveValue
                 )
               }
             }

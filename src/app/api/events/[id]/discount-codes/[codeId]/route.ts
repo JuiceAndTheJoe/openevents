@@ -99,6 +99,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           minCartAmount: input.minCartAmount !== undefined ? input.minCartAmount : undefined,
           applyToWholeOrder: input.discountType === 'FREE_TICKET' ? true : input.applyToWholeOrder,
           maxTicketsPerOrder: input.maxTicketsPerOrder !== undefined ? input.maxTicketsPerOrder : undefined,
+          perTicket: input.perTicket !== undefined
+            ? (input.discountType === 'FIXED_AMOUNT' ? input.perTicket : false)
+            : undefined,
           validFrom: input.validFrom
             ? new Date(input.validFrom)
             : input.validFrom === null

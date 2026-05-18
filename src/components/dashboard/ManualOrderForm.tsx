@@ -149,11 +149,14 @@ function calculatePromoCodeDiscountAmount(
     .filter((item) => appliesToAll || discount.applicableTicketTypeIds.includes(item.ticketTypeId))
 
   let discountableSubtotal: number
-  if (discount.applyToWholeOrder) {
+  let applicableTicketCount: number
+  if (discount.applyToWholeOrder || discount.perTicket) {
     discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
+    applicableTicketCount = applicableItems.reduce((sum, item) => sum + item.quantity, 0)
   } else {
     const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
     discountableSubtotal = maxUnitPrice
+    applicableTicketCount = applicableItems.length > 0 ? 1 : 0
   }
 
   if (discount.discountType === 'PERCENTAGE') {
@@ -161,7 +164,10 @@ function calculatePromoCodeDiscountAmount(
   }
 
   if (discount.discountType === 'FIXED_AMOUNT') {
-    return Number(Math.min(discountableSubtotal, discount.discountValue).toFixed(2))
+    const effectiveValue = discount.perTicket
+      ? discount.discountValue * applicableTicketCount
+      : discount.discountValue
+    return Number(Math.min(discountableSubtotal, effectiveValue).toFixed(2))
   }
 
   if (discount.discountType === 'FREE_TICKET') {

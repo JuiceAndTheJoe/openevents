@@ -12,6 +12,7 @@ export interface AppliedDiscount {
   applicableTicketTypeIds: string[]
   applyToWholeOrder: boolean
   maxTicketsPerOrder: number | null
+  perTicket: boolean
 }
 
 interface DiscountCodeInputProps {

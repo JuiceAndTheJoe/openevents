@@ -20,6 +20,7 @@ type DiscountCodeFormProps = {
     maxTicketsPerOrder: number | null
     isActive: boolean
     applyToWholeOrder: boolean
+    perTicket: boolean
   }
 }
 
@@ -111,6 +112,20 @@ export function DiscountCodeForm({ title, submitLabel, action, initial }: Discou
           Apply discount to entire order (by default, applies to 1 ticket only)
         </Label>
       </div>
+      {discountType === 'FIXED_AMOUNT' && (
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id={`${title}-perTicket`}
+            name="perTicket"
+            defaultChecked={initial?.perTicket ?? false}
+            className="h-4 w-4 rounded border-gray-300"
+          />
+          <Label htmlFor={`${title}-perTicket`}>
+            Per ticket — apply the fixed amount to each applicable ticket
+          </Label>
+        </div>
+      )}
       <Button type="submit">{submitLabel}</Button>
     </form>
   )

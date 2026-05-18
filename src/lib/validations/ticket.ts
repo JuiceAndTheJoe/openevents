@@ -40,6 +40,7 @@ const discountCodeBaseSchema = z.object({
   minCartAmount: z.number().min(0).optional().nullable(),
   applyToWholeOrder: z.boolean().default(false),
   maxTicketsPerOrder: z.number().int().positive().optional().nullable(),
+  perTicket: z.boolean().default(false),
   validFrom: z.string().datetime().optional().nullable(),
   validUntil: z.string().datetime().optional().nullable(),
   isActive: z.boolean().default(true),

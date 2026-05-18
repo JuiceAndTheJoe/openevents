@@ -44,6 +44,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
           usedCount: true,
           isActive: true,
           applyToWholeOrder: true,
+          perTicket: true,
         },
       },
     },
@@ -73,6 +74,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const maxTicketsPerOrder = maxTicketsPerOrderRaw ? Number(maxTicketsPerOrderRaw) : null
     const isActive = String(formData.get('isActive') || 'true') === 'true'
     const applyToWholeOrder = discountType === 'FREE_TICKET' ? true : formData.get('applyToWholeOrder') === 'on'
+    const perTicket = discountType === 'FIXED_AMOUNT' && formData.get('perTicket') === 'on'
 
     await prisma.discountCode.create({
       data: {
@@ -85,6 +87,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
         maxTicketsPerOrder,
         isActive,
         applyToWholeOrder,
+        perTicket,
       },
     })
 
@@ -122,6 +125,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
     const maxTicketsPerOrder = maxTicketsPerOrderRaw ? Number(maxTicketsPerOrderRaw) : null
     const isActive = String(formData.get('isActive') || 'true') === 'true'
     const applyToWholeOrder = discountType === 'FREE_TICKET' ? true : formData.get('applyToWholeOrder') === 'on'
+    const perTicket = discountType === 'FIXED_AMOUNT' && formData.get('perTicket') === 'on'
 
     await prisma.discountCode.update({
       where: { id: existing.id },
@@ -134,6 +138,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
         maxTicketsPerOrder,
         isActive,
         applyToWholeOrder,
+        perTicket,
       },
     })
 
@@ -189,6 +194,7 @@ export default async function DiscountCodesPage({ params, searchParams }: PagePr
                   maxTicketsPerOrder: editableDiscountCode.maxTicketsPerOrder,
                   isActive: editableDiscountCode.isActive,
                   applyToWholeOrder: editableDiscountCode.applyToWholeOrder,
+                  perTicket: editableDiscountCode.perTicket,
                 }
               : undefined
           }
