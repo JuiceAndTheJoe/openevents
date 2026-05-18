@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
         applicableTicketTypeIds: applicableTicketTypeIds,
         applyToWholeOrder: discountCode.applyToWholeOrder,
         maxTicketsPerOrder: discountCode.maxTicketsPerOrder,
+        perTicket: discountCode.perTicket,
       },
     })
   } catch (error) {

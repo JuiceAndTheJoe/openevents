@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
                     .sort((a, b) => b - a)
                   discountUsageUnits = ticketPricesForCap.slice(0, foundDiscountCode.maxTicketsPerOrder).length
                 } else {
-                  discountUsageUnits = foundDiscountCode.applyToWholeOrder
+                  discountUsageUnits = (foundDiscountCode.applyToWholeOrder || foundDiscountCode.perTicket)
                     ? getDiscountUsageUnitsFromItems(
                         preparedOrder.items.filter((item) =>
                           appliesToAll ? true : discountApplicableTicketTypeIds.includes(item.ticketTypeId)
@@ -305,6 +305,7 @@ export async function POST(request: NextRequest) {
                 // Calculate promo code discount amount
                 // If maxTicketsPerOrder is set, only discount that many tickets (most expensive first)
                 let discountableSubtotal: number
+                let applicableTicketCount: number
                 const applicableItems = preparedOrder.items.filter(
                   (item) => appliesToAll || discountApplicableTicketTypeIds.includes(item.ticketTypeId)
                 )
@@ -318,13 +319,16 @@ export async function POST(request: NextRequest) {
                     cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2)
                   )
                   discountUsageUnits = cappedPrices.length
-                } else if (foundDiscountCode.applyToWholeOrder) {
+                  applicableTicketCount = cappedPrices.length
+                } else if (foundDiscountCode.applyToWholeOrder || foundDiscountCode.perTicket) {
                   discountableSubtotal = applicableItems.reduce((sum, item) =>
                     Number((sum + item.totalPrice).toFixed(2)), 0)
+                  applicableTicketCount = applicableItems.reduce((sum, item) => sum + item.quantity, 0)
                 } else {
                   // Apply to 1 ticket only — use the most expensive applicable unit price
                   const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
                   discountableSubtotal = maxUnitPrice
+                  applicableTicketCount = applicableItems.length > 0 ? 1 : 0
                 }
 
                 if (foundDiscountCode.minCartAmount !== null) {
@@ -342,10 +346,14 @@ export async function POST(request: NextRequest) {
 
                 if (!promoCodeError) {
                   discountCodeRecord = foundDiscountCode
+                  const rawValue = decimalToNumber(foundDiscountCode.discountValue)
+                  const effectiveValue = (foundDiscountCode.discountType === 'FIXED_AMOUNT' && foundDiscountCode.perTicket)
+                    ? rawValue * applicableTicketCount
+                    : rawValue
                   promoCodeDiscountAmount = calculateDiscountAmount(
                     discountableSubtotal,
                     foundDiscountCode.discountType,
-                    decimalToNumber(foundDiscountCode.discountValue)
+                    effectiveValue
                   )
                 }
               }

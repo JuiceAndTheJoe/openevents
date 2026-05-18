@@ -178,6 +178,7 @@ function calculateDiscountAmount(
   )
 
   let discountableSubtotal: number
+  let applicableTicketCount: number
   if (discount.maxTicketsPerOrder !== null) {
     // Cap discounted tickets: expand to individual prices, take N most expensive
     const ticketPrices = applicableItems
@@ -185,12 +186,15 @@ function calculateDiscountAmount(
       .sort((a, b) => b - a)
     const cappedPrices = ticketPrices.slice(0, discount.maxTicketsPerOrder)
     discountableSubtotal = Number(cappedPrices.reduce((sum, p) => sum + p, 0).toFixed(2))
-  } else if (discount.applyToWholeOrder) {
+    applicableTicketCount = cappedPrices.length
+  } else if (discount.applyToWholeOrder || discount.perTicket) {
     discountableSubtotal = applicableItems.reduce((sum, item) => sum + item.totalPrice, 0)
+    applicableTicketCount = applicableItems.reduce((sum, item) => sum + item.quantity, 0)
   } else {
     // Apply to 1 ticket only — pick the most expensive applicable unit price
     const maxUnitPrice = Math.max(0, ...applicableItems.map((item) => item.unitPrice))
     discountableSubtotal = maxUnitPrice
+    applicableTicketCount = applicableItems.length > 0 ? 1 : 0
   }
 
   if (discount.discountType === 'PERCENTAGE') {
@@ -198,7 +202,10 @@ function calculateDiscountAmount(
   }
 
   if (discount.discountType === 'FIXED_AMOUNT') {
-    return Number(Math.min(discountableSubtotal, discount.discountValue).toFixed(2))
+    const effectiveValue = discount.perTicket
+      ? discount.discountValue * applicableTicketCount
+      : discount.discountValue
+    return Number(Math.min(discountableSubtotal, effectiveValue).toFixed(2))
   }
 
   if (discount.discountType === 'FREE_TICKET') {
